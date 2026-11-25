@@ -26,19 +26,18 @@ graph import {
     src.lib.jac.host ++> src.lib.aws.client { NULL, at, either, entries, merged, nil, record, rx }
     src.lib.aws.sigv4 ++> src.lib.aws.client { signAwsRequest }
     src.lib.aws.xml ++> src.lib.aws.client { xmlTag }
-    src.lib.jac.host ++> src.lib.aws.s3 { either, merged }
-    src.lib.aws.client ++> src.lib.aws.s3 { AwsError, awsRequest }
+    src.lib.aws.client ++> src.lib.aws.s3 { awsRequest, awsSpare }
     src.lib.aws.sigv4 ++> src.lib.aws.s3 { sha256Hex }
-    src.lib.jac.host ++> src.lib.aws.ses { at, either, entries, nil }
-    src.lib.aws.client ++> src.lib.aws.ses { AwsError, awsJson, awsQuery }
+    src.lib.jac.host ++> src.lib.aws.ses { at, dig, entries }
+    src.lib.aws.client ++> src.lib.aws.ses { awsJson, awsQuery, awsSpare }
     src.lib.aws.xml ++> src.lib.aws.ses { xmlBlocks, xmlTag }
     include src.lib.aws.xml ++> src.lib.aws.ses { xmlTags }
     src.lib.jac.host ++> "src/lib/aws/ses-notification" { NULL, either, merged, nil }
-    src.lib.jac.host ++> src.lib.aws.sigv4 { at, either, entries, merged, rx, rx_sub }
+    src.lib.jac.host ++> src.lib.aws.sigv4 { at, either, entries, js_sort, merged, rx, rx_sub }
     src.lib.jac.host ++> src.lib.aws.sns { either }
     src.lib.aws.client ++> src.lib.aws.sns { awsQuery }
     src.lib.aws.xml ++> src.lib.aws.sns { xmlBlocks, xmlTag }
-    src.lib.jac.host ++> "src/lib/aws/sns-signature" { NULL, at, either, record, rx, rx_sub }
+    src.lib.jac.host ++> "src/lib/aws/sns-signature" { NULL, at, either, promise, record, rx, rx_sub }
     src.lib.jac.host ++> src.lib.aws.sts { either }
     src.lib.aws.client ++> src.lib.aws.sts { awsQuery }
     src.lib.aws.xml ++> src.lib.aws.sts { xmlTag }
@@ -82,7 +81,7 @@ graph import {
     src.lib.jac.host ++> "src/lib/deliverability/daily-utils" { NULL, nil, owns, record, merged }
     src.lib.jac.host ++> "src/lib/deliverability/dmarc-record" { either, rx, rx_sub }
     src.lib.jac.host ++> src.lib.deliverability.dsn { NULL, nil, either, rx, rx_sub }
-    src.lib.jac.host ++> "src/lib/deliverability/mta-sts" { NULL, record, merged, rx, rx_sub }
+    src.lib.jac.host ++> "src/lib/deliverability/mta-sts" { NULL, record, rx, rx_sub, whole }
     src.lib.jac.host ++> "src/lib/dns-query" { NULL, at, record, rx }
     src.lib.jac.host ++> "src/lib/email/attachment-limits" { NULL }
     src.lib.jac.host ++> "src/lib/email/attachment-risk" { NULL, at, nil, record, rx, rx_sub }
@@ -150,7 +149,7 @@ graph import {
     src.lib.spam.weights ++> src.lib.spam.analyzers.authentication { SPAM_WEIGHTS }
     src.lib.spam.analyzers.utils ++> src.lib.spam.analyzers.authentication { findHeader }
     src.lib.jac.host ++> src.lib.spam.analyzers.utils { either, entries }
-    src.lib.jac.host ++> "src/lib/spam/domain-utils" { NULL, rx, rx_sub }
+    src.lib.jac.host ++> "src/lib/spam/domain-utils" { NULL, rx, rx_sub, whole }
     src.lib.spam.analyzers.utils ++> "src/lib/spam/domain-utils" { findHeader }
     src.lib.jac.host ++> "src/lib/spam/lookup-cache" { record }
     src.lib.jac.host ++> src.lib.spam.weights { record }
