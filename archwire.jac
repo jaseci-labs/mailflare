@@ -7,6 +7,7 @@ graph spaces {
 }
 
 graph import {
+    src.lib.jac.host ++> "src/lib/search/query-utils" { NULL, at, either, rx, rx_sub }
     src.lib.jac.host ++> "src/lib/tracking/open-tracking-utils" { NULL, at, record, rx, rx_sub }
     src.lib.jac.host ++> "src/lib/compose/compose-utils" { NULL }
     src.lib.jac.host ++> "src/lib/follow-ups/follow-up-utils" { NULL }
@@ -1343,8 +1344,7 @@ graph import {
         tokenizeSearchText,
     }
     "src/lib/search/types.d" --> src.lib.search.conditions { ParsedSearchQuery }
-    "src/lib/search/types.d" --> "src/lib/search/query-utils" { ParsedSearchQuery, SearchToken }
-    src.lib.time.utils --> "src/lib/search/query-utils" { dateFromZonedFields, normalizeTimeZone }
+    src.lib.time.utils ++> "src/lib/search/query-utils" { dateFromZonedFields, normalizeTimeZone }
     src.db.index --> src.lib.booking.create { getDb }
     src.db.schema.index --> src.lib.booking.create { calendarEvents }
     src.lib.ids --> src.lib.booking.create { newId }
