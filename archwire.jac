@@ -232,7 +232,7 @@ graph import {
     src.lib.spam.weights ++> src.lib.spam.analyzers.authentication { SPAM_WEIGHTS }
     src.lib.spam.analyzers.utils ++> src.lib.spam.analyzers.authentication { findHeader }
     src.lib.jac.host ++> src.lib.spam.analyzers.utils { either, entries, first }
-    src.lib.jac.host ++> "src/lib/spam/domain-utils" { NULL, rx, rx_sub, whole }
+    src.lib.jac.host ++> "src/lib/spam/domain-utils" { NULL, rx, whole }
     src.lib.spam.analyzers.utils ++> "src/lib/spam/domain-utils" { findHeader }
     src.lib.jac.host ++> "src/lib/spam/lookup-cache" { record }
     src.lib.jac.host ++> src.lib.spam.weights { record }
