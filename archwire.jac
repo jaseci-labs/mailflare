@@ -37,6 +37,14 @@ graph import {
     src.lib.jac.host ++> src.lib.aws.s3 { either, merged }
     src.lib.jac.host ++> src.lib.aws.xml { NULL, rx }
     src.lib.jac.host ++> src.lib.aws.sigv4 { at, either, entries, merged, rx, rx_sub }
+    src.lib.jac.host ++> "src/lib/contacts/import-store-utils" { NULL, at, either, merged, nil, record }
+    src.lib.jac.host ++> "src/lib/calendar/import-store-utils" { NULL, either, merged, nil }
+    src.lib.time.utils ++> "src/lib/calendar/invite-rules" { isValidTimeZone, normalizeTimeZone }
+    src.lib.jac.host ++> "src/lib/calendar/invite-rules" { NULL, at, either, nil }
+    src.lib.jac.host ++> "src/lib/contacts/avatar-client" { record }
+    src.lib.jac.host ++> src.lib.dav.settings { record }
+    src.lib.jac.host ++> src.lib.booking.username { record }
+    src.lib.jac.host ++> src.lib.booking.hosts { NULL, record }
     src.lib.jac.host ++> src.lib.contacts.gravatar { NULL, either, nil, record }
     src.lib.jac.host ++> "src/lib/contacts/google-csv" { NULL, at, either, record, rx, rx_sub }
     "src/lib/contacts/details-utils" ++> "src/lib/contacts/google-csv" { cleanLine, cleanText, normalizeContactDetails, withoutEmails }
@@ -405,9 +413,9 @@ graph import {
     "src/lib/auth/client-ip" --> "src/lib/api/key-auth" { getClientIp }
     src.db.schema.index --> "src/lib/api/key-auth-types.d" { users }
     "src/lib/api-keys" --> "src/lib/auth/app-password-utils" { parseScopes }
-    src.db.index --> src.lib.dav.settings { getDb }
-    src.db.schema.index --> src.lib.dav.settings { appSettings }
-    "src/lib/database-errors" --> src.lib.dav.settings { isMissingColumnError }
+    src.db.index ++> src.lib.dav.settings { getDb }
+    src.db.schema.index ++> src.lib.dav.settings { appSettings }
+    "src/lib/database-errors" ++> src.lib.dav.settings { isMissingColumnError }
     src.db.index --> "src/lib/auth/device-keys" { getDb }
     src.db.schema.index --> "src/lib/auth/device-keys" { apiKeys, pushDevices }
     "src/lib/api-keys" --> "src/lib/auth/device-keys" { generateApiKey, scopesToJson }
@@ -1464,6 +1472,11 @@ graph import {
     src.db.schema.index --> src.lib.booking.create { calendarEvents }
     src.lib.ids --> src.lib.booking.create { newId }
     "src/lib/booking/types.d" --> src.lib.booking.create { BookingEventRecord }
+    "src/lib/search/types.d" --> "src/lib/search/query-utils" { ParsedSearchQuery, SearchToken }
+    src.lib.time.utils --> "src/lib/search/query-utils" { dateFromZonedFields, normalizeTimeZone }
+    src.db.index ++> src.lib.booking.create { getDb }
+    src.db.schema.index ++> src.lib.booking.create { calendarEvents }
+    src.lib.ids ++> src.lib.booking.create { newId }
     src.db.index --> "src/lib/calendar/import-store" { AppDatabase }
     src.db.schema.index --> "src/lib/calendar/import-store" { calendarEvents, domains, mailboxes }
     src.lib.http.errors --> "src/lib/calendar/import-store" { RequestBodyTooLargeError }
@@ -1482,18 +1495,8 @@ graph import {
         planCalendarImportRows,
         planGroupIds,
     }
-    src.lib.calendar.ics --> "src/lib/calendar/import-store-utils" { isIcsAddress }
-    "src/lib/calendar/ics-import-types.d" --> "src/lib/calendar/import-store-utils" {
-        ImportEvent,
-        ImportGroup,
-    }
-    "src/lib/calendar/import-store-types.d" --> "src/lib/calendar/import-store-utils" {
-        CalendarImportPlan,
-        CalendarImportRow,
-        ImportGroupIds,
-        PlannedGroup,
-    }
-    "src/lib/calendar/invite-store" --> "src/lib/calendar/import-store-utils" { inviteEventId }
+    src.lib.calendar.ics ++> "src/lib/calendar/import-store-utils" { isIcsAddress }
+    "src/lib/calendar/invite-store" ++> "src/lib/calendar/import-store-utils" { inviteEventId }
     src.db.index --> "src/lib/calendar/invite-store" { getDb }
     src.db.schema.index --> "src/lib/calendar/invite-store" {
         calendarEventOverrides,
@@ -1525,10 +1528,8 @@ graph import {
         normalizeInviteSender,
         planInboundInvite,
     }
-    src.lib.email.address --> "src/lib/calendar/invite-rules" { getEmailAddress }
-    src.lib.time.utils --> "src/lib/calendar/invite-rules" { isValidTimeZone, normalizeTimeZone }
-    src.lib.calendar.recurrence --> "src/lib/calendar/invite-rules" { parseExcludedOccurrences }
-    src.lib.calendar.invite --> "src/lib/calendar/invite-rules" { ParsedInvite }
+    src.lib.email.address ++> "src/lib/calendar/invite-rules" { getEmailAddress }
+    src.lib.calendar.recurrence ++> "src/lib/calendar/invite-rules" { parseExcludedOccurrences }
     src.db.index --> "src/lib/contacts/import-store" { AppDatabase }
     src.db.schema.index --> "src/lib/contacts/import-store" { contactDetails, contacts }
     "src/lib/database-errors" --> "src/lib/contacts/import-store" { isMissingTableError }
@@ -1555,27 +1556,21 @@ graph import {
     "src/lib/mailboxes/domain-addresses" --> src.lib.profile.sync { getMailboxDomainAddresses }
     "src/lib/profile/identity-utils" --> src.lib.profile.sync { tracksAccountIdentity }
     "src/lib/profile/sync-types.d" --> src.lib.profile.sync { PersonalIdentity }
-    src.lib.http.errors --> "src/lib/contacts/import-store-utils" { RequestBodyTooLargeError }
-    "src/lib/contacts/details-utils" --> "src/lib/contacts/import-store-utils" {
+    src.lib.http.errors ++> "src/lib/contacts/import-store-utils" { RequestBodyTooLargeError }
+    "src/lib/contacts/details-utils" ++> "src/lib/contacts/import-store-utils" {
         importedContactEmails,
         mergeContactDetails,
         mergeImportedContact,
         normalizeContactDetails,
         parseStoredDetails,
     }
-    "src/lib/contacts/google-csv" --> "src/lib/contacts/import-store-utils" {
+    "src/lib/contacts/google-csv" ++> "src/lib/contacts/import-store-utils" {
         MAX_CSV_COLUMNS,
         MAX_CSV_FIELD,
         googleCsvMapper,
     }
-    "src/lib/contacts/import-store-types.d" --> "src/lib/contacts/import-store-utils" {
-        ContactImportBody,
-        ContactImportPlan,
-        ExistingContact,
-        ImportedCard,
-    }
-    src.lib.contacts.utils --> "src/lib/contacts/import-store-utils" { getContactId }
-    src.lib.contacts.vcard --> "src/lib/contacts/import-store-utils" { MAX_CARD_CHARS, parseVcard }
+    src.lib.contacts.utils ++> "src/lib/contacts/import-store-utils" { getContactId }
+    src.lib.contacts.vcard ++> "src/lib/contacts/import-store-utils" { MAX_CARD_CHARS, parseVcard }
     "src/lib/calendar/ics-import" --> src.lib.contacts.vcard { iterIcsLines }
     "src/lib/contacts/details-utils" --> src.lib.contacts.vcard {
         cleanLine,
@@ -3975,9 +3970,6 @@ graph import {
         getContactAvatarInitial,
         getManagedContactAvatarUrl,
     }
-    "src/lib/contacts/avatar-client-types.d" --> "src/lib/contacts/avatar-client" {
-        ContactAvatarChangedDetail,
-    }
     src.lib.email.address --> "src/components/contacts/contact-avatar-utils" { getEmailAddress }
     src.lib.auth.client --> "src/components/compose/recipient-suggestions-utils" { authFetch }
     src.lib.email.address --> "src/components/compose/recipient-suggestions-utils" {
@@ -5209,8 +5201,7 @@ graph import {
     src.lib.folders.colors --> "src/app/(calendar)/booking/utils" { DEFAULT_FOLDER_COLOR }
     src.lib.calendar.colors --> "src/app/(calendar)/booking/utils" { normalizeCalendarColor }
     src.lib.booking.hosts --> "src/app/(calendar)/booking/utils" { parseBookingHostIds }
-    src.db.index --> src.lib.booking.hosts { getDb }
-    src.db.schema.index --> src.lib.booking.hosts { users }
+    src.db.schema.index ++> src.lib.booking.hosts { users }
     "src/components/language-provider" --> "src/app/(calendar)/booking/booking-host-avatar" {
         useLanguage,
     }
@@ -9451,10 +9442,10 @@ graph import {
         domainOwnerIdsForAdmin,
         getDomainForAdmin,
     }
-    "src/lib/database-errors" --> src.lib.booking.username { isUniqueConstraintError }
-    src.db.index --> src.lib.booking.username { getDb }
-    src.db.schema.index --> src.lib.booking.username { users }
-    src.lib.booking.utils --> src.lib.booking.username { bookingUsernameFromEmail }
+    "src/lib/database-errors" ++> src.lib.booking.username { isUniqueConstraintError }
+    src.db.index ++> src.lib.booking.username { getDb }
+    src.db.schema.index ++> src.lib.booking.username { users }
+    src.lib.booking.utils ++> src.lib.booking.username { bookingUsernameFromEmail }
     src.db.index --> src.app.api.accounts.route { getDb }
     src.lib.validators --> src.app.api.accounts.route { createUserAccountSchema }
     src.lib.auth.admin --> src.app.api.accounts.route { canManageUsers, isPrimaryAdmin }
