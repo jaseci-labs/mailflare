@@ -7,6 +7,7 @@ graph spaces {
 }
 
 graph import {
+    src.lib.jac.host ++> "src/lib/email/resend-api" { NULL, at, either, merged, nil, rx, rx_sub }
     src.lib.jac.host ++> src.lib.email.unsubscribe { NULL, either, record, rx, rx_sub }
     src.lib.jac.host ++> "src/lib/email/attachment-risk" { NULL, at, nil, rx, rx_sub }
     src.lib.jac.host ++> "src/lib/email/bulk-mail" { NULL, entries }
@@ -767,11 +768,6 @@ graph import {
     src.lib.aws.client --> src.lib.aws.ses { AwsError, awsJson, awsQuery }
     src.lib.aws.xml --> src.lib.aws.ses { xmlBlocks, xmlTag, xmlTags }
     "src/lib/aws/aws-types.d" --> src.lib.aws.ses { AwsConfig, SesIdentityStatus }
-    "src/lib/email/resend-api-types.d" --> "src/lib/email/resend-api" {
-        ResendDomain,
-        ResendReceivedEmail,
-        ResendWebhook,
-    }
     "src/lib/email/attachment-types.d" --> "src/lib/email/cloud-attachment-utils" {
         AttachmentContent,
     }
