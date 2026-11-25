@@ -7,6 +7,12 @@ graph spaces {
 }
 
 graph import {
+    src.lib.jac.host ++> "src/components/compose/schedule-send-utils" { record }
+    src.lib.jac.host ++> "src/components/column-width-preferences" { NULL, at, either }
+    src.lib.jac.host ++> "src/components/sidebar-state-utils" { NULL, at, either }
+    src.lib.jac.host ++> "src/components/messages/promotion-toast-store" { NULL, nil, merged }
+    src.lib.jac.host ++> "src/components/messages/message-detail-navigation-utils" { NULL, nil, either, first }
+    src.lib.jac.host ++> "src/components/message-actions/action-overflow-utils" { at }
     src.lib.jac.host ++> "src/components/admin-update-card-utils" { either, record }
     src.lib.jac.host ++> "src/components/reorderable-list-utils" { NULL, either, entries }
     src.lib.jac.host ++> "src/components/progressive-avatar-image-utils" { NULL, nil, at }
@@ -4073,10 +4079,7 @@ graph import {
         ComposeTemplate,
         TemplateMenuProps,
     }
-    "src/components/compose/schedule-send-types.d" --> "src/components/compose/schedule-send-utils" {
-        ScheduleSendOption,
-    }
-    src.lib.time.utils --> "src/components/compose/schedule-send-utils" {
+    src.lib.time.utils ++> "src/components/compose/schedule-send-utils" {
         dateFromZonedFields,
         formatUserDate,
         formatUserDateTimeLocal,
@@ -4133,9 +4136,6 @@ graph import {
     "src/components/sidebar-state-types.d" --> "src/components/sidebar-state" {
         SidebarProviderProps,
         SidebarState,
-    }
-    "src/components/column-width-preferences-types.d" --> "src/components/column-width-preferences" {
-        ColumnWidthPreference,
     }
     "src/components/mail-search/types.d" --> "src/components/mail-search/mail-search-context" {
         MailSearchContextValue,
@@ -6007,10 +6007,6 @@ graph import {
         senderResultCopy,
         summarizeMoves,
     }
-    "src/lib/promotions/move-utils" --> "src/components/messages/promotion-toast-store" {
-        CopyDescriptor,
-        MoveTarget,
-    }
     src.components.icons --> "src/components/messages/message-source-dialog" {
         CheckCircle2,
         Copy,
@@ -6105,12 +6101,6 @@ graph import {
         InviteCardData,
         InviteResponse,
         InviteView,
-    }
-    "src/app/api/messages/navigation/types.d" --> "src/components/messages/message-detail-navigation-utils" {
-        MessageNavigationEntry,
-    }
-    "src/components/messages/message-detail-navigation-types.d" --> "src/components/messages/message-detail-navigation-utils" {
-        MessageDetailNavigationState,
     }
     src.lib.auth.client --> "src/components/messages/conversation-notes-context" { authFetch }
     "src/lib/notes/types.d" --> "src/components/messages/conversation-notes-context" {
