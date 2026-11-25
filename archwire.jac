@@ -7,6 +7,7 @@ graph spaces {
 }
 
 graph import {
+    src.lib.jac.host ++> src.lib.aws.config { NULL, either, merged, nil, record, rx }
     src.lib.jac.host ++> src.lib.aws.ses { at, either, entries, nil }
     src.lib.jac.host ++> "src/lib/aws/ses-notification" { NULL, either, merged, nil }
     src.lib.jac.host ++> "src/lib/aws/sns-signature" { NULL, at, either, record, rx, rx_sub }
@@ -759,9 +760,8 @@ graph import {
         OutboundProviderMessage,
         ResendKeyStatus,
     }
-    src.db.index --> src.lib.aws.config { getDb }
-    src.db.schema.index --> src.lib.aws.config { appSettings }
-    "src/lib/aws/aws-types.d" --> src.lib.aws.config { AwsConfig, AwsConfigStatus }
+    src.db.index ++> src.lib.aws.config { getDb }
+    src.db.schema.index ++> src.lib.aws.config { appSettings }
     src.lib.aws.client ++> src.lib.aws.ses { AwsError, awsJson, awsQuery }
     src.lib.aws.xml ++> src.lib.aws.ses { xmlBlocks, xmlTag }
     include src.lib.aws.xml ++> src.lib.aws.ses { xmlTags }
