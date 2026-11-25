@@ -7,8 +7,8 @@ graph spaces {
 }
 
 graph import {
+    "src/lib/email/unsubscribe-types.d" --> src.lib.email.unsubscribe { UnsubscribeUrl }
     src.lib.jac.host ++> "src/lib/email/resend-api" { NULL, at, either, merged, nil, rx, rx_sub }
-    src.lib.jac.host ++> src.lib.email.unsubscribe { NULL, either, record, rx, rx_sub }
     src.lib.jac.host ++> "src/lib/email/attachment-risk" { NULL, at, nil, rx, rx_sub }
     src.lib.jac.host ++> "src/lib/email/bulk-mail" { NULL, entries }
     src.lib.jac.host ++> "src/lib/email/mime-preflight" { NULL, record }
