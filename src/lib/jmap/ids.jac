@@ -1,40 +1,16 @@
-"""JMAP Mailbox ids encode Mailflare's model.
-
-A top-level Mailbox per Mailflare mailbox (all its mail), system children keyed
-by status, and one child per user folder. Ids are stable strings so clients can
-cache them.
-"""
-
+# JMAP Mailbox ids encode Mailflare's model: a top-level Mailbox per mailbox (all its mail), system
+# children keyed by status, one child per user folder. Ids are stable strings clients can cache.
 glob:priv SEP = "~";
 glob SYSTEM_ROLES: list[str] = ["inbox", "sent", "drafts", "archive", "junk", "trash"];
-
-glob:priv ROLE_STATUS: dict[str, str] = {
-              "inbox": "received",
-              "sent": "sent",
-              "drafts": "draft",
-              "archive": "archived",
-              "junk": "spam",
-              "trash": "trash",
-          },
-          STATUS_ROLE: dict[str, any] = {
-              "received": "inbox",
-              "sent": "sent",
-              "queued": "sent",
-              "failed": "sent",
-              "draft": "drafts",
-              "archived": "archive",
-              "spam": "junk",
-              "trash": "trash",
-          };
+glob:priv STATUS: any = dict(zip(SYSTEM_ROLES, "received sent draft archived spam trash".split())),
+          ROLE: any = {**{v: k for (k, v) in STATUS.items()}, "queued": "sent", "failed": "sent"};
 
 def encodeMailboxRef(ref: any) -> str {
-    if ref["kind"] == "account" {
-        return ref["mailboxId"];
+    (kind, box) = (ref["kind"], ref["mailboxId"]);
+    if kind == "account" {
+        return box;
     }
-    if ref["kind"] == "role" {
-        return f"{ref['mailboxId']}{SEP}{ref['role']}";
-    }
-    return f"{ref['mailboxId']}{SEP}f{SEP}{ref['folderId']}";
+    return f"{box}{SEP}{ref['role']}" if kind == "role" else f"{box}{SEP}f{SEP}{ref['folderId']}";
 }
 
 def decodeMailboxRef(id: str) -> any {
@@ -81,11 +57,11 @@ def decodeIdentityId(id: str) -> any {
     return {"mailboxId": mailboxId, "address": address} if sep else NULL;
 }
 
-"""Status/folder predicate for each system role, as a plain description the query layer turns into SQL."""
+# Status/folder predicate for each system role, as a plain description the query layer turns into SQL.
 def roleToStatus(role: str) -> any {
-    return ROLE_STATUS.get(role);
+    return STATUS.get(role);
 }
 
 def statusToRole(status: str) -> any {
-    return STATUS_ROLE.get(status, NULL);
+    return ROLE.get(status, NULL);
 }
