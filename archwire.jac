@@ -7,6 +7,7 @@ graph spaces {
 }
 
 graph import {
+    src.lib.jac.host ++> "src/lib/contacts/import-store-utils" { NULL, at, either, merged, nil, record }
     src.lib.jac.host ++> "src/lib/calendar/import-store-utils" { NULL, either, merged, nil }
     src.lib.time.utils ++> "src/lib/calendar/invite-rules" { isValidTimeZone, normalizeTimeZone }
     src.lib.jac.host ++> "src/lib/calendar/invite-rules" { NULL, at, either, nil }
@@ -1442,27 +1443,21 @@ graph import {
     "src/lib/mailboxes/domain-addresses" --> src.lib.profile.sync { getMailboxDomainAddresses }
     "src/lib/profile/identity-utils" --> src.lib.profile.sync { tracksAccountIdentity }
     "src/lib/profile/sync-types.d" --> src.lib.profile.sync { PersonalIdentity }
-    src.lib.http.errors --> "src/lib/contacts/import-store-utils" { RequestBodyTooLargeError }
-    "src/lib/contacts/details-utils" --> "src/lib/contacts/import-store-utils" {
+    src.lib.http.errors ++> "src/lib/contacts/import-store-utils" { RequestBodyTooLargeError }
+    "src/lib/contacts/details-utils" ++> "src/lib/contacts/import-store-utils" {
         importedContactEmails,
         mergeContactDetails,
         mergeImportedContact,
         normalizeContactDetails,
         parseStoredDetails,
     }
-    "src/lib/contacts/google-csv" --> "src/lib/contacts/import-store-utils" {
+    "src/lib/contacts/google-csv" ++> "src/lib/contacts/import-store-utils" {
         MAX_CSV_COLUMNS,
         MAX_CSV_FIELD,
         googleCsvMapper,
     }
-    "src/lib/contacts/import-store-types.d" --> "src/lib/contacts/import-store-utils" {
-        ContactImportBody,
-        ContactImportPlan,
-        ExistingContact,
-        ImportedCard,
-    }
-    src.lib.contacts.utils --> "src/lib/contacts/import-store-utils" { getContactId }
-    src.lib.contacts.vcard --> "src/lib/contacts/import-store-utils" { MAX_CARD_CHARS, parseVcard }
+    src.lib.contacts.utils ++> "src/lib/contacts/import-store-utils" { getContactId }
+    src.lib.contacts.vcard ++> "src/lib/contacts/import-store-utils" { MAX_CARD_CHARS, parseVcard }
     "src/lib/calendar/ics-import" --> src.lib.contacts.vcard { iterIcsLines }
     "src/lib/contacts/details-utils" --> src.lib.contacts.vcard {
         cleanLine,
