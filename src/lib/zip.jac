@@ -72,8 +72,14 @@ def crc32(data: any, crc: any = None) -> int {
         w: int = globalThis.DataView.prototype.getInt32.call(view, i, True);
         a: int = w ^ c;
         b: int = globalThis.DataView.prototype.getInt32.call(view, i + 4, True);
-        c = t7[a & 0xff] ^ t6[(a >> 8) & 0xff] ^ t5[(a >> 16) & 0xff] ^ t4[(a >> 24) & 0xff]
-            ^ t3[b & 0xff] ^ t2[(b >> 8) & 0xff] ^ t1[(b >> 16) & 0xff] ^ t0[(b >> 24) & 0xff];
+        c = t7[a & 0xff]
+            ^ t6[(a >> 8) & 0xff]
+            ^ t5[(a >> 16) & 0xff]
+            ^ t4[(a >> 24) & 0xff]
+            ^ t3[b & 0xff]
+            ^ t2[(b >> 8) & 0xff]
+            ^ t1[(b >> 16) & 0xff]
+            ^ t0[(b >> 24) & 0xff];
         i += 8;
     }
     while i < n {

@@ -64,7 +64,9 @@ def:priv header_has(view: bytes, start: int, end: int, name: str, needle: str) -
 }
 
 def mimePreflightReason(raw: any) -> any {
-    view: bytes = raw if isinstance(raw, globalThis.Uint8Array) else new(globalThis.Uint8Array, raw);
+    view: bytes = raw
+        if isinstance(raw, globalThis.Uint8Array)
+        else new(globalThis.Uint8Array, raw);
     size: int = len(view);
     start: int = 0;
     boundaries: int = 0;
