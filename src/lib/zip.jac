@@ -11,7 +11,10 @@ defaults to now, and `open` returns the body stream, or null to skip the entry.
 
 # Data descriptor (sizes known only after streaming) plus UTF-8 names.
 glob:priv FLAGS: int = 0x0008 | 0x0800,
-          CRC_TABLE: any = crc_table();
+          CRC_TABLES: list[list[int]] = crc_tables(),
+          CONTROL: any = rx(r"[\u0000-\u001f]", "g"),
+          BACKSLASH: any = rx(r"\\", "g"),
+          DOTS_ONLY: any = rx(r"^[.\s]*$");
 
 # Header layouts: the length, then each field's width (S 16, L 32 bits, little-endian) and offset.
 glob:priv LOCAL: str = "30 L0 S4 S6 S8 S10 S12 S26",
@@ -20,26 +23,69 @@ glob:priv LOCAL: str = "30 L0 S4 S6 S8 S10 S12 S26",
           END: str = "22 L0 S8 S10 L12 L16";
 
 """
-The CRC-32 table as signed 32-bit values: Jac's integers are unbounded, so the arithmetic stays in
-int32, where `^` and `&` are the processor's, and `c >>> n` is written `(c >> n) & mask`.
+Eight CRC-32 tables of 256 signed 32-bit values (slice-by-8): table `k` advances a byte followed by
+`k` zero bytes. Jac's integers are unbounded, so the arithmetic stays in int32, where `^` and `&` are
+the processor's, and `c >>> n` is written `(c >> n) & mask`. Lists of ints, not an Int32Array, so a
+lookup is a list index rather than a call through JavaScript.
 """
-def:priv crc_table -> any {
-    table = new(globalThis.Int32Array, 256);
+def:priv crc_tables -> list[list[int]] {
+    first: list[int] = [];
     for n in range(256) {
-        c = n;
+        c: int = n;
         for k in range(8) {
             c = ((c >> 1) & 0x7fffffff) ^ (-306674912 if c & 1 else 0);  # 0xedb88320
         }
-        table[n] = c;
+        first.append(c);
     }
-    return table;
+    tables: list[list[int]] = [first];
+    for k in range(7) {
+        prev: list[int] = tables[k];
+        next_table: list[int] = [];
+        for n in range(256) {
+            p: int = prev[n];
+            next_table.append(((p >> 8) & 0xffffff) ^ first[p & 0xff]);
+        }
+        tables.append(next_table);
+    }
+    return tables;
 }
 
-"""Standard CRC-32; pass the previous result to keep accumulating across chunks."""
+"""
+Standard CRC-32; pass the previous result to keep accumulating across chunks. Eight bytes per step
+(two little-endian int32 reads, eight table lookups), then the tail a byte at a time.
+"""
 def crc32(data: any, crc: any = None) -> int {
+    t0: list[int] = CRC_TABLES[0];
+    t1: list[int] = CRC_TABLES[1];
+    t2: list[int] = CRC_TABLES[2];
+    t3: list[int] = CRC_TABLES[3];
+    t4: list[int] = CRC_TABLES[4];
+    t5: list[int] = CRC_TABLES[5];
+    t6: list[int] = CRC_TABLES[6];
+    t7: list[int] = CRC_TABLES[7];
+    n: int = data.byteLength;
+    view = new(globalThis.DataView, data.buffer, data.byteOffset, n);
     c: int = globalThis.Math.imul(either(crc, 0), 1) ^ -1;
-    for i in range(data.byteLength) {
-        c = CRC_TABLE[(c ^ data[i]) & 0xff] ^ ((c >> 8) & 0xffffff);
+    i: int = 0;
+    stop: int = n - 7;
+    while i < stop {
+        w: int = globalThis.DataView.prototype.getInt32.call(view, i, True);
+        a: int = w ^ c;
+        b: int = globalThis.DataView.prototype.getInt32.call(view, i + 4, True);
+        c = t7[a & 0xff]
+            ^ t6[(a >> 8) & 0xff]
+            ^ t5[(a >> 16) & 0xff]
+            ^ t4[(a >> 24) & 0xff]
+            ^ t3[b & 0xff]
+            ^ t2[(b >> 8) & 0xff]
+            ^ t1[(b >> 16) & 0xff]
+            ^ t0[(b >> 24) & 0xff];
+        i += 8;
+    }
+    while i < n {
+        byte: int = globalThis.Reflect.get(data, i);
+        c = t0[(c ^ byte) & 0xff] ^ ((c >> 8) & 0xffffff);
+        i += 1;
     }
     return (c ^ -1) + (4294967296 if (c ^ -1) < 0 else 0);
 }
@@ -51,26 +97,42 @@ def:priv dos_date_time(d: any) -> any {
 }
 
 def:priv zip_entry_name(name: any) -> str {
-    cleaned = rx_sub(rx_sub(name, rx(r"[\u0000-\u001f]", "g"), ""), rx(r"\\", "g"), "_");
-    kept: any = "/".join([s for s in cleaned.split("/") if not rx(r"^[.\s]*$").test(s)]);
-    return kept.trim() or "file";
+    cleaned: str = rx_sub(rx_sub(name, CONTROL, ""), BACKSLASH, "_");
+    kept: list[str] = [];
+    for s in globalThis.String.prototype.split.call(cleaned, "/") {
+        if not globalThis.RegExp.prototype.test.call(DOTS_ONLY, s) {
+            kept.append(s);
+        }
+    }
+    joined: str = globalThis.String.prototype.trim.call("/".join(kept));
+    return joined or "file";
 }
 
 """Duplicate names make archives ambiguous; later copies get ` (n)` before the extension."""
 def uniqueZipNames(names: any) -> list[str] {
     taken: any = new(globalThis.Set);
-    def claim(name: any) -> str {
-        got: any = zip_entry_name(name);
-        dot = got.lastIndexOf(".");
-        (base, ext) = (got.slice(0, dot), got.slice(dot)) if dot > 0 else (got, "");
-        copy = 2;
-        while taken.has(got) {
-            (got, copy) = (f"{base} ({copy}){ext}", copy + 1);
+    out: list[str] = [];
+    for name in names {
+        got: str = zip_entry_name(name);
+        if globalThis.Set.prototype.has.call(taken, got) {
+            dot: int = globalThis.String.prototype.lastIndexOf.call(got, ".");
+            base: str = got;
+            ext: str = "";
+            if dot > 0 {
+                base = globalThis.String.prototype.slice.call(got, 0, dot);
+                ext = globalThis.String.prototype.slice.call(got, dot);
+            }
+            copy: int = 2;
+            got = base + " (" + str(copy) + ")" + ext;
+            while globalThis.Set.prototype.has.call(taken, got) {
+                copy += 1;
+                got = base + " (" + str(copy) + ")" + ext;
+            }
         }
-        taken.add(got);
-        return got;
+        globalThis.Set.prototype.add.call(taken, got);
+        out.append(got);
     }
-    return [claim(name) for name in names];
+    return out;
 }
 
 def:priv header(layout: str, values: list[any]) -> any {

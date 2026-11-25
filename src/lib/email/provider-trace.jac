@@ -3,9 +3,18 @@ type ProviderTrace = any;
 
 # SES_HEADERS: what SES prepends when it accepts a message; its trace ends at the first other one.
 # UNTRUSTED: headers no provider vouched for, so nothing the sender wrote there counts.
-glob:priv SES_HEADERS: list[str] = """return-path received received-spf authentication-results
+glob:priv SES_HEADER_NAMES: list[str] = """return-path received received-spf authentication-results
               x-ses-receipt x-ses-dkim-signature x-ses-spam-verdict x-ses-virus-verdict""".split(),
-          UNTRUSTED: list[str] = SES_HEADERS + ["arc-authentication-results"],
+          SES_HEADERS: set[str] = set(SES_HEADER_NAMES),
+          UNTRUSTED: set[str] = set(SES_HEADER_NAMES + ["arc-authentication-results"]),
+          BLANK_LINE: any = rx(r"\r?\n\r?\n"),
+          LINE_BREAK: any = rx(r"\r?\n"),
+          FOLDED: any = rx(r"^[ \t]"),
+          VERDICT_METHODS: list[str] = ["spf", "dkim", "dmarc"],
+          VERDICTS: list[any] = [
+              rx(f"(?:^|[;\\s]){method}=([a-z]+)", "i")
+              for method in VERDICT_METHODS
+          ],
           FROM_SES: any = rx(r"^amazonses\.com\s*;", "i"),
           CLIENT_IP: any = rx(r"\bclient-ip\s*=\s*([^\s;)]+)", "i"),
           SENDER_IP: any = rx(r"\(sender IP is ([^\s;)]+)\)", "i"),
@@ -18,18 +27,29 @@ glob:priv SES_HEADERS: list[str] = """return-path received received-spf authenti
           MAX_HEADER_VALUE: int = 2000;
 
 # The header block as `[name, value]` pairs, names lower-cased, folded lines joined.
-def:priv read_header_lines(raw: any) -> list[any] {
+def:priv read_header_lines(raw: any) -> list[list[str]] {
     n = globalThis.Math.min(raw.byteLength, HEADER_SCAN_BYTES);
-    text: any = new(globalThis.TextDecoder).decode(raw.slice(0, n));
-    end = text.search(rx(r"\r?\n\r?\n"));
-    (block, headers) = (text if end == -1 else text.slice(0, end), []);
-    for line in globalThis.String.prototype.split.call(block, rx(r"\r?\n")) {
-        colon = line.indexOf(":");
-        if rx(r"^[ \t]").test(line) and headers {
-            headers[-1][1] += " " + line.trim();
-        } elif colon > 0 {
-            (k, v) = (line.slice(0, colon), line.slice(colon + 1));
-            headers.append([k.trim().toLowerCase(), v.trim()]);
+    text: str = new(globalThis.TextDecoder).decode(raw.slice(0, n));
+    end: int = globalThis.String.prototype.search.call(text, BLANK_LINE);
+    block: str = text;
+    if end != -1 {
+        block = globalThis.String.prototype.slice.call(text, 0, end);
+    }
+    headers: list[list[str]] = [];
+    for piece in globalThis.String.prototype.split.call(block, LINE_BREAK) {
+        line: str = piece;
+        if globalThis.RegExp.prototype.test.call(FOLDED, line) and headers {
+            last: list[str] = headers[-1];
+            last[1] = last[1] + " " + globalThis.String.prototype.trim.call(line);
+            continue;
+        }
+        colon: int = globalThis.String.prototype.indexOf.call(line, ":");
+        if colon > 0 {
+            name: str = globalThis.String.prototype.slice.call(line, 0, colon);
+            value: str = globalThis.String.prototype.slice.call(line, colon + 1);
+            name = globalThis.String.prototype.trim.call(name);
+            name = globalThis.String.prototype.toLowerCase.call(name);
+            headers.append([name, globalThis.String.prototype.trim.call(value)]);
         }
     }
     return headers;
@@ -37,34 +57,44 @@ def:priv read_header_lines(raw: any) -> list[any] {
 
 # The leading run of headers SES wrote, None unless it holds an X-SES-Receipt. Reading stops at the
 # first header SES did not add, so a sender cannot forge a result further down.
-def:priv read_ses_headers(raw: any) -> any {
-    leading: list[any] = [];
+def:priv read_ses_headers(raw: any) -> list[list[str]] | None {
+    leading: list[list[str]] = [];
+    receipt = False;
     for h in read_header_lines(raw) {
         if h[0] not in SES_HEADERS {
             break;
         }
+        receipt = receipt or h[0] == "x-ses-receipt";
         leading.append(h);
     }
-    return leading if any(h[0] == "x-ses-receipt" for h in leading) else None;
+    return leading if receipt else None;
 }
 
-def:priv header_value(headers: list[any], name: str) -> any {
-    return next((h[1] for h in headers if h[0] == name), None);
+def:priv header_value(headers: list[list[str]], name: str) -> any {
+    for h in headers {
+        if h[0] == name {
+            return h[1];
+        }
+    }
+    return None;
 }
 
 # The verdicts and connecting IP SES recorded in the headers it prepended (Resend receives through
 # SES too). Without an `X-SES-Receipt` in that leading run nothing is trusted.
 def readSesTrace(raw: any) -> any {
-    leading = read_ses_headers(raw);
-    if leading is None {
+    found_headers = read_ses_headers(raw);
+    if found_headers is None {
         return record({});
     }
+    leading: list[list[str]] = found_headers;
     verdicts: dict[str, str] = {};
     results = header_value(leading, "authentication-results");
-    for method in ["spf", "dkim", "dmarc"] if results and FROM_SES.test(results) else [] {
-        found = rx(f"(?:^|[;\\s]){method}=([a-z]+)", "i").exec(results);
-        if found {
-            verdicts[method] = found[1].toUpperCase();
+    if results and globalThis.RegExp.prototype.test.call(FROM_SES, results) {
+        for i in range(3) {
+            found = globalThis.RegExp.prototype.exec.call(VERDICTS[i], results);
+            if found {
+                verdicts[VERDICT_METHODS[i]] = found[1].toUpperCase();
+            }
         }
     }
     for key in ["spam", "virus"] {
@@ -183,11 +213,14 @@ def readSesAuthentication(raw: any, fromAddress: any) -> any {
 # A bounded header map (lower-case names, first value wins) for providers that hand none over, so
 # auto-reply suppression and spam analysis see Auto-Submitted, Precedence, List-Id and similar.
 def readHeaderMap(raw: any) -> any {
-    (found, count) = (globalThis.Object(), 0);
-    for (name, value) in read_header_lines(raw) {
+    found: any = globalThis.Object();
+    count: int = 0;
+    for h in read_header_lines(raw) {
+        name = h[0];
         # `Reflect.has` as JavaScript's `in`: a header named like an Object.prototype member is skipped.
         if name not in UNTRUSTED and not globalThis.Reflect.has(found, name) {
-            found[name] = value.slice(0, MAX_HEADER_VALUE);
+            value: str = globalThis.String.prototype.slice.call(h[1], 0, MAX_HEADER_VALUE);
+            globalThis.Reflect.set(found, name, value);
             count += 1;
             if count >= MAX_HEADER_ENTRIES {
                 break;
