@@ -51,3 +51,51 @@ def rx(pattern: str, flags: str = "") -> any {
 def rx_sub(s: str, regex: any, to: any) -> str {
     return globalThis.String.prototype.replace.call(s, regex, to);
 }
+
+"""JavaScript's `typeof v === "object" && v !== null`: arrays included, functions not."""
+def is_object(v: any) -> bool {
+    return not nil(v) and not callable(v) and globalThis.Object(v) is v;
+}
+
+"""A JavaScript integer within `lo..hi` (`Number.isInteger(v) && lo <= v && v <= hi`)."""
+def whole(v: any, lo: any = None, hi: any = None) -> bool {
+    return bool(globalThis.Number.isInteger(v))
+        and (lo is None or v >= lo)
+        and (hi is None or v <= hi);
+}
+
+"""`xs[0]`, undefined for an empty or missing array (Jac's index raises)."""
+def first(xs: any) -> any {
+    return xs[0] if not nil(xs) and len(xs) > 0 else None;
+}
+
+"""JavaScript's `n || fallback` of a number: 0 and NaN fall back (Jac holds NaN truthy)."""
+def num_or(n: any, fallback: any) -> any {
+    return fallback if not n or globalThis.Number.isNaN(n) else n;
+}
+
+"""`o?.a?.b ?? fallback` along `path`."""
+def dig(o: any, path: list[str], fallback: any = None) -> any {
+    for k in path {
+        if nil(o) {
+            return fallback;
+        }
+        o = at(o, k);
+    }
+    return either(o, fallback);
+}
+
+"""`s.replace(regex, to)` as a JavaScript string, for chaining JavaScript's own methods."""
+def sub(s: any, regex: any, to: any) -> any {
+    return globalThis.String.prototype.replace.call(s, regex, to);
+}
+
+"""JavaScript's in-place `xs.sort(cmp)`, which takes a comparator returning a number."""
+def js_sort(xs: any, cmp: any = None) -> any {
+    return globalThis.Array.prototype.sort.call(xs, cmp);
+}
+
+"""Start a coroutine as a JavaScript promise, which can be shared and awaited more than once."""
+def promise(coro: any) -> any {
+    return globalThis.Promise.resolve(coro);
+}
