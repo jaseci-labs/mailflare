@@ -7,6 +7,7 @@ graph spaces {
 }
 
 graph import {
+    src.lib.jac.host ++> "src/lib/email/provider-trace" { NULL, either, record, rx, rx_sub }
     src.lib.jac.host ++> "src/lib/email/inbound-notification" { at, record }
     src.lib.jac.host ++> "src/lib/email/trash-retention-utils" { NULL }
     src.lib.jac.host ++> "src/lib/email/shared-file-notice" { record, rx, rx_sub }
@@ -1578,13 +1579,8 @@ graph import {
         serializeCursor,
     }
     "src/lib/promotions/refile-utils" --> src.lib.promotions.backfill { chunk }
-    "src/lib/spam/types.d" --> "src/lib/email/provider-trace" { ProviderVerdicts }
-    "src/lib/email/authentication-types.d" --> "src/lib/email/provider-trace" {
-        MessageAuthentication,
-        MessageAuthenticationMethod,
-    }
-    "src/lib/email/domain-match" --> "src/lib/email/provider-trace" { isSameOrSubdomain }
-    "src/lib/spam/domain-utils" --> "src/lib/email/provider-trace" { extractSenderIp }
+    "src/lib/email/domain-match" ++> "src/lib/email/provider-trace" { isSameOrSubdomain }
+    "src/lib/spam/domain-utils" ++> "src/lib/email/provider-trace" { extractSenderIp }
     src.db.index --> src.lib.deliverability.ingest { getDb }
     src.db.schema.index --> src.lib.deliverability.ingest {
         deliverabilityReports,
