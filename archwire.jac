@@ -7,6 +7,7 @@ graph spaces {
 }
 
 graph import {
+    src.lib.jac.host ++> "src/lib/deliverability/report-parse" { NULL, at, either, record, rx, rx_sub }
     src.lib.jac.host ++> "src/lib/deliverability/suppression-utils" { NULL, at, either, nil, rx }
     src.lib.jac.host ++> src.lib.spam.analyzers.authentication { at, rx }
     src.lib.email.parse --> src.lib.spam.analyzers.urls { ParsedEmail }
@@ -1625,8 +1626,8 @@ graph import {
         tlsRowKey,
     }
     src.lib.email.address ++> "src/lib/deliverability/org-domain" { getEmailAddressList }
-    "src/lib/dns-query" --> "src/lib/deliverability/report-parse" { reverseName }
-    "src/lib/import/zip-utils" --> "src/lib/deliverability/report-parse" {
+    "src/lib/dns-query" ++> "src/lib/deliverability/report-parse" { reverseName }
+    "src/lib/import/zip-utils" ++> "src/lib/deliverability/report-parse" {
         listZipEntries,
         openZipEntry,
         sliceChunks,
