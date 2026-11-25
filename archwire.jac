@@ -7,6 +7,7 @@ graph spaces {
 }
 
 graph import {
+    src.lib.jac.host ++> "src/lib/domains/cloudflare-cleanup" { either }
     src.lib.jac.host ++> "src/lib/cloudflare-dns" { record }
     src.lib.jac.host ++> "src/lib/cloudflare-api" { NULL, dig, either, merged, nil, promise, record }
     src.lib.domains.utils ++> "src/lib/cloudflare-api" { getZoneLookupCandidates }
@@ -10268,7 +10269,7 @@ graph import {
         forceCleanupMtaSts,
         republishMtaStsAfterMxChange,
     }
-    "src/lib/cloudflare-api" --> "src/lib/domains/cloudflare-cleanup" {
+    "src/lib/cloudflare-api" ++> "src/lib/domains/cloudflare-cleanup" {
         deleteEmailRoutingRule,
         listEmailRoutingRules,
     }
