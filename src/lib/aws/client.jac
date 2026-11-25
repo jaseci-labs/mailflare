@@ -43,9 +43,8 @@ async def awsRequest(request: any) -> any {
     (body, method) = (at(request, "body", ""), at(request, "method", "GET"));
     signed = {"method": method, "url": url, "headers": at(request, "headers", {}), "body": body};
     signed = {**signed, "region": region, "service": service, "credentials": config};
-    headers = await signAwsRequest(signed);
-    init = {"method": method, "headers": headers, "body": body};
-    init["body"] = None if method in ("GET", "HEAD") else body;
+    hs = await signAwsRequest(signed);
+    init = {"method": method, "headers": hs, "body": None if method in ("GET", "HEAD") else body};
     response = await globalThis.fetch(url, record(init));
     if not response.ok {
         raise await parse_error(response);
@@ -66,7 +65,6 @@ async def awsJson(request: any) -> any {
 async def awsQuery(
     config: any, service: str, version: str, action: str, params: any = None, options: any = None
 ) -> str {
-    options = {} if options is None else options;
     form = merged({"Action": action, "Version": version}, either(params, {}));
     host = at(options, "host", f"{service}.{config['region']}.amazonaws.com");
     hs = {"Content-Type": "application/x-www-form-urlencoded; charset=utf-8"};
