@@ -44,12 +44,8 @@ def:priv part_xml(p: any) -> str {
 }
 
 def:priv listed(b: any) -> any {
-    (key, size, when) = (xmlTag(b, "Key"), xmlTag(b, "Size"), xmlTag(b, "LastModified"));
-    return record({
-        "key": key,
-        "size": globalThis.Number(either(size, 0)),
-        "uploaded": stamp(when),
-    });
+    (key, size) = (xmlTag(b, "Key"), globalThis.Number(either(xmlTag(b, "Size"), 0)));
+    return record({"key": key, "size": size, "uploaded": stamp(xmlTag(b, "LastModified"))});
 }
 
 def:priv eager(f: any) -> any {
@@ -116,9 +112,7 @@ obj B2Bucket(globalThis.Object) {
     async def get(key: any, options: any = None) -> any {
         span = at(options, "range");
         (start, n, tail) = (at(span, "offset", 0), at(span, "length"), at(span, "suffix"));
-        bounds = f"-{tail}"
-            if not nil(tail)
-            else f"{start}-" + ("" if nil(n) else f"{start + n - 1}");
+        bounds = f"-{tail}" if not nil(tail) else f"{start}-{'' if nil(n) else start + n - 1}";
         headers = record({"Range": f"bytes={bounds}"} if span else {});
         return await self.found(key, {"headers": headers}, "NoSuchKey", 404);
     }
