@@ -1237,9 +1237,6 @@ graph import {
     "tests/helpers/dom-component" --> "tests/hotkey-shared-sequence.test" { loadComponent }
     src.lib.email.unsubscribe --> "tests/html-scan-bounds.test" { extractUnsubscribeLinkFromBody }
     src.lib.spam.analyzers.urls --> "tests/html-scan-bounds.test" { analyzeUrls }
-    "src/lib/email/unsubscribe-types.d" --> src.lib.email.unsubscribe { UnsubscribeUrl }
-    src.lib.email.parse --> src.lib.spam.analyzers.urls { ParsedEmail }
-    "src/lib/spam/types.d" --> src.lib.spam.analyzers.urls { PreparedSpamContent, SpamSignal }
     "src/lib/import/imap-utils" --> "tests/imap-chunk-size.test" {
         getImapChunkSize,
         growImapChunkSize,
@@ -5157,29 +5154,7 @@ graph import {
         BookingHostAvatar,
     }
     src.components.ui.select --> "src/app/(calendar)/booking/booking-editor" { Select }
-    src.lib.calendar.utils --> "src/lib/booking/confirmation-utils" { createCalendarInvitation }
-    src.lib.calendar.ics --> src.lib.calendar.utils {
-        escapeIcsText,
-        formatIcsUtc,
-        isIcsAddress,
-        joinIcsLines,
-    }
-    src.lib.time.utils --> src.lib.booking.utils {
-        dateFromZonedFields,
-        isValidTimeZone,
-        zonedDateFields,
-    }
-    "src/lib/booking/types.d" --> src.lib.booking.utils {
-        BookingEventInput,
-        BookingEventRecord,
-        BookingTimeRange,
-    }
-    src.lib.calendar.colors --> src.lib.booking.utils { normalizeCalendarColor }
-    src.lib.folders.colors --> src.lib.calendar.colors { DEFAULT_FOLDER_COLOR, FOLDER_COLOR_VALUES }
-    "src/lib/folders/types.d" --> src.lib.calendar.colors { FolderColor }
     src.lib.calendar.utils ++> "src/lib/booking/confirmation-utils" { createCalendarInvitation }
-    "src/lib/i18n/types.d" --> "src/lib/folders/color-keys" { TranslationKey }
-    "src/lib/folders/types.d" --> "src/lib/folders/color-keys" { FolderColor }
     src.lib.calendar.colors ++> src.lib.booking.utils { normalizeCalendarColor }
     src.lib.folders.colors ++> src.lib.calendar.colors { DEFAULT_FOLDER_COLOR, FOLDER_COLOR_VALUES }
     "src/lib/i18n/types.d" --> "src/app/(calendar)/booking/utils" { TranslationKey }
