@@ -166,9 +166,13 @@ def editDistance(a: any, b: any) -> int {
     d = [[(j if i == 0 else i if j == 0 else 0) for j in range(cols)] for i in range(rows)];
     for i in range(1, rows) {
         for j in range(1, cols) {
-            cost = 0 if a[i - 1] == b[j - 1] else 1;
+            cost = 0 if a.charCodeAt(i - 1) == b.charCodeAt(j - 1) else 1;
             d[i][j] = min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost);
-            if i > 1 and j > 1 and a[i - 1] == b[j - 2] and a[i - 2] == b[j - 1] {
+            if i > 1
+                and j > 1
+                and a.charCodeAt(i - 1) == b.charCodeAt(j - 2)
+                and a.charCodeAt(i - 2) == b.charCodeAt(j - 1)
+            {
                 d[i][j] = min(d[i][j], d[i - 2][j - 2] + 1);
             }
         }
