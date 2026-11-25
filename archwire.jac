@@ -7,6 +7,7 @@ graph spaces {
 }
 
 graph import {
+    src.lib.jac.host ++> "src/lib/cloudflare-dns" { record }
     src.lib.jac.host ++> "src/lib/cloudflare-api" { NULL, dig, either, merged, nil, promise, record }
     src.lib.domains.utils ++> "src/lib/cloudflare-api" { getZoneLookupCandidates }
     src.lib.jac.host ++> "src/lib/storage/b2-bucket" {
@@ -1790,9 +1791,7 @@ graph import {
         reportsDeps,
         unquote,
     }
-    "src/lib/cloudflare-api" --> "src/lib/cloudflare-dns" { cfRequest }
-    "src/lib/cloudflare-api.types.d" --> "src/lib/cloudflare-dns" { CfDnsRecord }
-    "src/lib/cloudflare-dns.types.d" --> "src/lib/cloudflare-dns" { CloudflareDnsRecordCreate }
+    "src/lib/cloudflare-api" ++> "src/lib/cloudflare-dns" { cfRequest }
     src.db.index --> "src/lib/deliverability/reports-admin" { getDb }
     src.db.schema.index --> "src/lib/deliverability/reports-admin" {
         domainDeliverability,
