@@ -7,6 +7,7 @@ graph spaces {
 }
 
 graph import {
+    src.lib.jac.host ++> "src/lib/calendar/import-store-utils" { NULL, either, merged, nil }
     src.lib.time.utils ++> "src/lib/calendar/invite-rules" { isValidTimeZone, normalizeTimeZone }
     src.lib.jac.host ++> "src/lib/calendar/invite-rules" { NULL, at, either, nil }
     src.lib.jac.host ++> "src/lib/contacts/avatar-client" { record }
@@ -1380,18 +1381,8 @@ graph import {
         planCalendarImportRows,
         planGroupIds,
     }
-    src.lib.calendar.ics --> "src/lib/calendar/import-store-utils" { isIcsAddress }
-    "src/lib/calendar/ics-import-types.d" --> "src/lib/calendar/import-store-utils" {
-        ImportEvent,
-        ImportGroup,
-    }
-    "src/lib/calendar/import-store-types.d" --> "src/lib/calendar/import-store-utils" {
-        CalendarImportPlan,
-        CalendarImportRow,
-        ImportGroupIds,
-        PlannedGroup,
-    }
-    "src/lib/calendar/invite-store" --> "src/lib/calendar/import-store-utils" { inviteEventId }
+    src.lib.calendar.ics ++> "src/lib/calendar/import-store-utils" { isIcsAddress }
+    "src/lib/calendar/invite-store" ++> "src/lib/calendar/import-store-utils" { inviteEventId }
     src.db.index --> "src/lib/calendar/invite-store" { getDb }
     src.db.schema.index --> "src/lib/calendar/invite-store" {
         calendarEventOverrides,
