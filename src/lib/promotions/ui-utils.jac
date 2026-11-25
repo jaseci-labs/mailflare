@@ -1,40 +1,32 @@
 glob PROMOTION_MODE_OPTIONS: any = [
-    record({"value": "off", "labelKey": "settings.promotions.modeOff"}),
-    record({"value": "show", "labelKey": "settings.promotions.modeShow"}),
-    record({"value": "separate", "labelKey": "settings.promotions.modeSeparate"}),
+    record({"value": m, "labelKey": f"settings.promotions.mode{m.capitalize()}"})
+    for m in ["off", "show", "separate"]
 ];
 
-glob:priv NOTICE_KEYS: dict[str, str] = {
-    "pending": "settings.promotions.backfillPending",
-    "running": "settings.promotions.backfillRunning",
-    "done": "settings.promotions.backfillDone",
-    "failed": "settings.promotions.backfillFailed",
-};
-
-"""The Promotions nav entry exists only when some mailbox in scope has it on."""
+# The Promotions nav entry exists only when some mailbox in scope has it on.
 def hasActivePromotions(modes: any = None) -> bool {
-    return bool(modes) and len([1 for (_, mode) in entries(modes) if mode != "off"]) > 0;
+    return bool(modes) and any([mode != "off" for (_, mode) in entries(modes)]);
 }
 
-"""Mirrors the server: changing a mailbox's mode needs full access."""
+# Mirrors the server: changing a mailbox's mode needs full access.
 def canManagePromotions(permission: any = None) -> bool {
     return permission == "full_access";
 }
 
-"""What the Settings row says about the 90-day sort of existing mail."""
-def getBackfillNotice(backfill: any = None) -> dict[str, any] {
-    status = backfill["status"] if backfill else None;
-    if globalThis.String(status) is not status or status not in NOTICE_KEYS {
+# What the Settings row says about the 90-day sort of existing mail.
+def getBackfillNotice(b: any = None) -> dict[str, any] {
+    s = b["status"] if b else None;
+    if s not in ["pending", "running", "done", "failed"] {
         return {"kind": "none"};
     }
-    notice = {"kind": status, "key": NOTICE_KEYS[status]};
-    if status == "failed" {
-        return {**notice, "error": at(backfill, "error", NULL), "retry": True};
+    n = {"kind": s, "key": f"settings.promotions.backfill{s.capitalize()}"};
+    if s == "failed" {
+        return {**n, "error": at(b, "error", NULL), "retry": True};
     }
-    return notice if status == "pending" else {**notice, "vars": {"count": backfill["scanned"]}};
+    return n if s == "pending" else {**n, "vars": {"count": b["scanned"]}};
 }
 
-"""Message for a failed mode save. 409 MIGRATION_REQUIRED happens on servers that have not applied the promotions migration yet."""
+# 409 MIGRATION_REQUIRED comes from servers that have not applied the promotions migration yet.
 def getModeErrorKey(status: any, code: any = None) -> str {
     if status == 409 and code == "MIGRATION_REQUIRED" {
         return "settings.promotions.migrationRequired";
@@ -42,56 +34,46 @@ def getModeErrorKey(status: any, code: any = None) -> str {
     return "settings.promotions.forbidden" if status == 403 else "settings.promotions.saveFailed";
 }
 
-"""The folder counts that move, leaving out a count that does not."""
-def:priv deltas(inbox: any, promotions: any) -> dict[str, any] {
+def:priv deltas(inbox: any, promo: any) -> dict[str, any] {
     return {
         k: v
-        for (k, v) in [("inboxUnreadDelta", inbox), ("promotionsUnreadDelta", promotions)]
+        for (k, v) in [("inboxUnreadDelta", inbox), ("promotionsUnreadDelta", promo)]
         if v
     };
 }
 
-"""Which folder counts a read/unread flip of `flip` messages moves, from the list the row is in.
-Inbox rows count toward Inbox, and also toward Promotions when they are promotions in a mailbox that has it on;
-Promotions rows count toward Promotions, and toward Inbox too in `show` mode, where they are listed in both.
-Null when no count moves."""
-def unreadDeltas(context: any, flip: any) -> any {
-    if not flip or at(context, "folderId") {
+# Inbox rows count toward Inbox, and Promotions too when promotions in a mailbox that has it on;
+# Promotions rows toward Promotions, and Inbox too in `show` mode, where they are listed in both.
+def unreadDeltas(c: any, flip: any) -> any {
+    if not flip or at(c, "folderId") {
         return NULL;
     }
-    mode = at(context, "mode");
+    mode = at(c, "mode");
     on = bool(mode) and mode != "off";
-    if context["folder"] == "inbox" {
-        return deltas(flip, flip if on and at(context, "category") == "promotions" else 0);
+    if c["folder"] == "inbox" {
+        return deltas(flip, flip if on and at(c, "category") == "promotions" else 0);
     }
-    if context["folder"] == "promotions" and on {
-        return deltas(flip if mode == "show" else 0, flip);
-    }
-    return NULL;
+    return deltas(flip if mode == "show" else 0, flip)
+        if c["folder"] == "promotions" and on
+        else NULL;
+}
+
+def:priv pick(d: any) -> any {
+    return (at(d, "inboxUnreadDelta", 0), at(d, "promotionsUnreadDelta", 0));
 }
 
 def mergeUnreadDeltas(a: any, b: any) -> any {
-    if not a {
-        return b;
+    if not a or not b {
+        return b if not a else a;
     }
-    if not b {
-        return a;
-    }
-    return deltas(
-        at(a, "inboxUnreadDelta", 0) + at(b, "inboxUnreadDelta", 0),
-        at(a, "promotionsUnreadDelta", 0) + at(b, "promotionsUnreadDelta", 0),
-    );
+    ((i, p), (j, q)) = (pick(a), pick(b));
+    return deltas(i + j, p + q);
 }
 
-def negateUnreadDeltas(given: any) -> any {
-    if not given {
-        return NULL;
-    }
-    return deltas(-at(given, "inboxUnreadDelta", 0), -at(given, "promotionsUnreadDelta", 0));
+def negateUnreadDeltas(d: any) -> any {
+    return deltas(-pick(d)[0], -pick(d)[1]) if d else NULL;
 }
 
 type PromotionModeValue = any;
 type BackfillState = any;
-type BackfillNotice = any;
-type UnreadDeltaContext = any;
 type UnreadDeltas = any;
