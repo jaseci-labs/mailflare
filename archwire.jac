@@ -224,7 +224,7 @@ graph import {
     src.lib.jac.host ++> "src/lib/promotions/mode-utils" { NULL, is_object }
     src.lib.jac.host ++> "src/lib/promotions/move-utils" { at, record }
     src.lib.jac.host ++> "src/lib/promotions/ui-utils" { NULL, at, entries, record }
-    src.lib.jac.host ++> "src/lib/search/query-utils" { NULL, at, either, rx, rx_sub }
+    src.lib.jac.host ++> "src/lib/search/query-utils" { NULL, either, rx }
     src.lib.time.utils ++> "src/lib/search/query-utils" { dateFromZonedFields, normalizeTimeZone }
     src.lib.jac.host ++> "src/lib/security/server-secret" { at }
     src.lib.jac.host ++> src.lib.spam.analyzers.authentication { at, rx }
