@@ -7,6 +7,10 @@ graph spaces {
 }
 
 graph import {
+    src.lib.jac.host ++> "src/lib/deliverability/tls-stats" { NULL, at }
+    src.lib.jac.host ++> "src/lib/deliverability/dmarc-stats" { NULL, at }
+    src.lib.jac.host ++> "src/lib/deliverability/suppression-admin" { NULL, at, either }
+    src.lib.jac.host ++> src.lib.deliverability.suppression { NULL, at, either, merged, nil, rx }
     src.lib.jac.host ++> "src/lib/deliverability/report-address" { NULL }
     src.lib.jac.host ++> "src/lib/deliverability/report-parse" { NULL, at, either, record, rx, rx_sub }
     src.lib.jac.host ++> "src/lib/deliverability/suppression-utils" { NULL, at, either, nil, rx }
@@ -852,28 +856,18 @@ graph import {
         parseUndoSendSeconds,
     }
     "src/lib/compose/types.d" --> src.lib.compose.preferences { ComposePreferences }
-    src.db.index --> src.lib.deliverability.suppression { getDb }
-    src.db.schema.index --> src.lib.deliverability.suppression {
+    src.db.index ++> src.lib.deliverability.suppression { getDb }
+    src.db.schema.index ++> src.lib.deliverability.suppression {
         appSettings,
         domains,
         emailSuppressions,
         messages,
     }
-    src.lib.email.address --> src.lib.deliverability.suppression { getEmailAddressList }
-    src.lib.ids --> src.lib.deliverability.suppression { newId }
-    src.lib.email.sender --> src.lib.deliverability.suppression { getAuthorizedSenderAddress }
-    src.lib.deliverability.dsn --> src.lib.deliverability.suppression { parseDeliveryStatus }
-    "src/lib/deliverability/suppression-utils" --> src.lib.deliverability.suppression {
-        MAX_SUPPRESSION_DETAIL,
-        SuppressedRecipientError,
-        SuppressionEntry,
-        SuppressionMode,
-        SuppressionReason,
-        SuppressionSource,
-        addressDomain,
-        cleanAddress,
-        filterSuppressed,
-    }
+    src.lib.email.address ++> src.lib.deliverability.suppression { getEmailAddressList }
+    src.lib.ids ++> src.lib.deliverability.suppression { newId }
+    src.lib.email.sender ++> src.lib.deliverability.suppression { getAuthorizedSenderAddress }
+    src.lib.deliverability.dsn ++> src.lib.deliverability.suppression { parseDeliveryStatus }
+    "src/lib/deliverability/suppression-utils" ++> src.lib.deliverability.suppression { MAX_SUPPRESSION_DETAIL, SuppressedRecipientError, addressDomain, cleanAddress, filterSuppressed }
     src.lib.email.address ++> "src/lib/deliverability/suppression-utils" {
         getEmailAddress,
         normalizeEmailAddress,
@@ -1731,19 +1725,15 @@ graph import {
         sendThroughProvider,
     }
     "src/lib/email/system-mail-types.d" --> "src/lib/email/system-mail" { SystemMailInput }
-    src.db.index --> "src/lib/deliverability/dmarc-stats" { getDb }
-    src.db.schema.index --> "src/lib/deliverability/dmarc-stats" {
+    src.db.index ++> "src/lib/deliverability/dmarc-stats" { getDb }
+    src.db.schema.index ++> "src/lib/deliverability/dmarc-stats" {
         deliverabilityReports,
         dmarcDailyStats,
     }
-    src.db.index --> "src/lib/deliverability/tls-stats" { getDb }
-    src.db.schema.index --> "src/lib/deliverability/tls-stats" {
+    src.db.index ++> "src/lib/deliverability/tls-stats" { getDb }
+    src.db.schema.index ++> "src/lib/deliverability/tls-stats" {
         deliverabilityReports,
         tlsDailyStats,
-    }
-    "src/lib/deliverability/dmarc-stats" --> "src/lib/deliverability/tls-stats" {
-        DmarcDays,
-        DmarcRecentReport,
     }
     src.db.index --> "src/lib/deliverability/mta-sts-guard" { getDb }
     src.db.schema.index --> "src/lib/deliverability/mta-sts-guard" { domainDeliverability, domains }
@@ -10865,13 +10855,9 @@ graph import {
         confirmSuppression,
         removeSuppression,
     }
-    src.db.index --> "src/lib/deliverability/suppression-admin" { getDb }
-    src.db.schema.index --> "src/lib/deliverability/suppression-admin" { emailSuppressions }
-    src.db.sql --> "src/lib/deliverability/suppression-admin" { containsLike }
-    "src/lib/deliverability/suppression-utils" --> "src/lib/deliverability/suppression-admin" {
-        SuppressionReason,
-        SuppressionSource,
-    }
+    src.db.index ++> "src/lib/deliverability/suppression-admin" { getDb }
+    src.db.schema.index ++> "src/lib/deliverability/suppression-admin" { emailSuppressions }
+    src.db.sql ++> "src/lib/deliverability/suppression-admin" { containsLike }
     src.lib.cloudflare --> "src/app/api/deliverability/[domainId]/suppressions/route" { getEnv }
     "src/lib/database-errors" --> "src/app/api/deliverability/[domainId]/suppressions/route" {
         isMissingTableError,
