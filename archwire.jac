@@ -25,6 +25,12 @@ graph import {
     src.lib.jac.host ++> src.lib.folders.colors { record }
     src.lib.jac.host ++> "src/lib/folders/color-keys" { record }
     src.lib.jac.host ++> "src/lib/messages/drag-utils" { NULL, at }
+    src.lib.jac.host ++> "src/lib/aws/ses-notification" { NULL, either, merged, nil }
+    src.lib.jac.host ++> "src/lib/aws/sns-signature" { NULL, at, either, record, rx, rx_sub }
+    src.lib.jac.host ++> src.lib.aws.client { NULL, at, either, entries, merged, nil, record, rx }
+    src.lib.jac.host ++> src.lib.aws.sts { either }
+    src.lib.jac.host ++> src.lib.aws.sns { either }
+    src.lib.jac.host ++> src.lib.aws.s3 { either, merged }
     src.lib.jac.host ++> src.lib.aws.xml { NULL, rx }
     src.lib.jac.host ++> src.lib.aws.sigv4 { at, either, entries, merged, rx, rx_sub }
     src.lib.jac.host ++> src.lib.calendar.ics { rx, rx_sub }
@@ -344,9 +350,8 @@ graph import {
     src.lib.aws.xml --> "src/lib/storage/b2-bucket" { xmlBlocks, xmlTag }
     "src/lib/aws/aws-types.d" --> "src/lib/storage/b2-bucket" { AwsConfig }
     "src/lib/storage/b2-types.d" --> "src/lib/storage/b2-bucket" { B2Config, B2HttpMetadata }
-    src.lib.aws.sigv4 --> src.lib.aws.client { signAwsRequest }
-    src.lib.aws.xml --> src.lib.aws.client { xmlTag }
-    "src/lib/aws/aws-types.d" --> src.lib.aws.client { AwsConfig }
+    src.lib.aws.sigv4 ++> src.lib.aws.client { signAwsRequest }
+    src.lib.aws.xml ++> src.lib.aws.client { xmlTag }
     "src/lib/email/inbound-limits" --> "src/app/api/messages/[messageId]/attachments/[attachmentId]/utils" {
         truncateUtf8,
     }
@@ -2477,8 +2482,6 @@ graph import {
     "src/lib/aws/sns-signature" --> "src/lib/email/raw-sweeper" { SNS_MAX_AGE_MS }
     src.lib.jmap.blobs --> "src/lib/email/raw-sweeper" { UPLOAD_PREFIX }
     "src/lib/email/stale-objects" --> "src/lib/email/raw-sweeper" { sweepStaleObjects }
-    "src/lib/aws/ses-notification" --> "src/lib/aws/sns-signature" { SnsEnvelope }
-    "src/lib/spam/types.d" --> "src/lib/aws/ses-notification" { ProviderVerdicts }
     src.db.index --> src.lib.messages.actions.claims { getDb }
     src.db.schema.index --> src.lib.messages.actions.claims { messageActionUndoClaims }
     "src/lib/database-errors" --> src.lib.messages.actions.claims { isUniqueConstraintError }
@@ -9558,15 +9561,12 @@ graph import {
     src.lib.aws.sns --> src.lib.aws.validate { listTopics }
     src.lib.aws.sts --> src.lib.aws.validate { getCallerIdentity }
     "src/lib/aws/aws-types.d" --> src.lib.aws.validate { AwsCapabilityReport, AwsConfig }
-    src.lib.aws.client --> src.lib.aws.s3 { AwsError, awsRequest }
-    src.lib.aws.sigv4 --> src.lib.aws.s3 { sha256Hex }
-    "src/lib/aws/aws-types.d" --> src.lib.aws.s3 { AwsConfig }
-    src.lib.aws.client --> src.lib.aws.sns { awsQuery }
-    src.lib.aws.xml --> src.lib.aws.sns { xmlBlocks, xmlTag }
-    "src/lib/aws/aws-types.d" --> src.lib.aws.sns { AwsConfig }
-    src.lib.aws.client --> src.lib.aws.sts { awsQuery }
-    src.lib.aws.xml --> src.lib.aws.sts { xmlTag }
-    "src/lib/aws/aws-types.d" --> src.lib.aws.sts { AwsConfig }
+    src.lib.aws.client ++> src.lib.aws.s3 { AwsError, awsRequest }
+    src.lib.aws.sigv4 ++> src.lib.aws.s3 { sha256Hex }
+    src.lib.aws.client ++> src.lib.aws.sns { awsQuery }
+    src.lib.aws.xml ++> src.lib.aws.sns { xmlBlocks, xmlTag }
+    src.lib.aws.client ++> src.lib.aws.sts { awsQuery }
+    src.lib.aws.xml ++> src.lib.aws.sts { xmlTag }
     src.app.api.admin.general.utils --> src.app.api.admin.general.route { GET, PUT }
     src.db.index --> src.app.api.admin.general.utils { getDb }
     src.db.schema.index --> src.app.api.admin.general.utils { appSettings }
