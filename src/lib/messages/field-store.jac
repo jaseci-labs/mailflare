@@ -1,38 +1,62 @@
 # The latest read/star values this tab has seen per message, so undo snapshots the screen rather
 # than an older action's "applied" state; a pending overlay sits on top while its request is in
 # flight, and every cache ingress applies it.
+#
+# Every message-list render runs through here, so the paths make no tuples, closures or
+# comprehensions, and read rows (JavaScript objects) with `get`, a direct JavaScript call.
 type KnownMessageFields = any;
 type PendingOverlayMessage = any;
 type ThreadUnreadTarget = any;
 
-glob:priv M: any = globalThis.Math,
-          FIELDS: list[str] = ["read", "starred"],
-          known_fields: dict[str, dict[str, any]] = {},
-          listeners: any = new(globalThis.Set),
-          # row id -> {messageIds, threadUnread}; threadUnread is None while unknown, awaiting a trusted row.
-          known_threads: dict[str, dict[str, any]] = {},
-          # owner -> (message id -> fields, row id -> absolute unread target), oldest first.
-          layers: dict[str, tuple[dict[str, dict[str, any]], dict[str, int]]] = {};
+glob:priv listeners: any = new(globalThis.Set),
+          # message id -> {read?, starred?}
+          known_fields: dict[any, dict[str, any]] = {},
+          # row id -> its distinct member ids, and row id -> its unread aggregate (None while
+          # unknown, awaiting a trusted row); both keyed in the same order.
+          thread_members: dict[any, list[any]] = {},
+          thread_unread: dict[any, any] = {},
+          # owner -> (message id -> fields), and owner -> (row id -> absolute unread target),
+          # oldest operation first; both keyed in the same order.
+          layer_messages: dict[any, dict[any, dict[str, any]]] = {},
+          layer_threads: dict[any, dict[any, any]] = {};
 
-# A property that may be missing: undefined when missing, null kept as null.
-def:priv opt(o: any, k: str) -> any {
-    return o.get(k) if isinstance(o, dict) else getattr(o, k, None);
+# `o.k` of a JavaScript object: every record here comes from JavaScript callers.
+def:priv get(o: any, k: str) -> any {
+    return globalThis.Reflect.get(o, k);
 }
 
-def:priv defined(source: any) -> dict[str, any] {
-    return {k: opt(source, k) for k in FIELDS if opt(source, k) is not None};
+# JavaScript's `xs?.length` of an array or nothing.
+def:priv size(xs: any) -> int {
+    return 0 if nil(xs) else len(xs);
 }
 
-def:priv clamp(value: any, size: int) -> int {
-    return M.min(size, M.max(0, M.trunc(value))) if globalThis.Number.isFinite(value) else 0;
+# JavaScript's `x === 0`.
+def:priv is_zero(x: any) -> bool {
+    return bool(globalThis.Object.is(x, 0)) or bool(globalThis.Object.is(x, -0));
 }
 
-def:priv touches(row: dict[str, any], ids: any) -> bool {
-    return any([id in ids for id in row["messageIds"]]);
+def:priv clamp(value: any, size: int) -> any {
+    if not globalThis.Number.isFinite(value) {
+        return 0;
+    }
+    return globalThis.Math.min(size, globalThis.Math.max(0, globalThis.Math.trunc(value)));
 }
 
-def:priv tally(xs: any, want: any) -> int {
-    return len([x for x in xs if x is want]);
+def:priv touches(members: list[any], ids: any) -> bool {
+    for id in members {
+        if id in ids {
+            return True;
+        }
+    }
+    return False;
+}
+
+def:priv id_set(ids: any) -> dict[any, bool] {
+    out: dict[any, bool] = {};
+    for id in ids {
+        out[id] = True;
+    }
+    return out;
 }
 
 def:priv notify {
@@ -41,175 +65,400 @@ def:priv notify {
     }
 }
 
+def:priv remember_one(id: any, read: any, starred: any) {
+    current = known_fields.get(id);
+    if current is None {
+        current = {};
+        known_fields[id] = current;
+    }
+    if read is not None {
+        current["read"] = read;
+    }
+    if starred is not None {
+        current["starred"] = starred;
+    }
+}
+
 def rememberMessageFields(messageIds: any, patch: any) {
-    seen = defined(patch);
-    for id in (messageIds if seen else []) {
-        known_fields[id] = {**known_fields.get(id, {}), **seen};
+    read = get(patch, "read");
+    starred = get(patch, "starred");
+    if read is None and starred is None {
+        return;
+    }
+    for id in messageIds {
+        remember_one(id, read, starred);
     }
 }
 
 # Drops optimistic member state when a rollback has no trusted snapshot.
 def forgetMessageFields(messageIds: any, fields: any) {
     for id in messageIds {
-        kept = {k: v for (k, v) in known_fields.get(id, {}).items() if not opt(fields, k)};
-        known_fields[id] = kept;
-        if not kept {
+        current = known_fields.get(id);
+        if current is None {
+            continue;
+        }
+        if globalThis.Boolean(get(fields, "read")) {
+            current.pop("read", None);
+        }
+        if globalThis.Boolean(get(fields, "starred")) {
+            current.pop("starred", None);
+        }
+        if current.get("read") is None and current.get("starred") is None {
             known_fields.pop(id);
         }
     }
 }
 
-def rememberMessageRows(rows: any) {
+def:priv remember_rows(rows: any) {
     for row in rows {
-        members = either(opt(row, "threadMessageIds"), []);
+        id = get(row, "id");
+        members = get(row, "threadMessageIds");
+        grouped = size(members) > 0;
         # A grouped row's read flag is an aggregate, not the anchor's own state.
-        read = None if len(members) else opt(row, "read");
-        rememberMessageFields([row["id"]], {"read": read, "starred": opt(row, "starred")});
-        if len(members) {
-            ids = list({id: True for id in members}.keys());
-            unread = clamp(either(opt(row, "threadUnread"), 0), len(ids));
-            known_threads[row["id"]] = {"messageIds": ids, "threadUnread": unread};
+        read = None if grouped else get(row, "read");
+        starred = get(row, "starred");
+        if read is not None or starred is not None {
+            remember_one(id, read, starred);
+        }
+        if grouped {
+            ids: list[any] = [];
+            seen: dict[any, bool] = {};
+            for member in members {
+                if member not in seen {
+                    seen[member] = True;
+                    ids.append(member);
+                }
+            }
+            unread = get(row, "threadUnread");
+            thread_members[id] = ids;
+            thread_unread[id] = clamp(either(unread, 0), len(ids));
         }
     }
 }
 
 # Any action touching a member of a known conversation joins one lock group.
-def getConversationLockKeys(ids: any) -> list[str] {
-    keys: dict[str, bool] = {id: True for id in ids};
-    for (rowId, row) in known_threads.items() {
-        if rowId in keys or touches(row, keys) {
-            keys.update({id: True for id in [rowId] + row["messageIds"]});
+def getConversationLockKeys(ids: any) -> list[any] {
+    keys = id_set(ids);
+    for rowId in thread_members {
+        members = thread_members[rowId];
+        if rowId not in keys and not touches(members, keys) {
+            continue;
+        }
+        keys[rowId] = True;
+        for id in members {
+            keys[id] = True;
         }
     }
     return list(keys.keys());
 }
 
-def getThreadRowIdsForMessages(ids: any) -> list[str] {
-    return [rowId for (rowId, row) in known_threads.items() if touches(row, ids)];
+# Grouped rows containing any of these message ids.
+def getThreadRowIdsForMessages(ids: any) -> list[any] {
+    wanted = id_set(ids);
+    rowIds: list[any] = [];
+    if len(wanted) == 0 {
+        return rowIds;
+    }
+    for rowId in thread_members {
+        if touches(thread_members[rowId], wanted) {
+            rowIds.append(rowId);
+        }
+    }
+    return rowIds;
 }
 
 # Persists a server-confirmed aggregate even when its list row is not cached.
 def rememberThreadUnreadTargets(targets: any) {
-    for (rowId, unread) in targets.items() {
-        row = known_threads.get(rowId);
-        if row is not None and globalThis.Number.isFinite(unread) {
-            row["threadUnread"] = clamp(unread, len(row["messageIds"]));
+    for rowId in targets {
+        unread = targets.get(rowId);
+        if rowId in thread_members and globalThis.Number.isFinite(unread) {
+            thread_unread[rowId] = clamp(unread, len(thread_members[rowId]));
         }
     }
 }
 
 # Keeps conversation membership for locking but drops an untrusted aggregate.
 def invalidateThreadUnreadTargets(rowIds: any) {
-    for rowId in [r for r in rowIds if r in known_threads] {
-        known_threads[rowId]["threadUnread"] = None;
+    for rowId in rowIds {
+        if rowId in thread_members {
+            thread_unread[rowId] = None;
+        }
     }
 }
 
-def:priv as_map(pairs: any) -> any {
-    return new(globalThis.Map, [[k, v] for (k, v) in pairs.items()]);
+# The read flag on screen: the known one under every pending operation's.
+def:priv visible_read(id: any) -> any {
+    known = known_fields.get(id);
+    read = None if known is None else known.get("read");
+    for messages in layer_messages.values() {
+        pending = messages.get(id);
+        if pending is not None and pending.get("read") is not None {
+            read = pending["read"];
+        }
+    }
+    return read;
+}
+
+# Whether any active operation names this row: a row none names comes back as itself.
+def:priv pending_for(id: any) -> bool {
+    for messages in layer_messages.values() {
+        if id in messages {
+            return True;
+        }
+    }
+    for threads in layer_threads.values() {
+        if id in threads {
+            return True;
+        }
+    }
+    return False;
+}
+
+def:priv pending_thread_unread(rowId: any) -> any {
+    unread: any = None;
+    for threads in layer_threads.values() {
+        target = threads.get(rowId);
+        if target is not None {
+            unread = target;
+        }
+    }
+    return unread;
+}
+
+def:priv as_map(pairs: list[any]) -> any {
+    return new(globalThis.Map, pairs);
+}
+
+def:priv pending_thread_targets(owner: any) -> list[any] {
+    pairs: list[any] = [];
+    threads = layer_threads.get(owner);
+    if threads is not None {
+        for rowId in threads {
+            pairs.append([rowId, threads[rowId]]);
+        }
+    }
+    return pairs;
+}
+
+def:priv thread_unread_pairs(ids: any) -> list[any] {
+    wanted = id_set(ids);
+    pairs: list[any] = [];
+    for rowId in thread_members {
+        members = thread_members[rowId];
+        if not touches(members, wanted) {
+            continue;
+        }
+        visible = getKnownThreadUnread(rowId);
+        if visible is not None {
+            pairs.append([rowId, clamp(visible, len(members))]);
+        }
+    }
+    return pairs;
+}
+
+def:priv message_field_pairs(ids: any) -> list[any] {
+    pairs: list[any] = [];
+    for id in id_set(ids) {
+        fields = getVisibleMessageFields(id);
+        if fields.get("read") is not None or fields.get("starred") is not None {
+            pairs.append([id, fields]);
+        }
+    }
+    return pairs;
 }
 
 # A `def`'s result reaches JavaScript with every Map made a plain object, so these return real Maps.
-glob getPendingThreadTargets: any = lambda (owner: str) -> any {
-         as_map(layers[owner][1] if owner in layers else {})
+glob getPendingThreadTargets: any = lambda (owner: any) -> any {
+         as_map(pending_thread_targets(owner))
      },
      # Pre-click grouped unread aggregates for rollback after a failed undo.
-     captureThreadUnread: any = lambda (ids: any) -> any { as_map(thread_unread_of(ids)) },
+     captureThreadUnread: any = lambda (ids: any) -> any { as_map(thread_unread_pairs(ids)) },
      # Copies only fields this tab has actually observed; unknown ids stay unknown.
-     captureMessageFields: any = lambda (ids: any) -> any {
-         as_map({id: merged(seen) for id in ids if (seen := getVisibleMessageFields(id))})
-     };
+     captureMessageFields: any = lambda (ids: any) -> any { as_map(message_field_pairs(ids)) };
 
 # Latest known value including any active pending operation.
-def getVisibleMessageFields(messageId: str) -> dict[str, any] {
-    fields = dict(known_fields.get(messageId, {}));
-    for (messages, _) in layers.values() {
-        fields.update(messages.get(messageId, {}));
+def getVisibleMessageFields(messageId: any) -> dict[str, any] {
+    fields: dict[str, any] = {};
+    known = known_fields.get(messageId);
+    if known is not None {
+        fields.update(known);
+    }
+    for messages in layer_messages.values() {
+        pending = messages.get(messageId);
+        if pending is None {
+            continue;
+        }
+        if pending.get("read") is not None {
+            fields["read"] = pending["read"];
+        }
+        if pending.get("starred") is not None {
+            fields["starred"] = pending["starred"];
+        }
     }
     return fields;
 }
 
 # The newest owner's target wins over the known aggregate.
-def getKnownThreadUnread(rowId: str) -> any {
-    hits = [t[rowId] for (_, t) in layers.values() if rowId in t];
-    return hits[-1] if hits else known_threads.get(rowId, {}).get("threadUnread");
+def getKnownThreadUnread(rowId: any) -> any {
+    pending = pending_thread_unread(rowId);
+    if pending is not None {
+        return pending;
+    }
+    return thread_unread.get(rowId);
 }
 
 # Applies every active owner's overlay; later owners win field by field. A row no overlay changed
 # comes back as itself.
-def applyPendingToMessage(message: any) -> any {
-    (id, members) = (message["id"], either(opt(message, "threadMessageIds"), []));
-    now = {k: opt(message, k) for k in ["read", "starred", "threadUnread"]};
-    changed = False;
-    for (messages, threads) in layers.values() {
-        step = dict(messages.get(id, {}));
-        if len(members) and id in threads {
-            step["threadUnread"] = clamp(threads[id], len(members));
+def:priv apply_pending(message: any) -> any {
+    if len(layer_messages) == 0 {
+        if nil(message) {
+            # Reading a property of a missing message throws, as it does in JavaScript.
+            get(message, "read");
         }
-        changed = changed or any([now[k] is not v for (k, v) in step.items()]);
-        now.update(step);
+        return message;
+    }
+    id = get(message, "id");
+    if not pending_for(id) {
+        return message;
+    }
+    read0 = get(message, "read");
+    starred0 = get(message, "starred");
+    unread0 = get(message, "threadUnread");
+    read = read0;
+    starred = starred0;
+    threadUnread = unread0;
+    changed = False;
+    for messages in layer_messages.values() {
+        fields = messages.get(id);
+        if fields is None {
+            continue;
+        }
+        r = fields.get("read");
+        if r is not None and read is not r {
+            read = r;
+            changed = True;
+        }
+        s = fields.get("starred");
+        if s is not None and starred is not s {
+            starred = s;
+            changed = True;
+        }
+    }
+    members = get(message, "threadMessageIds");
+    n = size(members);
+    for threads in layer_threads.values() {
+        target = threads.get(id);
+        if target is not None and n > 0 {
+            nextUnread = clamp(target, n);
+            if threadUnread is not nextUnread {
+                threadUnread = nextUnread;
+                changed = True;
+            }
+        }
     }
     if not changed {
         return message;
     }
-    out = merged(message, {k: v for (k, v) in now.items() if v is not None});
-    if len(members) and now["threadUnread"] is not None {
-        out["read"] = now["threadUnread"] == 0;
+    out: any = globalThis.Object.assign(globalThis.Object(), message);
+    if read0 is not None or read is not None {
+        globalThis.Reflect.set(out, "read", read);
+    }
+    if starred0 is not None or starred is not None {
+        globalThis.Reflect.set(out, "starred", starred);
+    }
+    if threadUnread is not None {
+        globalThis.Reflect.set(out, "threadUnread", threadUnread);
+        if n > 0 {
+            globalThis.Reflect.set(out, "read", is_zero(threadUnread));
+        }
     }
     return out;
 }
 
-def applyPendingToMessages(messages: any) -> any {
-    applied = [applyPendingToMessage(m) for m in messages];
-    return applied if any([a is not m for (a, m) in zip(applied, messages)]) else messages;
+def:priv apply_pending_rows(messages: any) -> any {
+    changed = False;
+    out: list[any] = [];
+    for message in messages {
+        applied = apply_pending(message);
+        if applied is not message {
+            changed = True;
+        }
+        out.append(applied);
+    }
+    return out if changed else messages;
 }
 
-def applyPendingToMessageList(response: any) -> any {
-    rows = either(opt(response, "messages"), []);
-    messages = applyPendingToMessages(rows) if len(rows) else rows;
-    return response if messages is rows else merged(response, {"messages": messages});
+def:priv apply_pending_list(response: any) -> any {
+    rows = get(response, "messages");
+    if size(rows) == 0 {
+        return response;
+    }
+    messages = apply_pending_rows(rows);
+    if messages is rows {
+        return response;
+    }
+    out: any = globalThis.Object.assign(globalThis.Object(), response);
+    globalThis.Reflect.set(out, "messages", messages);
+    return out;
 }
 
-def setPendingOverlay(owner: str, entries: any) {
+def setPendingOverlay(owner: any, entries: any) {
     if not owner {
         return;
     }
-    messages: dict[str, dict[str, any]] = {};
-    threads: dict[str, int] = {};
-    for item in at(entries, "messages", []) {
-        if (seen := defined(item)) {
-            messages[item["id"]] = {**messages.get(item["id"], {}), **seen};
+    messages: dict[any, dict[str, any]] = {};
+    for item in either(get(entries, "messages"), []) {
+        read = get(item, "read");
+        starred = get(item, "starred");
+        if read is None and starred is None {
+            continue;
+        }
+        id = get(item, "id");
+        fields = messages.get(id);
+        if fields is None {
+            fields = {};
+            messages[id] = fields;
+        }
+        if read is not None {
+            fields["read"] = read;
+        }
+        if starred is not None {
+            fields["starred"] = starred;
         }
     }
-    for item in at(entries, "threads", []) {
-        if globalThis.Number.isFinite(item["threadUnread"]) {
-            threads[item["id"]] = M.max(0, M.trunc(item["threadUnread"]));
+    threads: dict[any, any] = {};
+    for item in either(get(entries, "threads"), []) {
+        unread = get(item, "threadUnread");
+        if globalThis.Number.isFinite(unread) {
+            threads[get(item, "id")] = globalThis.Math.max(0, globalThis.Math.trunc(unread));
         }
     }
-    if not messages and not threads {
+    if len(messages) == 0 and len(threads) == 0 {
         clearPendingOverlay(owner);
         return;
     }
     # An existing owner keeps its position, so a newer operation stays last.
-    layers[owner] = (messages, threads);
+    layer_messages[owner] = messages;
+    layer_threads[owner] = threads;
     notify();
 }
 
-def clearPendingOverlay(owner: str) -> bool {
-    if owner not in layers {
+def clearPendingOverlay(owner: any) -> bool {
+    if owner not in layer_messages {
         return False;
     }
-    layers.pop(owner);
+    layer_messages.pop(owner);
+    layer_threads.pop(owner);
     notify();
     return True;
 }
 
 def hasPendingOverlay -> bool {
-    return len(layers) > 0;
+    return len(layer_messages) > 0;
 }
 
-def getPendingOverlayOwners -> list[str] {
-    return list(layers.keys());
+def getPendingOverlayOwners -> list[any] {
+    return list(layer_messages.keys());
 }
 
 def subscribePendingOverlay(listener: any) -> any {
@@ -218,40 +467,86 @@ def subscribePendingOverlay(listener: any) -> any {
 }
 
 # Absolute unread targets: only real member transitions, bounded by the aggregate.
-def getThreadUnreadTargets(fields: any) -> list[dict[str, any]] {
-    reads = {f["id"]: opt(f, "read") for f in fields if opt(f, "read") is not None};
-    targets: list[dict[str, any]] = [];
-    for (rowId, row) in known_threads.items() {
-        agg = getKnownThreadUnread(rowId);
-        if agg is None or not touches(row, reads) {
+def getThreadUnreadTargets(fields: any) -> list[any] {
+    reads: dict[any, any] = {};
+    for field in fields {
+        read = get(field, "read");
+        if read is not None {
+            reads[get(field, "id")] = read;
+        }
+    }
+    targets: list[any] = [];
+    if len(reads) == 0 {
+        return targets;
+    }
+    for rowId in thread_members {
+        members = thread_members[rowId];
+        if not touches(members, reads) {
             continue;
         }
-        n = len(row["messageIds"]);
-        cur = clamp(agg, n);
-        vis = {id: getVisibleMessageFields(id).get("read") for id in row["messageIds"]};
-        asked = [(vis[id], reads[id]) for id in vis if id in reads];
-        # A known member flips directly; unknown ones only as far as the aggregate leaves room.
-        unknown = [bool(d) for (v, d) in asked if v is None];
-        direct = [bool(d) for (v, d) in asked if v is not None and v is not d];
-        seen = list(vis.values());
-        room = (max(0, cur - tally(seen, False)), max(0, n - cur - tally(seen, True)));
-        to_read = tally(direct, True) + min(tally(unknown, True), room[0]);
-        to_unread = tally(direct, False) + min(tally(unknown, False), room[1]);
-        targets.append({"id": rowId, "threadUnread": clamp(cur - to_read + to_unread, n)});
+        visibleAggregate = getKnownThreadUnread(rowId);
+        if visibleAggregate is None {
+            continue;
+        }
+        n = len(members);
+        currentUnread: int = clamp(visibleAggregate, n);
+        directToRead = 0;
+        directToUnread = 0;
+        unknownUnread = 0;
+        unknownRead = 0;
+        knownUnread = 0;
+        knownRead = 0;
+        for id in members {
+            visible = visible_read(id);
+            if visible is False {
+                knownUnread += 1;
+            }
+            if visible is True {
+                knownRead += 1;
+            }
+            if id not in reads {
+                continue;
+            }
+            desired = reads[id];
+            if visible is None {
+                if globalThis.Boolean(desired) {
+                    unknownUnread += 1;
+                } else {
+                    unknownRead += 1;
+                }
+            } elif visible is not desired {
+                if globalThis.Boolean(desired) {
+                    directToRead += 1;
+                } else {
+                    directToUnread += 1;
+                }
+            }
+        }
+        unknownUnreadAvailable = max(0, currentUnread - knownUnread);
+        unknownReadAvailable = max(0, n - currentUnread - knownRead);
+        toRead = directToRead + min(unknownUnread, unknownUnreadAvailable);
+        toUnread = directToUnread + min(unknownRead, unknownReadAvailable);
+        target: any = globalThis.Object();
+        globalThis.Reflect.set(target, "id", rowId);
+        globalThis.Reflect.set(target, "threadUnread", clamp(currentUnread - toRead + toUnread, n));
+        targets.append(target);
     }
     return targets;
 }
 
-def:priv thread_unread_of(ids: any) -> dict[str, int] {
-    return {
-        rowId: clamp(visible, len(row["messageIds"]))
-        for (rowId, row) in known_threads.items()
-        if touches(row, ids) and (visible := getKnownThreadUnread(rowId)) is not None
-    };
-}
-
 def clearKnownMessageFieldsForTests {
     known_fields.clear();
-    known_threads.clear();
-    layers.clear();
+    thread_members.clear();
+    thread_unread.clear();
+    layer_messages.clear();
+    layer_threads.clear();
 }
+
+# The entry points of every list render, as function values: JavaScript calls them as they are,
+# without a `def`'s conversion of each argument and result at the boundary.
+glob applyPendingToMessage: any = lambda (message: any) -> any { apply_pending(message) },
+     applyPendingToMessages: any = lambda (messages: any) -> any { apply_pending_rows(messages) },
+     applyPendingToMessageList: any = lambda (response: any) -> any {
+         apply_pending_list(response)
+     },
+     rememberMessageRows: any = lambda (rows: any) -> any { remember_rows(rows) };

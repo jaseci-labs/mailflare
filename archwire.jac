@@ -211,9 +211,9 @@ graph import {
     src.lib.jac.host ++> src.lib.messages.actions.definitions { NULL, at, is_object }
     src.lib.jac.host ++> "src/lib/messages/change-events" { at, record }
     src.lib.jac.host ++> "src/lib/messages/drag-utils" { NULL, at }
-    src.lib.jac.host ++> "src/lib/messages/field-store" { at, either, merged }
-    src.lib.jac.host ++> "src/lib/messages/list-membership" { NULL, at, nil }
-    src.lib.jac.host ++> "src/lib/messages/membership-store" { NULL, at, either, first, merged, nil }
+    src.lib.jac.host ++> "src/lib/messages/field-store" { either, nil }
+    src.lib.jac.host ++> "src/lib/messages/list-membership" { NULL, nil }
+    src.lib.jac.host ++> "src/lib/messages/membership-store" { NULL, either, nil }
     "src/lib/messages/list-membership" ++> "src/lib/messages/membership-store" {
         getListMembershipContext,
         getListMembershipKey,
