@@ -1,46 +1,25 @@
-def:priv is_record(v: any) -> bool {
-    return globalThis.Object.prototype.toString.call(v) == "[object Object]";
+glob:priv IO: any = ["input", "output"],
+          arr: any = globalThis.Array.isArray,
+          N: any = globalThis.Number,
+          rnd: any = globalThis.Math.round;
+
+def:priv rates(r: any) -> any {
+    return record({k: r[k] if N.isFinite(r[k]) and r[k] >= 0 else NULL for k in IO});
 }
 
-"""A rate that is a finite number of at least zero, else null."""
-def:priv rate(rates: any, k: str) -> any {
-    v = rates[k];
-    return v if globalThis.Number.isFinite(v) and v >= 0 else NULL;
-}
-
-"""The per-model token rates of the stored JSON setting; anything malformed is left out."""
 def parseAgentModelRates(value: any) -> any {
-    if not value {
-        return {};
-    }
     try {
-        parsed = globalThis.JSON.parse(value);
+        p = globalThis.JSON.parse(value) if value else NULL;
+        # fromEntries keeps a model named "__proto__" as an own key.
+        rows = [[m, rates(r)] for (m, r) in entries(p) if is_object(r) and not arr(r)];
+        return {} if arr(p) else globalThis.Object.fromEntries(rows);
     } except Exception {
         return {};
     }
-    if not is_record(parsed) {
-        return {};
-    }
-    return {
-        model: {"input": rate(rates, "input"), "output": rate(rates, "output")}
-        for (model, rates) in entries(parsed)
-        if is_record(rates)
-    };
 }
 
-def calculateAgentCostUsdMicros(usage: any, rates: any) -> any {
-    if not rates
-        or rates["input"] is NULL
-        or rates["output"] is NULL
-        or usage["inputTokens"] is None
-        or usage["outputTokens"] is None
-    {
-        return NULL;
-    }
-    # Number() keeps JavaScript's arithmetic for a count or rate that is not a number.
-    num = globalThis.Number;
-    return globalThis.Math.round(
-        num(usage["inputTokens"]) * num(rates["input"])
-            + num(usage["outputTokens"]) * num(rates["output"]),
-    );
+def calculateAgentCostUsdMicros(usage: any, r: any) -> any {
+    bad = not r or r["input"] is NULL or r["output"] is NULL;
+    (i, o) = (None, None) if bad else (usage["inputTokens"], usage["outputTokens"]);
+    return NULL if i is None or o is None else rnd(N(i) * N(r["input"]) + N(o) * N(r["output"]));
 }
