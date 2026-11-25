@@ -121,6 +121,25 @@ graph import {
     src.lib.jac.host ++> src.lib.utils { NULL, record, rx, rx_sub }
     src.lib.jac.host ++> "src/lib/database-errors" { rx }
     src.lib.jac.host ++> "src/lib/avatar-images" { NULL, at, record }
+    src.lib.jac.host ++> src.lib.agent.provider { NULL, at, either, record, rx, rx_sub }
+    src.db.index --> src.lib.promotions.settings { getDb }
+    src.db.schema.index --> src.lib.promotions.settings { mailboxPromotionSettings, messages }
+    src.db.sql --> src.lib.promotions.settings { matchNothing }
+    "src/lib/database-errors" --> src.lib.promotions.settings { isMissingTableError }
+    src.lib.jac.host ++> src.lib.promotions.classify { NULL, at, either, record }
+    src.lib.jac.host ++> src.lib.promotions.refile { NULL, at, either, record }
+    src.lib.jac.host ++> "src/lib/drive/import-utils" { NULL, nil, rx, rx_sub }
+    src.lib.jac.host ++> "src/lib/agent/provider-constants" { record }
+    src.lib.jac.host ++> "src/lib/agent/schema-utils" { record }
+    include "src/lib/promotions/subscriptions-utils" ++> "src/lib/promotions/subscriptions-ui-utils" { SUBSCRIPTIONS_PAGE_SIZE }
+    src.lib.jac.host ++> "src/lib/promotions/move-utils" { at, record }
+    src.lib.jac.host ++> "src/lib/promotions/ui-utils" { NULL, at, entries, record }
+    src.lib.jac.host ++> "src/lib/promotions/subscriptions-ui-utils" { NULL, at, either, nil }
+    include "src/lib/promotions/refile-utils" ++> "src/lib/promotions/subscriptions-utils" { chunk }
+    src.lib.jac.host ++> "src/lib/promotions/refile-utils" { NULL }
+    src.lib.jac.host ++> "src/lib/promotions/mode-utils" { NULL }
+    src.lib.jac.host ++> "src/lib/promotions/subscriptions-utils" { NULL }
+    src.lib.jac.host ++> "src/lib/promotions/backfill-utils" { NULL, record }
     src.lib.jac.host ++> "src/lib/promotions/classify-utils" { NULL, at }
     src.lib.jac.host ++> src.lib.agent.pricing { NULL, entries }
     src.lib.jac.host ++> src.lib.agent.schedule { NULL, rx }
@@ -718,6 +737,9 @@ graph import {
     "src/lib/database-errors" --> src.lib.promotions.settings { isMissingTableError }
     src.lib.jmap.constants ++> "src/lib/jmap/email-import-utils" { KEYWORD_FLAGGED, KEYWORD_SEEN }
     src.lib.jmap.ids ++> "src/lib/jmap/email-import-utils" { decodeMailboxRef }
+    src.lib.jmap.constants --> "src/lib/jmap/email-import-utils" { KEYWORD_FLAGGED, KEYWORD_SEEN }
+    src.lib.jmap.ids --> "src/lib/jmap/email-import-utils" { decodeMailboxRef }
+    "src/lib/jmap/types.d" --> "src/lib/jmap/email-import-utils" { JmapSetError }
     src.db.schema.index --> "src/lib/jmap/email-query" {
         mailboxPromotionSettings,
         messageAttachments,
@@ -1618,11 +1640,10 @@ graph import {
     }
     src.db.schema.index --> "src/lib/email/sender-sweep" { messages }
     src.db.sql --> "src/lib/email/sender-sweep" { escapeLike, insensitiveLike }
-    "src/lib/promotions/refile-utils" --> "src/lib/promotions/subscriptions-utils" { chunk }
-    "src/lib/promotions/classify-utils" --> "src/lib/promotions/subscriptions-utils" {
+    "src/lib/promotions/classify-utils" ++> "src/lib/promotions/subscriptions-utils" {
         toSenderAddress,
     }
-    "src/lib/promotions/classify-utils" --> "src/lib/promotions/refile-utils" { toSenderAddress }
+    "src/lib/promotions/classify-utils" ++> "src/lib/promotions/refile-utils" { toSenderAddress }
     src.lib.email.address ++> "src/lib/promotions/classify-utils" { normalizeEmailAddress }
     src.db.index --> src.lib.promotions.backfill { getDb }
     src.db.schema.index --> src.lib.promotions.backfill {
@@ -2114,21 +2135,15 @@ graph import {
     src.lib.agent.provider --> src.lib.agent.model { getAgentProviderConfig }
     "src/lib/agent/provider-constants" --> src.lib.agent.model { PROVIDER_BASE_URLS }
     src.lib.agent.time --> src.lib.agent.model { agentTimeContext }
-    src.db.index --> src.lib.agent.provider { getDb }
-    src.db.schema.index --> src.lib.agent.provider { appSettings }
-    "src/lib/agent/provider-types.d" --> src.lib.agent.provider {
-        AgentProviderConfig,
-        AgentProviderPreset,
-        AgentProviderPublicConfig,
-    }
-    "src/lib/agent/provider-constants" --> src.lib.agent.provider {
+    src.db.index ++> src.lib.agent.provider { getDb }
+    src.db.schema.index ++> src.lib.agent.provider { appSettings }
+    "src/lib/agent/provider-constants" ++> src.lib.agent.provider {
         AGENT_SETTINGS_ID,
         DEFAULT_CLOUDFLARE_MODEL,
         PROVIDER_BASE_URLS,
     }
-    "src/lib/agent/model-ids" --> src.lib.agent.provider { parseAgentModelIds }
-    src.lib.agent.pricing --> src.lib.agent.provider { parseAgentModelRates }
-    "src/lib/agent/provider-types.d" --> "src/lib/agent/provider-constants" { AgentProviderPreset }
+    "src/lib/agent/model-ids" ++> src.lib.agent.provider { parseAgentModelIds }
+    src.lib.agent.pricing ++> src.lib.agent.provider { parseAgentModelRates }
     src.db.index --> src.lib.ai.usage { getDb }
     src.db.schema.index --> src.lib.ai.usage { aiUsage }
     src.lib.ids --> src.lib.ai.usage { newId }
@@ -2252,15 +2267,13 @@ graph import {
     src.lib.ids --> src.lib.agent.approvals.utils { newId }
     "src/lib/auth/types.d" --> src.lib.agent.approvals.utils { SessionUser }
     "src/lib/agent/approvals/types.d" --> src.lib.agent.approvals.utils { AgentSendSnapshot }
-    src.lib.promotions.settings --> "src/lib/promotions/mode-utils" { PromotionMode }
     "src/lib/contacts/types.d" --> "src/lib/email/inbound-notification" { ContactNameSource }
     src.lib.contacts.utils --> "src/lib/email/inbound-notification" { getPartyDisplayName }
     "src/lib/realtime/types.d" --> "src/lib/email/inbound-notification" { NewMessageNotification }
-    src.db.index --> src.lib.promotions.classify { getDb }
-    src.db.schema.index --> src.lib.promotions.classify { mailboxSenderPreferences }
-    "src/lib/database-errors" --> src.lib.promotions.classify { isMissingTableError }
-    "src/lib/email/bulk-mail" --> src.lib.promotions.classify { MailHeaders, detectBulkMail }
-    "src/lib/promotions/classify-utils" --> src.lib.promotions.classify {
+    src.db.schema.index ++> src.lib.promotions.classify { mailboxSenderPreferences }
+    "src/lib/database-errors" ++> src.lib.promotions.classify { isMissingTableError }
+    "src/lib/email/bulk-mail" ++> src.lib.promotions.classify { detectBulkMail }
+    "src/lib/promotions/classify-utils" ++> src.lib.promotions.classify {
         decideCategory,
         toSenderAddress,
     }
@@ -6032,7 +6045,6 @@ graph import {
         CopyDescriptor,
         MoveTarget,
     }
-    "src/lib/i18n/types.d" --> "src/lib/promotions/move-utils" { PluralKey, TranslationKey }
     src.components.icons --> "src/components/messages/message-source-dialog" {
         CheckCircle2,
         Copy,
@@ -7381,7 +7393,6 @@ graph import {
         fetchDueFollowUps,
         updateDueFollowUp,
     }
-    "src/lib/i18n/types.d" --> "src/lib/promotions/ui-utils" { TranslationKey }
     "src/components/language-provider" --> "src/app/(dashboard)/compose/page" { useLanguage }
     "src/components/compose/compose-form" --> "src/app/(dashboard)/compose/page" { ComposeForm }
     "src/components/contacts/contacts-page" --> "src/app/(dashboard)/contacts/page" { ContactsPage }
@@ -7863,22 +7874,9 @@ graph import {
         SubscriptionRowData,
         TrashPreview,
     }
-    "src/lib/promotions/move-utils" --> "src/lib/promotions/subscriptions-ui-utils" {
-        CopyDescriptor,
-        senderResultCopy,
-    }
-    "src/lib/promotions/ui-utils" --> "src/lib/promotions/subscriptions-ui-utils" {
+    "src/lib/promotions/move-utils" ++> "src/lib/promotions/subscriptions-ui-utils" { senderResultCopy }
+    "src/lib/promotions/ui-utils" ++> "src/lib/promotions/subscriptions-ui-utils" {
         canManagePromotions,
-    }
-    "src/lib/promotions/subscriptions-ui-types.d" --> "src/lib/promotions/subscriptions-ui-utils" {
-        SubscriptionCategory,
-        SubscriptionRowData,
-        SubscriptionRowView,
-        SubscriptionTrashAction,
-        TrashPreview,
-    }
-    "src/lib/promotions/subscriptions-utils" --> "src/lib/promotions/subscriptions-ui-utils" {
-        SUBSCRIPTIONS_PAGE_SIZE,
     }
     src.components.icons --> "src/components/subscriptions/subscription-parts" {
         Ban,
@@ -8570,16 +8568,10 @@ graph import {
         readStreamChunks,
         readZipEntryBytes,
     }
-    src.lib.drive.utils --> "src/lib/drive/import-utils" {
+    src.lib.drive.utils ++> "src/lib/drive/import-utils" {
         DRIVE_MAX_DEPTH,
         DRIVE_MAX_NAME_LENGTH,
         normalizeDriveName,
-    }
-    "src/lib/drive/import-types.d" --> "src/lib/drive/import-utils" {
-        ImportFilePlan,
-        ImportFileRequest,
-        KnownDriveItem,
-        TakeoutDrivePath,
     }
     src.components.icons --> "src/components/settings/takeout-calendar-card" { Upload }
     "src/components/language-provider" --> "src/components/settings/takeout-calendar-card" {
@@ -12185,16 +12177,9 @@ graph import {
         checkManagedMailbox,
         isMissingSchema,
     }
-    src.db.index --> src.lib.promotions.refile { getDb }
-    src.db.schema.index --> src.lib.promotions.refile { mailboxSenderPreferences, messages }
-    src.lib.ids --> src.lib.promotions.refile { newId }
-    "src/lib/promotions/refile-utils" --> src.lib.promotions.refile {
-        MAX_REFILE_ROWS,
-        REFILE_CHUNK_SIZE,
-        RefileTarget,
-        chunk,
-        refileCutoff,
-    }
+    src.db.schema.index ++> src.lib.promotions.refile { mailboxSenderPreferences, messages }
+    src.lib.ids ++> src.lib.promotions.refile { newId }
+    "src/lib/promotions/refile-utils" ++> src.lib.promotions.refile { MAX_REFILE_ROWS, REFILE_CHUNK_SIZE, chunk, refileCutoff }
     src.db.index --> "src/lib/promotions/route-guards" { getDb }
     src.lib.api.auth --> "src/lib/promotions/route-guards" { requireSessionUser }
     src.lib.auth.origin --> "src/lib/promotions/route-guards" { hasValidSessionMutationOrigin }
