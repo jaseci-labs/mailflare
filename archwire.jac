@@ -7,6 +7,7 @@ graph spaces {
 }
 
 graph import {
+    src.lib.jac.host ++> src.lib.messages.actions.definitions { NULL, at }
     src.lib.jac.host ++> "src/lib/messages/membership-store" { NULL, at, either, merged, nil }
     src.lib.jac.host ++> "src/lib/messages/permanent-delete-utils" { NULL, at, either }
     src.lib.jac.host ++> "src/lib/messages/change-events" { at, record }
@@ -6249,12 +6250,6 @@ graph import {
     "src/hooks/types.d" --> "src/components/messages/message-thread-cache" {
         ThreadMessage,
         ThreadResponse,
-    }
-    "src/lib/messages/actions/types.d" --> src.lib.messages.actions.definitions {
-        MessageActionSkipReason,
-        MessageStateField,
-        MessageStateSnapshot,
-        ReversibleMessageAction,
     }
     src.lib.messages.actions.definitions --> src.lib.messages.actions.executor {
         getChangedStateFields,
