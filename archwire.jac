@@ -7,6 +7,10 @@ graph spaces {
 }
 
 graph import {
+    src.lib.jac.host ++> "src/components/admin-update-card-utils" { either, record }
+    src.lib.jac.host ++> "src/components/reorderable-list-utils" { NULL, either, entries }
+    src.lib.jac.host ++> "src/components/progressive-avatar-image-utils" { NULL, nil, at }
+    src.lib.jac.host ++> "src/components/route-title-utils" { NULL }
     src.lib.jac.host ++> "src/components/compose/send-notice-utils" { NULL, either, num_or }
     src.lib.jac.host ++> "src/components/settings/takeout-drive-card-utils" { NULL, dig, either, first, js_sort }
     src.lib.jac.host ++> "src/components/settings/settings-nav-utils" { record }
@@ -2952,11 +2956,6 @@ graph import {
         UpdateWorkflowResponse,
     }
     src.lib.utils --> src.components.ui.card { cn }
-    "src/components/admin-update-card-types.d" --> "src/components/admin-update-card-utils" {
-        MigrationStatusResponse,
-        UpdateStatusResponse,
-        UpdateWorkflowResponse,
-    }
     src.components.icons --> "src/app/(admin)/agent/page" { Bot }
     "src/components/language-provider" --> "src/app/(admin)/agent/page" { useLanguage }
     src.components.ui.button --> "src/app/(admin)/agent/page" { Button }
@@ -4342,9 +4341,6 @@ graph import {
         readStorage,
         writeStorage,
     }
-    "src/components/reorderable-list-types.d" --> "src/components/reorderable-list-utils" {
-        ReorderableLayout,
-    }
     "src/components/sidebar-state" --> "src/components/sidebar-footer" { useSidebar }
     src.components.shortcuts.index --> "src/components/sidebar-footer" { useShortcuts }
     src.components.icons --> "src/components/sidebar-footer" { Keyboard }
@@ -4484,10 +4480,9 @@ graph import {
     "src/components/branding-provider" --> "src/components/route-title" { useBranding }
     "src/components/language-provider" --> "src/components/route-title" { useLanguage }
     "src/components/route-title-utils" --> "src/components/route-title" { getRouteTitleKey }
-    "src/components/settings/settings-nav-utils" --> "src/components/route-title-utils" {
+    "src/components/settings/settings-nav-utils" ++> "src/components/route-title-utils" {
         settingsNavSections,
     }
-    "src/lib/i18n/types.d" --> "src/components/route-title-utils" { TranslationKey }
     "src/components/ui/confirm-dialog" --> "src/app/(admin)/licenses/license-activation" {
         confirmDestructive,
     }
