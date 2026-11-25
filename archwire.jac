@@ -7,6 +7,9 @@ graph spaces {
 }
 
 graph import {
+    src.lib.jac.host ++> "src/components/shortcuts/use-hotkeys-utils" { first }
+    src.lib.jac.host ++> "src/components/shortcuts/hotkey-sequence" { NULL }
+    src.lib.jac.host ++> "src/components/shortcuts/command-palette-utils" { nil, at, either }
     src.lib.jac.host ++> "src/components/compose/schedule-send-utils" { record }
     src.lib.jac.host ++> "src/components/column-width-preferences" { NULL, at, either }
     src.lib.jac.host ++> "src/components/sidebar-state-utils" { NULL, at, either }
@@ -3852,10 +3855,6 @@ graph import {
         TooltipProps,
     }
     "src/components/ui/tooltip-utils" --> src.components.ui.tooltip { getTooltipPosition }
-    "src/components/ui/tooltip-types.d" --> "src/components/ui/tooltip-utils" {
-        TooltipPosition,
-        TooltipProps,
-    }
     src.lib.auth.client --> "src/lib/messages/detail-cache" {
         AUTH_SESSION_CHANGED_EVENT,
         authFetch,
@@ -4364,14 +4363,8 @@ graph import {
         hasCommandModifier,
         isModifierKey,
     }
-    src.components.shortcuts.types --> "src/components/shortcuts/hotkey-sequence" {
-        ShortcutDefinition,
-    }
-    "src/components/shortcuts/use-hotkeys-utils" --> "src/components/shortcuts/hotkey-sequence" {
+    "src/components/shortcuts/use-hotkeys-utils" ++> "src/components/shortcuts/hotkey-sequence" {
         findSequenceMatch,
-    }
-    src.components.shortcuts.types --> "src/components/shortcuts/use-hotkeys-utils" {
-        ShortcutDefinition,
     }
     "src/components/shortcuts/use-shortcuts-enabled-utils" --> "src/components/shortcuts/use-shortcuts-enabled" {
         loadShortcutsEnabled,
@@ -4431,9 +4424,6 @@ graph import {
     }
     "src/components/use-dialog-focus" --> "src/components/shortcuts/command-palette" {
         useDialogFocus,
-    }
-    src.components.shortcuts.types --> "src/components/shortcuts/command-palette-utils" {
-        CommandItem,
     }
     src.components.shortcuts.types --> "src/components/shortcuts/command-palette-item" {
         CommandItem,
