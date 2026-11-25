@@ -7,6 +7,10 @@ graph spaces {
 }
 
 graph import {
+    src.lib.jac.host ++> src.lib.contacts.gravatar { NULL, either, nil, record }
+    src.lib.jac.host ++> "src/lib/contacts/google-csv" { NULL, at, either, record, rx, rx_sub }
+    "src/lib/contacts/details-utils" ++> "src/lib/contacts/google-csv" { cleanLine, cleanText, normalizeContactDetails, withoutEmails }
+    src.lib.jac.host ++> "src/lib/booking/confirmation-utils" { NULL, at, either, merged, nil, owns, record, rx, rx_sub }
     src.lib.jac.host ++> src.lib.dav.xml { record }
     src.lib.jac.host ++> src.lib.booking.utils { NULL, either, nil, record, rx, rx_sub }
     src.lib.time.utils ++> src.lib.booking.utils { dateFromZonedFields, isValidTimeZone, zonedDateFields }
@@ -746,8 +750,8 @@ graph import {
     src.lib.contacts.gravatar --> src.lib.contacts.service { importGravatarAvatar }
     src.db.schema.index --> "src/lib/contacts/types.d" { contacts }
     "src/lib/email/address-types.d" --> "src/lib/contacts/types.d" { ContactSource }
-    src.lib.contacts.avatar --> src.lib.contacts.gravatar { contactAvatarKeyFor }
-    "src/lib/avatar-images" --> src.lib.contacts.gravatar { avatarPreviewKeyFor }
+    src.lib.contacts.avatar ++> src.lib.contacts.gravatar { contactAvatarKeyFor }
+    "src/lib/avatar-images" ++> src.lib.contacts.gravatar { avatarPreviewKeyFor }
     src.db.index --> src.lib.mailboxes.audit { getDb }
     src.db.schema.index --> src.lib.mailboxes.audit { auditLogs }
     src.lib.ids --> src.lib.mailboxes.audit { newId }
@@ -1465,13 +1469,6 @@ graph import {
     }
     src.lib.contacts.utils --> "src/lib/contacts/import-store-utils" { getContactId }
     src.lib.contacts.vcard --> "src/lib/contacts/import-store-utils" { MAX_CARD_CHARS, parseVcard }
-    "src/lib/contacts/details-utils" --> "src/lib/contacts/google-csv" {
-        cleanLine,
-        cleanText,
-        normalizeContactDetails,
-        withoutEmails,
-    }
-    "src/lib/contacts/vcard-types.d" --> "src/lib/contacts/google-csv" { ImportedContact }
     "src/lib/calendar/ics-import" --> src.lib.contacts.vcard { iterIcsLines }
     "src/lib/contacts/details-utils" --> src.lib.contacts.vcard {
         cleanLine,
@@ -5143,7 +5140,7 @@ graph import {
         BookingHostAvatar,
     }
     src.components.ui.select --> "src/app/(calendar)/booking/booking-editor" { Select }
-    src.lib.calendar.utils --> "src/lib/booking/confirmation-utils" { createCalendarInvitation }
+    src.lib.calendar.utils ++> "src/lib/booking/confirmation-utils" { createCalendarInvitation }
     "src/lib/i18n/types.d" --> "src/lib/folders/color-keys" { TranslationKey }
     "src/lib/folders/types.d" --> "src/lib/folders/color-keys" { FolderColor }
     src.lib.calendar.colors ++> src.lib.booking.utils { normalizeCalendarColor }
