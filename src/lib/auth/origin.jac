@@ -6,8 +6,8 @@ def:priv origin_of(url: any) -> any {
     }
 }
 
-"""The origin browsers reach this app at: `request.url` on Workers; on Node (a bind address) APP_URL,
-else the Host header, https only if a trusted proxy (TRUST_PROXY) says so, as realtime-origin does."""
+"""The origin browsers reach this app at: `request.url` on Workers; on Node (bind address) APP_URL,
+else the Host header, https only if a trusted proxy (TRUST_PROXY) says so, like realtime-origin."""
 def expectedRequestOrigin(request: any) -> any {
     (env, url) = (getNodeEnv(), new(globalThis.URL, request.url));
     if nil(env) or at(env, "MAILFLARE_RUNTIME") != "node" {
@@ -27,7 +27,7 @@ def expectedRequestOrigin(request: any) -> any {
 }
 
 """Strict same-origin test for a cookie-authenticated mutation: `Sec-Fetch-Site: same-origin` or an
-equal `Origin`. A missing Origin is not enough (sibling subdomains, old clients); `same-site` never is."""
+equal `Origin`. A missing Origin is not enough (sibling subdomains, old clients), nor `same-site`."""
 def isSameOriginRequest(request: any, expectedOrigin: any = None) -> bool {
     expected = expectedRequestOrigin(request) if expectedOrigin is None else expectedOrigin;
     (site, origin) = (request.headers.get("Sec-Fetch-Site"), request.headers.get("Origin"));
