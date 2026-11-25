@@ -14,6 +14,8 @@ graph import {
     "src/lib/import/destination-types.d" --> "src/lib/import/message-hints-utils" {
         ImportDestination,
     }
+    src.lib.jac.host ++> src.lib.messages.actions.definitions { NULL, at }
+    src.lib.jac.host ++> "src/lib/messages/membership-store" { NULL, at, either, merged, nil }
     src.lib.jac.host ++> "src/lib/messages/permanent-delete-utils" { NULL, at, either }
     src.lib.jac.host ++> "src/lib/messages/change-events" { at, record }
     src.lib.jac.host ++> "src/lib/messages/list-membership" { NULL, at, nil }
@@ -4252,12 +4254,7 @@ graph import {
         MessageFolder,
         MessageListResponse,
     }
-    "src/hooks/types.d" --> "src/lib/messages/membership-store" { Message }
-    "src/lib/messages/change-events" --> "src/lib/messages/membership-store" {
-        MessageMembershipState,
-    }
-    "src/lib/messages/list-membership" --> "src/lib/messages/membership-store" {
-        MessageMembershipFields,
+    "src/lib/messages/list-membership" ++> "src/lib/messages/membership-store" {
         getListMembershipContext,
         getListMembershipKey,
         messageMatchesFolder,
@@ -6270,12 +6267,6 @@ graph import {
     "src/hooks/types.d" --> "src/components/messages/message-thread-cache" {
         ThreadMessage,
         ThreadResponse,
-    }
-    "src/lib/messages/actions/types.d" --> src.lib.messages.actions.definitions {
-        MessageActionSkipReason,
-        MessageStateField,
-        MessageStateSnapshot,
-        ReversibleMessageAction,
     }
     src.lib.messages.actions.definitions --> src.lib.messages.actions.executor {
         getChangedStateFields,
