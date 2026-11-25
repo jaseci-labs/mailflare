@@ -7,6 +7,9 @@ graph spaces {
 }
 
 graph import {
+    src.lib.jac.host ++> "src/lib/http/content-type" { NULL, nil, rx }
+    src.lib.jac.host ++> "src/lib/domains/manual-dns" { at, dig }
+    src.lib.jac.host ++> "src/lib/domains/sending-status" { NULL, either, first }
     src.lib.jac.host ++> src.lib.http.response { NULL, is_object }
     src.lib.jac.host ++> "src/lib/accounts/deletion-utils" { at }
     src.lib.jac.host ++> "src/lib/agent/availability-client" { NULL }
@@ -10384,8 +10387,6 @@ graph import {
     src.lib.domains.provision --> "src/lib/domains/receiving-dns" { isManualZone }
     "src/lib/cloudflare-api.types.d" --> "src/lib/domains/receiving-dns" { CfDnsRecord }
     "src/lib/domains/types.d" --> "src/lib/domains/receiving-dns" { DomainRow }
-    "src/lib/cloudflare-api.types.d" --> "src/lib/domains/sending-status" { CfSendingSubdomain }
-    src.lib.domains.service --> "src/lib/domains/manual-dns" { DomainDnsView }
     src.lib.domains.utils --> src.lib.domains.preflight { normalizeHostname }
     "src/lib/cloudflare-api" --> src.lib.domains.preflight { findZoneByHostname }
     src.lib.domains.provision --> src.lib.domains.preflight { MANUAL_ZONE_ID }
