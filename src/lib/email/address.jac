@@ -61,7 +61,7 @@ def formatPostalAddressList(addresses: any, fallback: str | None) -> str | None 
         box
         for address in addresses or []
         for box in postal_mailboxes(address)
-        if box.address
+        if getattr(box, "address", None)
     ];
     if not boxes {
         return fallback;
