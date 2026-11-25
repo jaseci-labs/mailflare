@@ -7,6 +7,11 @@ graph spaces {
 }
 
 graph import {
+    src.lib.jac.host ++> "src/lib/email/inbound-id" { either }
+    src.lib.jac.host ++> "src/lib/email/stale-objects" { at, record }
+    src.lib.jac.host ++> "src/lib/email/thread-lookup" { NULL, either, rx, rx_sub }
+    src.lib.jac.host ++> "src/lib/email/mail-type-rule" { nil }
+    src.lib.jac.host ++> src.lib.email.base64 { rx, rx_sub }
     src.lib.security.headers --> "next.config" { getSecurityHeaders }
     server.runtime.mailer --> "server/runtime/types.d" { Mailer }
     server.runtime.queue --> "server/runtime/types.d" { InProcessQueue }
