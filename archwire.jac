@@ -89,6 +89,7 @@ graph import {
     src.lib.aws.xml ++> src.lib.aws.client { xmlTag }
     src.lib.aws.client ++> src.lib.aws.s3 { awsRequest, awsSpare }
     src.lib.aws.sigv4 ++> src.lib.aws.s3 { sha256Hex }
+    src.lib.jac.host ++> src.lib.aws.s3 { rx }
     src.lib.jac.host ++> src.lib.aws.ses { at, dig, entries }
     src.lib.aws.client ++> src.lib.aws.ses { awsJson, awsQuery, awsSpare }
     src.lib.aws.xml ++> src.lib.aws.ses { xmlBlocks, xmlTag }
@@ -107,7 +108,7 @@ graph import {
     src.lib.jac.host ++> src.lib.aws.xml { NULL, either, first, record, rx, rx_sub }
     src.lib.jac.host ++> "src/lib/booking/confirmation-utils" { NULL, at, either, merged, nil, owns, record, rx }
     src.lib.calendar.utils ++> "src/lib/booking/confirmation-utils" { createCalendarInvitation }
-    src.lib.jac.host ++> src.lib.booking.utils { NULL, either, first, is_object, js_sort, merged, record, rx, sub, whole }
+    src.lib.jac.host ++> src.lib.booking.utils { NULL, either, first, is_object, merged, record, rx, sub, whole }
     src.lib.time.utils ++> src.lib.booking.utils { dateFromZonedFields, isValidTimeZone, zonedDateFields }
     src.lib.calendar.colors ++> src.lib.booking.utils { normalizeCalendarColor }
     src.lib.jac.host ++> src.lib.calendar.colors { either, record }

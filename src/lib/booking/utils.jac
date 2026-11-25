@@ -1,21 +1,16 @@
 # A whole quarter hour: the only times a booking may start or end at.
 glob:priv QH: any = rx(r"^([01]\d|2[0-3]):(00|15|30|45)$"),
+          MARKS: any = rx(r"[\u0300-\u036f]", "g"),
           arr: any = lambda (x: any) -> any { x if globalThis.Array.isArray(x) else [] },
           trim: any = lambda (x: any) -> any { x.trim() if isinstance(x, str) else "" },
-          good: any = lambda (r: any) -> bool { QH.test(r["startTime"]) and QH.test(r["endTime"]) },
-          span: any = lambda (r: any) -> any {
-              timeToMinutes(r.endTime) - timeToMinutes(r.startTime)
-          },
           uniq: any = lambda (xs: any) -> bool { new(globalThis.Set, xs).size == len(xs) },
-          plain: any = lambda (v: any) -> any {
-              sub(v.normalize("NFKD"), rx("[\u0300-\u036f]", "g"), "")
-          },
+          fold: any = lambda (v: any) -> any { sub(v.normalize("NFKD"), MARKS, "").toLowerCase() },
           is_range: any = lambda (r: any) -> bool {
               is_object(r) and isinstance(r["startTime"], str) and isinstance(r["endTime"], str)
           };
 
 def slugifyBookingName(value: any) -> str {
-    s = sub(sub(plain(value).toLowerCase(), rx("[^a-z0-9]+", "g"), "-"), rx("^-|-$", "g"), "");
+    s = sub(sub(fold(value), rx("[^a-z0-9]+", "g"), "-"), rx("^-|-$", "g"), "");
     return sub(s.slice(0, 80), rx("-$"), "");
 }
 
@@ -29,22 +24,22 @@ def normalizeBookingUsername(value: any = None) -> any {
 }
 
 def bookingUsernameFromEmail(email: str) -> str {
-    u = sub(plain(email.split("@")[0]).toLowerCase(), rx("[^a-z0-9._+-]+", "g"), "-");
+    u = sub(fold(email.split("@")[0]), rx("[^a-z0-9._+-]+", "g"), "-");
     return either(normalizeBookingUsername(u.slice(0, 56)), "user");
 }
 
-def:priv json(text: any) -> any {
+def:priv json_list(text: any) -> any {
     try {
-        return globalThis.JSON.parse(text);
+        return arr(globalThis.JSON.parse(text));
     } except Exception {
-        return NULL;
+        return [];
     }
 }
 
 # Older rows use the single time window: the fallback.
 def parseBookingTimeRanges(value: any, fallback: any = None) -> list[any] {
-    p = arr(json(value));
-    return p if p.length and all([is_range(r) for r in p]) else ([fallback] if fallback else []);
+    p = json_list(value);
+    return p if len(p) and all([is_range(r) for r in p]) else ([fallback] if fallback else []);
 }
 
 def parseBookingEventInput(value: any = None) -> any {
@@ -57,23 +52,24 @@ def parseBookingEventInput(value: any = None) -> any {
     ok = ok and desc.length <= 2000 and loc.length <= 240 and whole(dur, 5, 480);
     ok = ok and globalThis.Array.isArray(hosts) and hosts.length <= 20 and uniq(hosts);
     ok = ok and all([isinstance(i, str) and bool(i) for i in hosts]) and len(arr(days)) > 0;
-    pair = isinstance(v["startTime"], str) and isinstance(v["endTime"], str);
-    one = [record({k: v[k] for k in ["startTime", "endTime"]})] if pair else NULL;
-    ranges = arr(either(v["timeRanges"], one));
-    ok = ok and uniq(days) and all([whole(d, 0, 6) for d in days]) and 0 < len(ranges) <= 12;
-    ok = ok and all([is_range(r) and good(r) and span(r) >= dur for r in ranges]);
-    by_start = lambda (a: any, b: any) -> any { a["startTime"].localeCompare(b["startTime"]) };
-    rs = js_sort(ranges.slice(), by_start) if ok else [];
-    ok = ok and not any([rs[i]["startTime"] < rs[i - 1]["endTime"] for i in range(1, len(rs))]);
+    one = [record({"startTime": v.startTime, "endTime": v.endTime})] if is_range(v) else NULL;
+    rs = arr(either(v["timeRanges"], one));
+    ok = ok and uniq(days) and all([whole(d, 0, 6) for d in days]) and 0 < len(rs) <= 12;
+    good = lambda (r: any) -> bool { is_range(r) and QH.test(r.startTime) and QH.test(r.endTime) };
+    t = timeToMinutes;
+    ok = ok and all([good(r) and t(r.endTime) - t(r.startTime) >= dur for r in rs]);
+    # Every start is a valid "HH:MM", so code-point order is localeCompare's order.
+    rs = sorted(rs, key=lambda (r: any) -> any { r.startTime }) if ok else [];
+    ok = ok and not any([rs[i].startTime < rs[i - 1].endTime for i in range(1, len(rs))]);
     (tz, on) = (v["timeZone"], v["enabled"]);
     if not ok or not isinstance(tz, str) or not isValidTimeZone(tz) or not isinstance(on, bool) {
         return NULL;
     }
     color = normalizeCalendarColor(v["color"] if isinstance(v["color"], str) else None);
-    times = {"startTime": rs[0]["startTime"], "endTime": rs[0]["endTime"], "timeRanges": rs};
     head = {"name": name, "slug": slug, "description": desc, "color": color, "hostIds": hosts};
-    mid = {"durationMinutes": dur, "location": loc, "weekdays": sorted(days)};
-    return merged(head, mid, times, {"timeZone": tz, "enabled": on});
+    (s, e) = (rs[0]["startTime"], rs[0]["endTime"]);
+    tail = {"startTime": s, "endTime": e, "timeRanges": rs, "timeZone": tz, "enabled": on};
+    return merged(head, {"durationMinutes": dur, "location": loc, "weekdays": sorted(days)}, tail);
 }
 
 def timeToMinutes(value: str) -> any {
@@ -95,5 +91,5 @@ def slotFromLocalDate(ev: any, day: str, time: str) -> any {
 }
 
 def parseBookingWeekdays(value: any) -> list[int] {
-    return [day for day in arr(json(value)) if whole(day, 0, 6)];
+    return [day for day in json_list(value) if whole(day, 0, 6)];
 }

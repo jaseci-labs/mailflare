@@ -4,13 +4,10 @@ glob:priv MISSING: any = rx(
 );
 
 def isMissingUsersTableError(error: any) -> bool {
-    (cur, seen) = (error, new(globalThis.Set));
-    while cur and not seen.has(cur) {
-        seen.add(cur);
-        if isinstance(cur, globalThis.Error) and MISSING.test(cur.message) {
-            return True;
-        }
+    (cur, chain) = (error, []);
+    while cur and cur not in chain {
+        chain.append(cur);
         cur = cur["cause"] if is_object(cur) and globalThis.Reflect.has(cur, "cause") else None;
     }
-    return False;
+    return any([isinstance(c, globalThis.Error) and MISSING.test(c.message) for c in chain]);
 }
