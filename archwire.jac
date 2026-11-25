@@ -7,6 +7,8 @@ graph spaces {
 }
 
 graph import {
+    src.lib.jac.host ++> src.lib.spam.settings { NULL, at, either, rx }
+    src.lib.jac.host ++> src.lib.spam.classifier { at }
     src.lib.jac.host ++> "src/lib/deliverability/tls-stats" { NULL, at }
     src.lib.jac.host ++> "src/lib/deliverability/dmarc-stats" { NULL, at }
     src.lib.jac.host ++> "src/lib/deliverability/suppression-admin" { NULL, at, either }
@@ -1526,9 +1528,8 @@ graph import {
         DatabaseBackupTable,
     }
     src.db.introspect --> "src/lib/search/index-admin" { dialectOf }
-    src.db.index --> src.lib.spam.repository { getDb }
-    src.db.schema.index --> src.lib.spam.repository { spamReputation }
-    "src/lib/spam/types.d" --> src.lib.spam.repository { ReputationKey }
+    src.db.index ++> src.lib.spam.repository { getDb }
+    src.db.schema.index ++> src.lib.spam.repository { spamReputation }
     src.db.index --> src.lib.promotions.subscriptions { getDb }
     src.db.schema.index --> src.lib.promotions.subscriptions { mailboxSenderPreferences, messages }
     src.lib.ids --> src.lib.promotions.subscriptions { newId }
@@ -1992,10 +1993,8 @@ graph import {
     src.lib.spam.weights ++> src.lib.spam.analyzers.solicitation { SPAM_WEIGHTS }
     src.lib.spam.tokenizer ++> src.lib.spam.analyzers.structure { getDomain }
     src.lib.spam.analyzers.utils ++> src.lib.spam.analyzers.structure { findHeader }
-    src.db.index --> src.lib.spam.classifier { AppDatabase }
-    src.db.schema.index --> src.lib.spam.classifier { spamFeedback, spamTokenStats }
-    "src/lib/spam/types.d" --> src.lib.spam.classifier { BayesianResult }
-    src.lib.spam.weights --> src.lib.spam.classifier { MAX_BAYESIAN_TOKENS, SPAM_WEIGHTS }
+    src.db.schema.index ++> src.lib.spam.classifier { spamFeedback, spamTokenStats }
+    src.lib.spam.weights ++> src.lib.spam.classifier { MAX_BAYESIAN_TOKENS, SPAM_WEIGHTS }
     "src/lib/dns-query" --> src.lib.spam.providers.external { queryDns }
     "src/lib/security/public-url" --> src.lib.spam.providers.external { isPublicHttpsUrl }
     "src/lib/spam/domain-utils" --> src.lib.spam.providers.external { registrableDomain }
@@ -2007,14 +2006,9 @@ graph import {
         SpamSignal,
     }
     src.lib.spam.weights --> src.lib.spam.providers.external { SPAM_WEIGHTS }
-    src.db.index --> src.lib.spam.settings { getDb }
-    src.db.schema.index --> src.lib.spam.settings { appSettings }
-    "src/lib/dns-query" --> src.lib.spam.settings { queryDns }
-    "src/lib/spam/types.d" --> src.lib.spam.settings {
-        SpamBrand,
-        SpamIntelligenceConfig,
-        SpamIntelligenceStatus,
-    }
+    src.db.index ++> src.lib.spam.settings { getDb }
+    src.db.schema.index ++> src.lib.spam.settings { appSettings }
+    "src/lib/dns-query" ++> src.lib.spam.settings { queryDns }
     src.db.index --> src.lib.agent.jobs.utils { getDb }
     src.db.dialect --> src.lib.agent.jobs.utils { schemaDialect }
     src.db.schema.index --> src.lib.agent.jobs.utils {
