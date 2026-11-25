@@ -1,5 +1,4 @@
-# A `D1Database` over any SqlExecutor, for the raw `env.DB.prepare(...)` call sites: SQL keeps D1's
-# `?` placeholders, numbered here for PostgreSQL.
+# A `D1Database` over any SqlExecutor for raw `env.DB.prepare(...)`; `?` is numbered for PostgreSQL.
 glob:priv ZERO: dict[str, int] = {k: 0 for k in "duration size_after rows_read".split()};
 
 # A promise of `f()` that also rejects when `f` throws, as an async function's would.
@@ -8,9 +7,7 @@ def:priv later(f: any) -> any {
 }
 
 # JavaScript calls `bind(a, b, ...)` with its values spread: a Proxy's apply trap gathers them.
-glob:priv SPREAD: any = record({
-    "apply": lambda (f: any, me: any, args: any) -> any { me.rebind(args) },
-});
+glob:priv SPREAD: any = record({"apply": lambda (f: any, me: any, a: any) -> any { me.rebind(a) }});
 
 def:priv outcome(r: any) -> any {
     (n, last) = (r.affectedRows, either(at(r, "insertId"), 0));
@@ -19,11 +16,6 @@ def:priv outcome(r: any) -> any {
 }
 
 obj CompatStatement(globalThis.Object) {
-    has db: any,
-        sql: any,
-        params: any,
-        bind: any;
-
     def init(db: any, sql: any, params: any = None) {
         super.init();
         (self.db, self.sql, self.params) = (db, sql, [] if params is None else params);
@@ -40,16 +32,13 @@ obj CompatStatement(globalThis.Object) {
         return numberPlaceholders(self.sql) if numbered else self.sql;
     }
 
-    def execute(executor: any) -> any {
-        return later(lambda -> any { executor.query(self.text(), self.params, "object") });
-    }
-
-    def:priv send(mode: str) -> any {
-        return later(lambda -> any { self.db.executor().query(self.text(), self.params, mode) });
+    def execute(executor: any, mode: str = "object") -> any {
+        ex = lambda -> any { executor or self.db.executor() };
+        return later(lambda -> any { ex().query(self.text(), self.params, mode) });
     }
 
     def run -> any {
-        return self.send("object").then(outcome);
+        return self.execute(None).then(outcome);
     }
 
     def all -> any {
@@ -57,23 +46,16 @@ obj CompatStatement(globalThis.Object) {
     }
 
     def first(column: any = None) -> any {
-        def pick(r: any) -> any {
-            row = r.rows.at(0);
-            return NULL if not row else (row[column] if column else row);
-        }
-        return self.send("object").then(pick);
+        pick = lambda (row: any) -> any { NULL if not row else (row[column] if column else row) };
+        return self.execute(None).then(lambda (r: any) -> any { pick(r.rows.at(0)) });
     }
 
     def raw -> any {
-        return self.send("array").then(lambda (r: any) -> any { r.rows });
+        return self.execute(None, "array").then(lambda (r: any) -> any { r.rows });
     }
 }
 
 obj CompatDatabase(globalThis.Object) {
-    has dialect: any,
-        base: any,
-        active: any;
-
     def init(dialect: any, base: any, active: any = None) {
         super.init();
         (self.dialect, self.base, self.active) = (dialect, base, active);
@@ -89,11 +71,7 @@ obj CompatDatabase(globalThis.Object) {
 
     def batch(statements: any) -> any {
         async def each(executor: any) -> any {
-            results: list[any] = [];
-            for s in statements {
-                results.append(outcome(await s.execute(executor)));
-            }
-            return results;
+            return [outcome(await s.execute(executor)) for s in statements];
         }
         run = lambda (executor: any) -> any { promise(each(executor)) };
         tx = getattr(self.base, "transaction", None);

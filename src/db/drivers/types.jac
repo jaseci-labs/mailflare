@@ -10,7 +10,7 @@ type OpenOptions = any;
 def numberPlaceholders(sql: any) -> str {
     (out, index, i) = ("", 0, 0);
     while i < sql.length {
-        ch = sql.charAt(i);
+        (ch, stop, piece) = (sql.charAt(i), i + 1, None);
         if ch in ["'", "\""] {
             close = sql.indexOf(ch, i + 1);
             # Doubled quotes are escapes inside the literal.
@@ -23,12 +23,9 @@ def numberPlaceholders(sql: any) -> str {
             stop = sql.length if end == -1 else end;
         } elif ch == "?" {
             index += 1;
-            (out, i) = (out + f"${index}", i + 1);
-            continue;
-        } else {
-            stop = i + 1;
+            piece = f"${index}";
         }
-        (out, i) = (out + sql.slice(i, stop), stop);
+        (out, i) = (out + either(piece, sql.slice(i, stop)), stop);
     }
     return out;
 }
@@ -44,9 +41,8 @@ def normalizeParam(value: any = None) -> any {
     if globalThis.ArrayBuffer.isView(value) and not isinstance(value, globalThis.Uint8Array) {
         return new(globalThis.Uint8Array, value.buffer, value.byteOffset, value.byteLength);
     }
-    return new(globalThis.Uint8Array, value)
-        if isinstance(value, globalThis.ArrayBuffer)
-        else value;
+    buffer = isinstance(value, globalThis.ArrayBuffer);
+    return new(globalThis.Uint8Array, value) if buffer else value;
 }
 
 def toObjects(columns: any, rows: any) -> any {
@@ -68,7 +64,7 @@ def lazyExecutor(dialect: any, opener: any) -> any {
         }
         return st["pending"];
     }
-    async def query(sql: any, params: any, mode: any) -> any {
+    async def q(sql: any, params: any, mode: any) -> any {
         return await (await ready()).query(sql, params, mode);
     }
     async def transaction(fn: any) -> any {
@@ -86,9 +82,7 @@ def lazyExecutor(dialect: any, opener: any) -> any {
     }
     return record({
         "dialect": dialect,
-        "query": lambda (sql: any, params: any, mode: any) -> any {
-            promise(query(sql, params, mode))
-        },
+        "query": lambda (sql: any, params: any, mode: any) -> any { promise(q(sql, params, mode)) },
         "transaction": lambda (fn: any) -> any { promise(transaction(fn)) },
         "close": lambda -> any { promise(close()) },
     });
