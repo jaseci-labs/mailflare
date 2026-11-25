@@ -27,7 +27,16 @@ glob:priv HEADERS: str = """X-Robots-Tag: noindex, nofollow, noarchive, nosnippe
     Referrer-Policy: strict-origin-when-cross-origin
     Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()""";
 
+# Parsed once; each call still returns fresh records, as the original did.
+glob:priv PAIRS: list[list[str]] = [
+    [pair[0], CSP if pair[1] == "CSP" else pair[1]]
+    for pair in [line.strip().split(": ", 1) for line in HEADERS.splitlines()]
+];
+
 def getSecurityHeaders -> list[dict[str, str]] {
-    pairs: any = [line.strip().split(": ", 1) for line in HEADERS.splitlines()];
-    return [{"key": k, "value": CSP if v == "CSP" else v} for (k, v) in pairs];
+    out: list[dict[str, str]] = [];
+    for pair in PAIRS {
+        out.append({"key": pair[0], "value": pair[1]});
+    }
+    return out;
 }
