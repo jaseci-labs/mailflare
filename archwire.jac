@@ -144,7 +144,7 @@ graph import {
     "src/lib/calendar/tool-occurrences" ++> "src/lib/calendar/reminder-utils" { expandToolEvents }
     src.lib.jac.host ++> "src/lib/calendar/split-announcement" { merged }
     src.lib.calendar.utils ++> "src/lib/calendar/split-announcement" { createCalendarInvitation }
-    src.lib.jac.host ++> "src/lib/calendar/tool-occurrences" { either, js_sort, merged, whole }
+    src.lib.jac.host ++> "src/lib/calendar/tool-occurrences" { NULL, either, js_sort, nil, whole }
     src.lib.calendar.recurrence ++> "src/lib/calendar/tool-occurrences" { parseCalendarRepeatDays, parseExcludedOccurrences }
     src.lib.time.utils ++> "src/lib/calendar/tool-occurrences" { dateFromZonedFields, normalizeTimeZone, zonedDateFields }
     src.lib.jac.host ++> src.lib.calendar.utils { NULL, at, either, nil, whole }
@@ -236,7 +236,7 @@ graph import {
     src.lib.spam.analyzers.utils ++> "src/lib/spam/domain-utils" { findHeader }
     src.lib.jac.host ++> "src/lib/spam/lookup-cache" { record }
     src.lib.jac.host ++> src.lib.spam.weights { record }
-    src.lib.jac.host ++> src.lib.time.utils { NULL, at, either, merged, nil, record, rx }
+    src.lib.jac.host ++> src.lib.time.utils { NULL, either, js_sort, merged, nil, record, rx }
     src.lib.jac.host ++> "src/lib/tracking/open-tracking-utils" { NULL, at, record, rx, rx_sub }
     src.lib.jac.host ++> src.lib.zip { at, either, record, rx, rx_sub }
     src.lib.security.headers --> "next.config" { getSecurityHeaders }
