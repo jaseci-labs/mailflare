@@ -8,9 +8,9 @@ graph spaces {
 
 graph import {
     src.lib.jac.host ++> "src/lib/accounts/deletion-utils" { at }
-    src.lib.jac.host ++> "src/lib/agent/availability-client" { NULL }
-    src.lib.jac.host ++> src.lib.agent.errors { NULL, nil, rx, rx_sub }
-    src.lib.jac.host ++> src.lib.agent.pricing { NULL, entries }
+    src.lib.jac.host ++> "src/lib/agent/availability-client" { NULL, at, nil }
+    src.lib.jac.host ++> src.lib.agent.errors { NULL, nil, rx, sub, dig, first, either, is_object }
+    src.lib.jac.host ++> src.lib.agent.pricing { NULL, entries, is_object, record }
     src.lib.jac.host ++> "src/lib/agent/provider-constants" { record }
     src.lib.jac.host ++> "src/lib/agent/rate-limit" { at, record }
     src.lib.jac.host ++> src.lib.agent.schedule { NULL, rx }
@@ -21,7 +21,7 @@ graph import {
     src.lib.jac.host ++> "src/lib/auth/password-reset-utils" { NULL, at, record }
     src.lib.jac.host ++> "src/lib/auth/rate-limit" { at, either, record }
     "src/lib/auth/client-ip" ++> "src/lib/auth/rate-limit" { getClientIp }
-    src.lib.jac.host ++> "src/lib/auth/setup-utils" { rx }
+    src.lib.jac.host ++> "src/lib/auth/setup-utils" { rx, is_object }
     src.lib.jac.host ++> "src/lib/avatar-images" { NULL, at, record }
     src.lib.jac.host ++> src.lib.aws.client { NULL, at, either, entries, merged, nil, record, rx }
     src.lib.aws.sigv4 ++> src.lib.aws.client { signAwsRequest }
@@ -125,7 +125,7 @@ graph import {
     src.lib.jac.host ++> src.lib.licenses.constants { record }
     src.lib.jac.host ++> src.lib.licenses.paymug { record }
     src.lib.licenses.utils ++> src.lib.licenses.paymug { parsePaymugLicenseResponse }
-    src.lib.jac.host ++> src.lib.licenses.utils { NULL, merged, nil }
+    src.lib.jac.host ++> src.lib.licenses.utils { NULL, merged, is_object }
     src.lib.licenses.constants ++> src.lib.licenses.utils { LICENSE_PRODUCT_IDS }
     src.lib.jac.host ++> src.lib.messages.actions.definitions { NULL, at }
     src.lib.jac.host ++> "src/lib/messages/change-events" { at, record }
