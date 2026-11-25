@@ -11,6 +11,7 @@ graph import {
     src.lib.jac.host ++> src.lib.auth.origin { NULL, at, either, nil }
     src.lib.jac.host ++> src.lib.auth.turnstile { either, record }
     src.lib.jac.host ++> "src/lib/agent/schema-utils" { record }
+    src.lib.jac.host ++> src.lib.storage.health { NULL, record }
     src.lib.jac.host ++> "server/runtime/realtime-origin" { either, first, nil, record }
     src.lib.jac.host ++> "src/lib/storage/b2-bucket" {
         NULL, at, either, entries, js_sort, merged, nil, promise, record, rx, rx_sub, whole,
@@ -13548,7 +13549,7 @@ graph import {
         getStorageStatus,
     }
     src.lib.storage.health --> src.app.api.v1.storage.route { testStorage }
-    src.lib.ids --> src.lib.storage.health { newId }
+    src.lib.ids ++> src.lib.storage.health { newId }
     src.lib.email.webhooks --> "src/app/api/webhooks/[id]/deliveries/[deliveryId]/retry/route" {
         runDelivery,
     }
