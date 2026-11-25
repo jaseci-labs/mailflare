@@ -7,6 +7,9 @@ graph spaces {
 }
 
 graph import {
+    src.lib.jac.host ++> src.db.drivers.types { NULL, promise, record }
+    src.lib.jac.host ++> "src/db/d1-compat" { NULL, at, either, promise, record }
+    src.db.drivers.types ++> "src/db/d1-compat" { normalizeParam, numberPlaceholders }
     src.lib.jac.host ++> "src/lib/accounts/deletion-utils" { at }
     src.lib.jac.host ++> "src/lib/agent/availability-client" { NULL }
     src.lib.jac.host ++> src.lib.agent.errors { NULL, nil, rx, rx_sub }
@@ -107,10 +110,10 @@ graph import {
     src.lib.http.errors ++> src.lib.http.request { RequestBodyTooLargeError }
     src.lib.jac.host ++> src.lib.import.destination { NULL }
     src.lib.jac.host ++> src.lib.import.mbox { rx, rx_sub }
-    src.lib.jac.host ++> src.lib.import.staging { owns, record }
+    src.lib.jac.host ++> src.lib.import.staging { merged, owns }
     src.lib.jac.host ++> "src/lib/jmap/changes-utils" { NULL }
     src.lib.jac.host ++> src.lib.jmap.constants { record }
-    src.lib.jac.host ++> "src/lib/jmap/email-import-utils" { NULL, entries }
+    src.lib.jac.host ++> "src/lib/jmap/email-import-utils" { NULL, entries, is_object }
     src.lib.jmap.constants ++> "src/lib/jmap/email-import-utils" { KEYWORD_FLAGGED, KEYWORD_SEEN }
     src.lib.jmap.ids ++> "src/lib/jmap/email-import-utils" { decodeMailboxRef }
     src.lib.jac.host ++> src.lib.jmap.errors { either, merged, record }
@@ -127,12 +130,12 @@ graph import {
     src.lib.licenses.utils ++> src.lib.licenses.paymug { parsePaymugLicenseResponse }
     src.lib.jac.host ++> src.lib.licenses.utils { NULL, merged, nil }
     src.lib.licenses.constants ++> src.lib.licenses.utils { LICENSE_PRODUCT_IDS }
-    src.lib.jac.host ++> src.lib.messages.actions.definitions { NULL, at }
+    src.lib.jac.host ++> src.lib.messages.actions.definitions { NULL, at, is_object }
     src.lib.jac.host ++> "src/lib/messages/change-events" { at, record }
     src.lib.jac.host ++> "src/lib/messages/drag-utils" { NULL, at }
-    src.lib.jac.host ++> "src/lib/messages/field-store" { at, either, merged, nil }
+    src.lib.jac.host ++> "src/lib/messages/field-store" { at, either, merged }
     src.lib.jac.host ++> "src/lib/messages/list-membership" { NULL, at, nil }
-    src.lib.jac.host ++> "src/lib/messages/membership-store" { NULL, at, either, merged, nil }
+    src.lib.jac.host ++> "src/lib/messages/membership-store" { NULL, at, either, first, merged, nil }
     "src/lib/messages/list-membership" ++> "src/lib/messages/membership-store" {
         getListMembershipContext,
         getListMembershipKey,
@@ -140,7 +143,7 @@ graph import {
     }
     src.lib.jac.host ++> "src/lib/notes/note-permissions" { NULL }
     src.lib.jac.host ++> "src/lib/promotions/backfill-utils" { NULL, record }
-    src.lib.jac.host ++> "src/lib/promotions/mode-utils" { NULL }
+    src.lib.jac.host ++> "src/lib/promotions/mode-utils" { NULL, is_object }
     src.lib.jac.host ++> "src/lib/promotions/move-utils" { at, record }
     src.lib.jac.host ++> "src/lib/promotions/ui-utils" { NULL, at, entries, record }
     src.lib.jac.host ++> "src/lib/search/query-utils" { NULL, at, either, rx, rx_sub }
@@ -231,9 +234,6 @@ graph import {
     src.db.drivers.types --> src.db.external { OpenOptions, SqlExecutor }
     src.db.dialect --> src.db.compat { DatabaseDialect }
     src.db.drivers.types --> src.db.compat { RowMode, SqlExecutor }
-    src.db.dialect --> src.db.drivers.types { DatabaseDialect }
-    src.db.dialect --> "src/db/d1-compat" { DatabaseDialect }
-    src.db.drivers.types --> "src/db/d1-compat" { SqlExecutor, normalizeParam, numberPlaceholders }
     src.db.drivers.types --> src.db.drivers.mysql {
         OpenOptions,
         SqlExecutor,
