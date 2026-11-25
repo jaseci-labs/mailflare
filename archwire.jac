@@ -7,6 +7,8 @@ graph spaces {
 }
 
 graph import {
+    src.lib.jac.host ++> "src/lib/drive/import-utils" { NULL, owns, record, rx, rx_sub, sub }
+    src.lib.drive.utils ++> "src/lib/drive/import-utils" { DRIVE_MAX_DEPTH, DRIVE_MAX_NAME_LENGTH, normalizeDriveName }
     src.lib.jac.host ++> "src/lib/domains/cloudflare-cleanup" { either }
     src.lib.jac.host ++> "src/lib/cloudflare-dns" { record }
     src.lib.jac.host ++> "src/lib/cloudflare-api" { NULL, dig, either, merged, nil, promise, record }
@@ -8522,17 +8524,6 @@ graph import {
         openZipEntry,
         readStreamChunks,
         readZipEntryBytes,
-    }
-    src.lib.drive.utils --> "src/lib/drive/import-utils" {
-        DRIVE_MAX_DEPTH,
-        DRIVE_MAX_NAME_LENGTH,
-        normalizeDriveName,
-    }
-    "src/lib/drive/import-types.d" --> "src/lib/drive/import-utils" {
-        ImportFilePlan,
-        ImportFileRequest,
-        KnownDriveItem,
-        TakeoutDrivePath,
     }
     src.components.icons --> "src/components/settings/takeout-calendar-card" { Upload }
     "src/components/language-provider" --> "src/components/settings/takeout-calendar-card" {
