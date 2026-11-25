@@ -7,6 +7,7 @@ graph spaces {
 }
 
 graph import {
+    src.lib.jac.host ++> "src/lib/deliverability/suppression-utils" { NULL, at, either, nil, rx }
     src.lib.jac.host ++> src.lib.spam.analyzers.authentication { at, rx }
     src.lib.email.parse --> src.lib.spam.analyzers.urls { ParsedEmail }
     "src/lib/spam/types.d" --> src.lib.spam.analyzers.urls { PreparedSpamContent, SpamSignal }
@@ -871,7 +872,7 @@ graph import {
         cleanAddress,
         filterSuppressed,
     }
-    src.lib.email.address --> "src/lib/deliverability/suppression-utils" {
+    src.lib.email.address ++> "src/lib/deliverability/suppression-utils" {
         getEmailAddress,
         normalizeEmailAddress,
         splitEmailAddressList,
