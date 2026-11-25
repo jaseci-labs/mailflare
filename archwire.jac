@@ -77,7 +77,7 @@ graph import {
     src.lib.jac.host ++> "src/lib/auth/rate-limit" { at, either, record }
     "src/lib/auth/client-ip" ++> "src/lib/auth/rate-limit" { getClientIp }
     src.lib.jac.host ++> "src/lib/auth/setup-utils" { rx, is_object }
-    src.lib.jac.host ++> "src/lib/avatar-images" { NULL, at, record }
+    src.lib.jac.host ++> "src/lib/avatar-images" { NULL,  record }
     src.lib.jac.host ++> "src/lib/auth/setup-utils" { rx }
     src.lib.jac.host ++> "src/lib/avatar-images" { NULL, dig, record }
     src.lib.jac.host ++> src.lib.aws.client { NULL, at, either, entries, merged, nil, record, rx }
@@ -101,7 +101,7 @@ graph import {
     src.lib.jac.host ++> src.lib.aws.xml { NULL, rx }
     src.lib.jac.host ++> "src/lib/booking/confirmation-utils" { NULL, at, either, is_object, merged, nil, owns, record, rx, sub }
     src.lib.jac.host ++> src.lib.aws.xml { NULL, either, first, record, rx, rx_sub }
-    src.lib.jac.host ++> "src/lib/booking/confirmation-utils" { NULL, at, either, merged, nil, owns, record, rx, rx_sub }
+    src.lib.jac.host ++> "src/lib/booking/confirmation-utils" { NULL, at, either, merged, nil, owns, record, rx }
     src.lib.calendar.utils ++> "src/lib/booking/confirmation-utils" { createCalendarInvitation }
     src.lib.jac.host ++> src.lib.booking.utils { NULL, either, first, is_object, js_sort, merged, record, rx, sub, whole }
     src.lib.time.utils ++> src.lib.booking.utils { dateFromZonedFields, isValidTimeZone, zonedDateFields }
@@ -4282,10 +4282,6 @@ graph import {
     }
     "src/lib/push/app-badge" --> src.lib.auth.logout { setAppBadgeCount }
     src.lib.auth.client --> "src/lib/auth/accounts-client" { authFetch, setClientSessionToken }
-    "src/components/mailbox-provider" --> "src/components/mailbox-selector-utils" { MailboxOption }
-    "src/lib/mailboxes/avatar-client-types.d" --> "src/lib/mailboxes/avatar-client" {
-        MailboxAvatarChangedDetail,
-    }
     "src/components/language-provider" --> "src/components/license-indicator" { useLanguage }
     src.components.ui.button --> "src/components/license-indicator" { Button }
     "src/lib/licenses/types.d" --> "src/components/license-indicator" { LicenseStatus }
