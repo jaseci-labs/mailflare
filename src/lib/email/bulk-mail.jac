@@ -54,7 +54,7 @@ Contract for callers: `headers` is the lower- or mixed-case header map of the in
 The result is advisory classification: it changes no state. `reasons` names the signals that
 fired, as `header` or `header: value`, in a stable order.
 """
-def isBulkMail(headers: any) -> dict[str, any] {
+def isBulkMail(headers: any) -> any {
     reasons = [name for name in ["list-unsubscribe", "list-id"] if getMailHeader(headers, name)];
     precedence = precedence_of(headers);
     if precedence in BULK_PRECEDENCE {
@@ -65,7 +65,7 @@ def isBulkMail(headers: any) -> dict[str, any] {
     if bulk and getMailHeader(headers, "feedback-id") {
         reasons.append("feedback-id");
     }
-    return {"bulk": bulk, "reasons": reasons};
+    return record({"bulk": bulk, "reasons": reasons});
 }
 
 """Classifies one message for the Promotions view from its headers alone.
@@ -77,16 +77,16 @@ are deliberately not signals: receipts and password resets carry both.
 `kind` is `list` for a discussion list (`List-Post`, or `Precedence: list` with `List-Id`),
 `marketing` for other bulk mail, null when not bulk; `signals` are the header names alone.
 """
-def detectBulkMail(headers: any) -> dict[str, any] {
+def detectBulkMail(headers: any) -> any {
     verdict = isBulkMail(headers);
     discussion_list = bool(getMailHeader(headers, "list-post"))
         or (bool(getMailHeader(headers, "list-id")) and precedence_of(headers) == "list");
     kind = NULL if not verdict["bulk"] else ("list" if discussion_list else "marketing");
-    return {
+    return record({
         "bulk": verdict["bulk"],
         "kind": kind,
         "signals": [reason.split(":")[0] for reason in verdict["reasons"]],
-    };
+    });
 }
 
 # Types that TypeScript modules still import by name.

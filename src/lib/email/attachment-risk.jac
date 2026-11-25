@@ -111,11 +111,11 @@ def:priv extensions(filename: any) -> list[str] {
     return [rx_sub(part, TRAILING_SPACE, "") for part in parts[1:]];
 }
 
-def:priv warning(reason: str) -> dict[str, any] {
-    return {"level": "warning", "reasons": [reason]};
+def:priv warning(reason: str) -> any {
+    return record({"level": "warning", "reasons": [reason]});
 }
 
-def mergeRisks(*risks: any) -> dict[str, any] {
+def mergeRisks(*risks: any) -> any {
     level = "ok";
     reasons: list[str] = [];
     for risk in risks {
@@ -124,11 +124,11 @@ def mergeRisks(*risks: any) -> dict[str, any] {
         }
         reasons += [reason for reason in risk["reasons"] if reason not in reasons];
     }
-    return {"level": level, "reasons": reasons};
+    return record({"level": level, "reasons": reasons});
 }
 
 """Risk judged from the name and declared type alone."""
-def assessAttachmentRisk(attachment: any) -> dict[str, any] {
+def assessAttachmentRisk(attachment: any) -> any {
     filename = attachment["filename"];
     found: list[tuple[str, str]] = [];
     exts = extensions(filename);
@@ -164,7 +164,7 @@ def assessAttachmentRisk(attachment: any) -> dict[str, any] {
             level = next_level;
         }
     }
-    return {"level": level, "reasons": [reason for (next_level, reason) in found]};
+    return record({"level": level, "reasons": [reason for (next_level, reason) in found]});
 }
 
 def:priv data_view(chunk: any) -> any {
@@ -188,15 +188,18 @@ def locateZipDirectory(tail: any) -> any {
     if index < 0 {
         return NULL;
     }
-    return {"size": view.getUint32(index + 12, True), "offset": view.getUint32(index + 16, True)};
+    return record({
+        "size": view.getUint32(index + 12, True),
+        "offset": view.getUint32(index + 16, True),
+    });
 }
 
 """Names inside a ZIP, read from its central directory without extracting anything."""
-def inspectZipDirectory(tail: any, centralDirectory: any) -> dict[str, any] {
+def inspectZipDirectory(tail: any, centralDirectory: any) -> any {
     view = data_view(tail);
     eocd = end_of_directory(view);
     if eocd < 0 {
-        return {"level": "ok", "reasons": []};
+        return record({"level": "ok", "reasons": []});
     }
     count = view.getUint16(eocd + 10, True);
     size = view.getUint32(eocd + 12, True);
@@ -249,7 +252,7 @@ def inspectZipDirectory(tail: any, centralDirectory: any) -> dict[str, any] {
         );
     }
     merged = mergeRisks(*risks);
-    return {"level": merged["level"], "reasons": merged["reasons"][:5]};
+    return record({"level": merged["level"], "reasons": merged["reasons"][:5]});
 }
 
 # Types that TypeScript modules still import by name.

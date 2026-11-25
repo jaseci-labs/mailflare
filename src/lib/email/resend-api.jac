@@ -25,8 +25,8 @@ def resendBaseUrl(env: any) -> str {
     return rx_sub(setting(env, "RESEND_BASE_URL") or RESEND_DEFAULT_BASE_URL, TRAILING_SLASHES, "");
 }
 
-def resendClient(env: any, apiKey: str) -> dict[str, any] {
-    return {"apiKey": apiKey, "baseUrl": resendBaseUrl(env)};
+def resendClient(env: any, apiKey: str) -> any {
+    return record({"apiKey": apiKey, "baseUrl": resendBaseUrl(env)});
 }
 
 """Resend accepts a custom Message-ID header; some Resend-compatible services refuse it.
@@ -52,8 +52,8 @@ def resendOmittedHeaders(env: any) -> any {
     return new(globalThis.Set, [name for name in names if name]);
 }
 
-def:priv bearer(client: any) -> dict[str, str] {
-    return {"Authorization": f"Bearer {client['apiKey']}"};
+def:priv bearer(client: any) -> any {
+    return record({"Authorization": f"Bearer {client['apiKey']}"});
 }
 
 """The JSON body of a response, null when it has none."""
@@ -85,10 +85,10 @@ async def:priv read_sent_email(client: any, emailId: str) -> any {
     body = await json_of(response);
     message_id = field(body, "message_id");
     value = message_id.trim() if isinstance(message_id, str) else "";
-    return {
+    return record({
         "messageId": value if MESSAGE_ID_SHAPE.test(value) else NULL,
         "unsent": globalThis.String(field(body, "last_event")) in UNSENT_EVENTS,
-    };
+    });
 }
 
 def:priv pause(ms: any) -> any {
@@ -238,14 +238,14 @@ async def verifyResendDomain(client: any, domain_id: str) {
 Send-only keys are rejected by the domains endpoint with `restricted_api_key`, which still
 means the key works.
 """
-async def checkResendKey(client: any) -> dict[str, bool] {
+async def checkResendKey(client: any) -> any {
     response = await globalThis.fetch(f"{client['baseUrl']}/domains", {"headers": bearer(client)});
     if response.ok {
-        return {"valid": True, "canManageDomains": True};
+        return record({"valid": True, "canManageDomains": True});
     }
     body = await json_of(response);
     restricted = response.status == 401 and field(body, "name") == "restricted_api_key";
-    return {"valid": restricted, "canManageDomains": False};
+    return record({"valid": restricted, "canManageDomains": False});
 }
 
 async def deleteResendDomain(client: any, domain_id: str) {

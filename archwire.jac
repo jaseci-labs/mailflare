@@ -72,10 +72,16 @@ graph import {
     src.lib.jac.host ++> src.lib.dav.body { NULL, either }
     src.lib.jac.host ++> "src/lib/dav/xml-writer" { rx, rx_sub }
     src.lib.jac.host ++> src.lib.calendar.recurrence { NULL, either }
+    src.lib.jac.host ++> "src/lib/email/provider-trace" { NULL, either, record, rx, rx_sub }
+    src.lib.jac.host ++> "src/lib/email/inbound-notification" { at, record }
+    src.lib.jac.host ++> "src/lib/email/trash-retention-utils" { NULL }
+    src.lib.jac.host ++> "src/lib/email/shared-file-notice" { record, rx, rx_sub }
+    src.lib.jac.host ++> "src/lib/email/recipient-address" { NULL, record }
+    src.lib.jac.host ++> "src/lib/email/sender-label" { either, rx, rx_sub }
     "src/lib/email/unsubscribe-types.d" --> src.lib.email.unsubscribe { UnsubscribeUrl }
-    src.lib.jac.host ++> "src/lib/email/resend-api" { NULL, at, either, merged, nil, rx, rx_sub }
-    src.lib.jac.host ++> "src/lib/email/attachment-risk" { NULL, at, nil, rx, rx_sub }
-    src.lib.jac.host ++> "src/lib/email/bulk-mail" { NULL, entries }
+    src.lib.jac.host ++> "src/lib/email/resend-api" { NULL, at, either, merged, nil, record, rx, rx_sub }
+    src.lib.jac.host ++> "src/lib/email/attachment-risk" { NULL, at, nil, record, rx, rx_sub }
+    src.lib.jac.host ++> "src/lib/email/bulk-mail" { NULL, entries, record }
     src.lib.jac.host ++> "src/lib/email/mime-preflight" { NULL, record }
     src.lib.jac.host ++> "src/lib/email/intake-signature" { record }
     src.lib.jac.host ++> "src/lib/email/attachment-limits" { NULL }
@@ -190,7 +196,7 @@ graph import {
     "server/runtime/sqlite-database" --> "server/runtime/types.d" { SqliteDatabase }
     src.lib.email.address --> server.runtime.mailer { getEmailAddress }
     src.lib.utils ++> src.lib.email.address { parseAddress }
-    src.lib.jac.host ++> src.lib.email.address { NULL, rx, rx_sub }
+    src.lib.jac.host ++> src.lib.email.address { NULL, record, rx, rx_sub }
     src.lib.realtime.revision --> server.runtime.realtime { getUserMailRevision }
     "src/lib/realtime/types.d" --> server.runtime.realtime { RevisionNotification, RevisionPing }
     src.lib.i18n.utils --> "src/app/(admin)/accounts/[id]/password/types.d" { Translator }
@@ -508,6 +514,9 @@ graph import {
     "src/lib/email/recipient-address-types.d" --> "src/lib/email/recipient-address" {
         ParsedRecipientAddress,
     }
+    src.lib.spam.analyzers.utils --> "src/lib/spam/domain-utils" { findHeader }
+    src.lib.utils ++> "src/lib/email/recipient-address" { parseAddress }
+    "src/lib/folders/types.d" --> src.lib.folders.colors { FolderColorOption }
     src.lib.validators --> "src/app/api/settings/password/types.d" { changePasswordSchema }
     src.lib.validators --> "src/app/api/settings/profile/types.d" { updateProfileSchema }
     src.lib.validators --> "src/app/api/settings/recipient-addresses/types.d" {
@@ -968,7 +977,7 @@ graph import {
     src.db.index --> "src/lib/email/shared-attachments" { getDb }
     src.db.schema.index --> "src/lib/email/shared-attachments" { sharedAttachmentLinks }
     src.lib.ids --> "src/lib/email/shared-attachments" { newId }
-    src.lib.i18n.utils --> "src/lib/email/shared-file-notice" { Translator, defaultTranslator }
+    src.lib.i18n.utils ++> "src/lib/email/shared-file-notice" { defaultTranslator }
     src.lib.email.address --> "src/lib/tracking/open-tracking" { getEmailAddress }
     src.db.index --> "src/lib/tracking/open-tracking" { getDb }
     src.db.schema.index --> "src/lib/tracking/open-tracking" {
@@ -1697,13 +1706,8 @@ graph import {
         serializeCursor,
     }
     "src/lib/promotions/refile-utils" --> src.lib.promotions.backfill { chunk }
-    "src/lib/spam/types.d" --> "src/lib/email/provider-trace" { ProviderVerdicts }
-    "src/lib/email/authentication-types.d" --> "src/lib/email/provider-trace" {
-        MessageAuthentication,
-        MessageAuthenticationMethod,
-    }
-    "src/lib/email/domain-match" --> "src/lib/email/provider-trace" { isSameOrSubdomain }
-    "src/lib/spam/domain-utils" --> "src/lib/email/provider-trace" { extractSenderIp }
+    "src/lib/email/domain-match" ++> "src/lib/email/provider-trace" { isSameOrSubdomain }
+    "src/lib/spam/domain-utils" ++> "src/lib/email/provider-trace" { extractSenderIp }
     src.db.index --> src.lib.deliverability.ingest { getDb }
     src.db.schema.index --> src.lib.deliverability.ingest {
         deliverabilityReports,
@@ -1958,7 +1962,7 @@ graph import {
     src.db.schema.index --> src.lib.push.server { pushSubscriptions, sessions }
     "src/lib/realtime/types.d" --> src.lib.push.server { NewMessageNotification }
     "src/lib/email/sender-label" --> src.lib.push.server { formatSenderLabel }
-    src.lib.email.address --> "src/lib/email/sender-label" { getEmailAddress }
+    src.lib.email.address ++> "src/lib/email/sender-label" { getEmailAddress }
     src.db.index --> src.lib.push.native { getDb }
     src.db.schema.index --> src.lib.push.native { pushDevices }
     src.lib.ids --> src.lib.push.native { newId }
@@ -2294,6 +2298,13 @@ graph import {
     "src/lib/database-errors" ++> src.lib.promotions.classify { isMissingTableError }
     "src/lib/email/bulk-mail" ++> src.lib.promotions.classify { detectBulkMail }
     "src/lib/promotions/classify-utils" ++> src.lib.promotions.classify {
+    src.lib.promotions.settings --> "src/lib/promotions/mode-utils" { PromotionMode }
+    src.lib.contacts.utils ++> "src/lib/email/inbound-notification" { getPartyDisplayName }
+    src.db.index --> src.lib.promotions.classify { getDb }
+    src.db.schema.index --> src.lib.promotions.classify { mailboxSenderPreferences }
+    "src/lib/database-errors" --> src.lib.promotions.classify { isMissingTableError }
+    "src/lib/email/bulk-mail" --> src.lib.promotions.classify { MailHeaders, detectBulkMail }
+    "src/lib/promotions/classify-utils" --> src.lib.promotions.classify {
         decideCategory,
         toSenderAddress,
     }
@@ -2443,7 +2454,7 @@ graph import {
         deleteMessageWithObjects,
     }
     src.lib.mailboxes.audit --> "src/lib/email/permanent-delete" { createAuditLog }
-    src.lib.i18n.utils --> "src/lib/email/trash-retention-utils" { Translator, defaultTranslator }
+    src.lib.i18n.utils ++> "src/lib/email/trash-retention-utils" { defaultTranslator }
     src.db.index --> src.lib.drive.retention { getDb }
     src.db.schema.index --> src.lib.drive.retention { driveItems, messageAttachments }
     src.lib.drive.access --> src.lib.drive.retention { deleteDriveItems }
@@ -6459,7 +6470,7 @@ graph import {
         MessageBodyDisplay,
         MessageDetailResponse,
     }
-    src.lib.email.address --> "src/lib/email/recipient-display" {
+    src.lib.email.address ++> "src/lib/email/recipient-display" {
         getEmailAddress,
         parseEmailAddressParts,
         splitEmailAddressList,
