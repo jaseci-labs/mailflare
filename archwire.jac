@@ -7,6 +7,9 @@ graph spaces {
 }
 
 graph import {
+    src.lib.jac.host ++> "src/lib/drive/import-utils" { NULL, nil, rx, rx_sub }
+    src.lib.jac.host ++> "src/lib/agent/provider-constants" { record }
+    src.lib.jac.host ++> "src/lib/agent/schema-utils" { record }
     include "src/lib/promotions/subscriptions-utils" ++> "src/lib/promotions/subscriptions-ui-utils" { SUBSCRIPTIONS_PAGE_SIZE }
     src.lib.jac.host ++> "src/lib/promotions/move-utils" { at, record }
     src.lib.jac.host ++> "src/lib/promotions/ui-utils" { NULL, at, entries, record }
@@ -2079,7 +2082,6 @@ graph import {
     }
     "src/lib/agent/model-ids" --> src.lib.agent.provider { parseAgentModelIds }
     src.lib.agent.pricing --> src.lib.agent.provider { parseAgentModelRates }
-    "src/lib/agent/provider-types.d" --> "src/lib/agent/provider-constants" { AgentProviderPreset }
     src.db.index --> src.lib.ai.usage { getDb }
     src.db.schema.index --> src.lib.ai.usage { aiUsage }
     src.lib.ids --> src.lib.ai.usage { newId }
@@ -8563,16 +8565,10 @@ graph import {
         readStreamChunks,
         readZipEntryBytes,
     }
-    src.lib.drive.utils --> "src/lib/drive/import-utils" {
+    src.lib.drive.utils ++> "src/lib/drive/import-utils" {
         DRIVE_MAX_DEPTH,
         DRIVE_MAX_NAME_LENGTH,
         normalizeDriveName,
-    }
-    "src/lib/drive/import-types.d" --> "src/lib/drive/import-utils" {
-        ImportFilePlan,
-        ImportFileRequest,
-        KnownDriveItem,
-        TakeoutDrivePath,
     }
     src.components.icons --> "src/components/settings/takeout-calendar-card" { Upload }
     "src/components/language-provider" --> "src/components/settings/takeout-calendar-card" {
