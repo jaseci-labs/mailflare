@@ -7,202 +7,164 @@ graph spaces {
 }
 
 graph import {
-    "src/lib/import/gmail-takeout-utils" --> "src/lib/import/message-hints-utils" {
-        mapGmailLabels,
-        parseGmailLabels,
-    }
-    "src/lib/import/destination-types.d" --> "src/lib/import/message-hints-utils" {
-        ImportDestination,
-    }
-    src.lib.jac.host ++> src.lib.messages.actions.definitions { NULL, at }
-    src.lib.jac.host ++> "src/lib/messages/membership-store" { NULL, at, either, merged, nil }
-    src.lib.jac.host ++> "src/lib/messages/permanent-delete-utils" { NULL, at, either }
-    src.lib.jac.host ++> "src/lib/messages/change-events" { at, record }
-    src.lib.jac.host ++> "src/lib/messages/list-membership" { NULL, at, nil }
-    src.lib.jac.host ++> "src/lib/messages/field-store" { at, either, merged, nil }
-    src.lib.jac.host ++> "src/lib/search/query-utils" { NULL, at, either, rx, rx_sub }
-    src.lib.jac.host ++> "src/lib/tracking/open-tracking-utils" { NULL, at, record, rx, rx_sub }
-    src.lib.jac.host ++> "src/lib/compose/compose-utils" { NULL }
-    src.lib.jac.host ++> "src/lib/follow-ups/follow-up-utils" { NULL }
-    src.lib.jac.host ++> src.lib.folders.colors { record }
-    src.lib.jac.host ++> "src/lib/folders/color-keys" { record }
-    src.lib.jac.host ++> "src/lib/messages/drag-utils" { NULL, at }
-    src.lib.jac.host ++> src.lib.aws.config { NULL, either, merged, nil, record, rx }
-    src.lib.jac.host ++> src.lib.aws.ses { at, either, entries, nil }
-    src.lib.jac.host ++> "src/lib/aws/ses-notification" { NULL, either, merged, nil }
-    src.lib.jac.host ++> "src/lib/aws/sns-signature" { NULL, at, either, record, rx, rx_sub }
+    src.lib.jac.host ++> "src/lib/accounts/deletion-utils" { at }
+    src.lib.jac.host ++> "src/lib/agent/availability-client" { NULL }
+    src.lib.jac.host ++> src.lib.agent.errors { NULL, nil, rx, rx_sub }
+    src.lib.jac.host ++> src.lib.agent.pricing { NULL, entries }
+    src.lib.jac.host ++> "src/lib/agent/provider-constants" { record }
+    src.lib.jac.host ++> "src/lib/agent/rate-limit" { at, record }
+    src.lib.jac.host ++> src.lib.agent.schedule { NULL, rx }
+    src.lib.jac.host ++> src.lib.agent.time { record }
+    src.lib.jac.host ++> "src/lib/api/query-params" { NULL, either }
+    src.lib.jac.host ++> "src/lib/auth/client-ip" { NULL }
+    src.lib.jac.host ++> "src/lib/auth/error-codes" { record }
+    src.lib.jac.host ++> "src/lib/auth/password-reset-utils" { NULL, at, record }
+    src.lib.jac.host ++> "src/lib/auth/rate-limit" { at, either, record }
+    "src/lib/auth/client-ip" ++> "src/lib/auth/rate-limit" { getClientIp }
+    src.lib.jac.host ++> "src/lib/auth/setup-utils" { rx }
+    src.lib.jac.host ++> "src/lib/avatar-images" { NULL, at, record }
     src.lib.jac.host ++> src.lib.aws.client { NULL, at, either, entries, merged, nil, record, rx }
-    src.lib.jac.host ++> src.lib.aws.sts { either }
-    src.lib.jac.host ++> src.lib.aws.sns { either }
+    src.lib.aws.sigv4 ++> src.lib.aws.client { signAwsRequest }
+    src.lib.aws.xml ++> src.lib.aws.client { xmlTag }
     src.lib.jac.host ++> src.lib.aws.s3 { either, merged }
-    src.lib.jac.host ++> src.lib.aws.xml { NULL, rx }
+    src.lib.aws.client ++> src.lib.aws.s3 { AwsError, awsRequest }
+    src.lib.aws.sigv4 ++> src.lib.aws.s3 { sha256Hex }
+    src.lib.jac.host ++> src.lib.aws.ses { at, either, entries, nil }
+    src.lib.aws.client ++> src.lib.aws.ses { AwsError, awsJson, awsQuery }
+    src.lib.aws.xml ++> src.lib.aws.ses { xmlBlocks, xmlTag }
+    include src.lib.aws.xml ++> src.lib.aws.ses { xmlTags }
+    src.lib.jac.host ++> "src/lib/aws/ses-notification" { NULL, either, merged, nil }
     src.lib.jac.host ++> src.lib.aws.sigv4 { at, either, entries, merged, rx, rx_sub }
-    src.lib.jac.host ++> "src/lib/contacts/import-store-utils" { NULL, at, either, merged, nil, record }
-    src.lib.jac.host ++> "src/lib/calendar/import-store-utils" { NULL, either, merged, nil }
-    src.lib.time.utils ++> "src/lib/calendar/invite-rules" { isValidTimeZone, normalizeTimeZone }
-    src.lib.jac.host ++> "src/lib/calendar/invite-rules" { NULL, at, either, nil }
-    src.lib.jac.host ++> "src/lib/contacts/avatar-client" { record }
-    src.lib.jac.host ++> src.lib.dav.settings { record }
-    src.lib.jac.host ++> src.lib.booking.username { record }
-    src.lib.jac.host ++> src.lib.booking.hosts { NULL, record }
-    src.lib.jac.host ++> src.lib.contacts.gravatar { NULL, either, nil, record }
-    src.lib.jac.host ++> "src/lib/contacts/google-csv" { NULL, at, either, record, rx, rx_sub }
-    "src/lib/contacts/details-utils" ++> "src/lib/contacts/google-csv" { cleanLine, cleanText, normalizeContactDetails, withoutEmails }
+    src.lib.jac.host ++> src.lib.aws.sns { either }
+    src.lib.aws.client ++> src.lib.aws.sns { awsQuery }
+    src.lib.aws.xml ++> src.lib.aws.sns { xmlBlocks, xmlTag }
+    src.lib.jac.host ++> "src/lib/aws/sns-signature" { NULL, at, either, record, rx, rx_sub }
+    src.lib.jac.host ++> src.lib.aws.sts { either }
+    src.lib.aws.client ++> src.lib.aws.sts { awsQuery }
+    src.lib.aws.xml ++> src.lib.aws.sts { xmlTag }
+    src.lib.jac.host ++> src.lib.aws.xml { NULL, rx }
     src.lib.jac.host ++> "src/lib/booking/confirmation-utils" { NULL, at, either, merged, nil, owns, record, rx, rx_sub }
-    src.lib.jac.host ++> src.lib.dav.xml { record }
+    src.lib.calendar.utils ++> "src/lib/booking/confirmation-utils" { createCalendarInvitation }
     src.lib.jac.host ++> src.lib.booking.utils { NULL, either, nil, record, rx, rx_sub }
     src.lib.time.utils ++> src.lib.booking.utils { dateFromZonedFields, isValidTimeZone, zonedDateFields }
-    src.lib.jac.host ++> "src/lib/contacts/details-utils" { NULL, at, either, entries, nil, record, rx, rx_sub }
-    src.lib.jac.host ++> src.lib.contacts.utils { NULL, at, either }
-    src.lib.email.address ++> src.lib.contacts.utils { getEmailDisplayName, normalizeEmailAddress, parseEmailAddressParts }
+    src.lib.calendar.colors ++> src.lib.booking.utils { normalizeCalendarColor }
+    src.lib.jac.host ++> src.lib.calendar.colors { either, record }
+    src.lib.folders.colors ++> src.lib.calendar.colors { DEFAULT_FOLDER_COLOR, FOLDER_COLOR_VALUES }
+    src.lib.jac.host ++> src.lib.calendar.confirmation { NULL, record, rx, rx_sub }
+    "src/lib/security/server-secret" ++> src.lib.calendar.confirmation { getServerSecret }
+    src.lib.jac.host ++> src.lib.calendar.feed { NULL, either, merged, nil, record }
+    src.lib.calendar.recurrence ++> src.lib.calendar.feed { parseCalendarRepeatDays, parseExcludedOccurrences }
+    include src.lib.calendar.ics ++> src.lib.calendar.feed { escapeIcsText, foldIcsLine }
+    src.lib.calendar.ics ++> src.lib.calendar.feed { formatIcsUtc, joinIcsLines }
+    src.lib.jac.host ++> src.lib.calendar.ics { rx, rx_sub }
+    src.lib.jac.host ++> "src/lib/calendar/invite-attachment" { rx }
+    src.lib.jac.host ++> src.lib.calendar.recurrence { NULL, either }
     src.lib.jac.host ++> "src/lib/calendar/reminder-utils" { NULL, either, merged, nil, record }
+    "src/lib/calendar/tool-occurrences" ++> "src/lib/calendar/reminder-utils" { expandToolEvents }
+    src.lib.calendar.utils ++> "src/lib/calendar/split-announcement" { createCalendarInvitation }
     src.lib.jac.host ++> "src/lib/calendar/tool-occurrences" { either }
     src.lib.calendar.recurrence ++> "src/lib/calendar/tool-occurrences" { parseCalendarRepeatDays, parseExcludedOccurrences }
     src.lib.time.utils ++> "src/lib/calendar/tool-occurrences" { dateFromZonedFields, normalizeTimeZone, zonedDateFields }
     src.lib.jac.host ++> src.lib.calendar.utils { NULL, at, either, nil }
     src.lib.calendar.ics ++> src.lib.calendar.utils { escapeIcsText, formatIcsUtc, isIcsAddress, joinIcsLines }
-    src.lib.jac.host ++> src.lib.calendar.feed { NULL, either, merged, nil, record }
-    src.lib.calendar.recurrence ++> src.lib.calendar.feed { parseCalendarRepeatDays, parseExcludedOccurrences }
-    include src.lib.calendar.ics ++> src.lib.calendar.feed { escapeIcsText, foldIcsLine }
-    src.lib.calendar.ics ++> src.lib.calendar.feed { formatIcsUtc, joinIcsLines }
-    src.lib.jac.host ++> src.lib.calendar.confirmation { NULL, record, rx, rx_sub }
-    src.lib.jac.host ++> src.lib.calendar.colors { either, record }
-    src.lib.jac.host ++> src.lib.calendar.ics { rx, rx_sub }
-    src.lib.jac.host ++> "src/lib/calendar/invite-attachment" { rx }
+    src.lib.jac.host ++> "src/lib/cloudflare-api-error" { at }
+    src.lib.jac.host ++> "src/lib/compose/compose-utils" { NULL }
+    src.lib.jac.host ++> "src/lib/contacts/avatar-client" { record }
+    src.lib.jac.host ++> "src/lib/contacts/details-utils" { NULL, at, either, entries, nil, record, rx, rx_sub }
+    src.lib.jac.host ++> "src/lib/contacts/google-csv" { NULL, at, either, record, rx, rx_sub }
+    "src/lib/contacts/details-utils" ++> "src/lib/contacts/google-csv" { cleanLine, cleanText, normalizeContactDetails, withoutEmails }
+    src.lib.jac.host ++> src.lib.contacts.gravatar { NULL, either, nil, record }
+    src.lib.contacts.avatar ++> src.lib.contacts.gravatar { contactAvatarKeyFor }
+    "src/lib/avatar-images" ++> src.lib.contacts.gravatar { avatarPreviewKeyFor }
+    src.lib.jac.host ++> "src/lib/database-errors" { rx }
     src.lib.jac.host ++> src.lib.dav.body { NULL, either }
     src.lib.jac.host ++> "src/lib/dav/xml-writer" { rx, rx_sub }
-    src.lib.jac.host ++> src.lib.calendar.recurrence { NULL, either }
-    src.lib.jac.host ++> "src/lib/email/provider-trace" { NULL, either, record, rx, rx_sub }
-    src.lib.jac.host ++> "src/lib/email/inbound-notification" { at, record }
-    src.lib.jac.host ++> "src/lib/email/trash-retention-utils" { NULL }
-    src.lib.jac.host ++> "src/lib/email/shared-file-notice" { record, rx, rx_sub }
-    src.lib.jac.host ++> "src/lib/email/recipient-address" { NULL, record }
-    src.lib.jac.host ++> "src/lib/email/sender-label" { either, rx, rx_sub }
-    "src/lib/email/unsubscribe-types.d" --> src.lib.email.unsubscribe { UnsubscribeUrl }
-    src.lib.jac.host ++> "src/lib/email/resend-api" { NULL, at, either, merged, nil, record, rx, rx_sub }
-    src.lib.jac.host ++> "src/lib/email/attachment-risk" { NULL, at, nil, record, rx, rx_sub }
-    src.lib.jac.host ++> "src/lib/email/bulk-mail" { NULL, entries, record }
-    src.lib.jac.host ++> "src/lib/email/mime-preflight" { NULL, record }
-    src.lib.jac.host ++> "src/lib/email/intake-signature" { record }
-    src.lib.jac.host ++> "src/lib/email/attachment-limits" { NULL }
-    src.lib.jac.host ++> "src/lib/email/inbound-limits" { NULL, merged, record, rx, rx_sub }
-    src.lib.jac.host ++> src.lib.email.svix { NULL, at, record }
-    src.lib.jac.host ++> "src/lib/email/inbound-id" { either }
-    src.lib.jac.host ++> "src/lib/email/stale-objects" { at, record }
-    src.lib.jac.host ++> "src/lib/email/thread-lookup" { NULL, either, rx, rx_sub }
-    src.lib.jac.host ++> "src/lib/email/mail-type-rule" { nil }
-    src.lib.jac.host ++> src.lib.email.base64 { rx, rx_sub }
-    src.lib.jac.host ++> src.lib.jmap.blobs { NULL, at, either, merged, nil, record, rx }
-    src.lib.jac.host ++> src.lib.jmap.access { NULL, at, nil, record }
-    src.lib.jac.host ++> src.lib.import.destination { NULL }
-    src.lib.jac.host ++> src.lib.import.mbox { rx, rx_sub }
-    src.lib.jac.host ++> src.lib.import.staging { owns, record }
-    src.lib.jac.host ++> src.lib.jmap.constants { record }
-    src.lib.jac.host ++> src.lib.jmap.errors { either, merged, record }
-    src.lib.jac.host ++> "src/lib/jmap/request-utils" { NULL }
-    src.lib.jac.host ++> "src/lib/jmap/changes-utils" { NULL }
-    src.lib.jac.host ++> src.lib.jmap.ids { NULL }
-    src.lib.jac.host ++> "src/lib/jmap/email-import-utils" { NULL, entries }
-    src.lib.jac.host ++> src.lib.spam.settings { NULL, at, either, rx }
-    src.lib.jac.host ++> src.lib.spam.classifier { at }
-    src.lib.jac.host ++> "src/lib/deliverability/tls-stats" { NULL, at }
-    src.lib.jac.host ++> "src/lib/deliverability/dmarc-stats" { NULL, at }
-    src.lib.jac.host ++> "src/lib/deliverability/suppression-admin" { NULL, at, either }
-    src.lib.jac.host ++> src.lib.deliverability.suppression { NULL, at, either, merged, nil, rx }
-    src.lib.jac.host ++> "src/lib/deliverability/report-address" { NULL }
-    src.lib.jac.host ++> "src/lib/deliverability/report-parse" { NULL, at, either, record, rx, rx_sub }
-    src.lib.jac.host ++> "src/lib/deliverability/suppression-utils" { NULL, at, either, nil, rx }
-    src.lib.jac.host ++> src.lib.spam.analyzers.authentication { at, rx }
-    src.lib.email.parse --> src.lib.spam.analyzers.urls { ParsedEmail }
-    "src/lib/spam/types.d" --> src.lib.spam.analyzers.urls { PreparedSpamContent, SpamSignal }
-    src.lib.jac.host ++> src.lib.spam.analyzers.structure { at, rx }
-    src.lib.jac.host ++> src.lib.spam.analyzers.solicitation { at, rx, rx_sub }
-    src.lib.spam.tokenizer ++> src.lib.spam.analyzers.solicitation { getDomain }
-    src.lib.jac.host ++> src.lib.spam.tokenizer { at, either, rx, rx_sub }
-    src.lib.jac.host ++> src.lib.spam.analyzers.reputation { at }
-    src.lib.jac.host ++> src.lib.spam.analyzers.impersonation { either, rx, rx_sub }
-    src.lib.spam.tokenizer ++> src.lib.spam.analyzers.impersonation { getDomain }
     src.lib.jac.host ++> "src/lib/deliverability/daily-utils" { NULL, nil, owns, record, merged }
     src.lib.jac.host ++> "src/lib/deliverability/dmarc-record" { either, rx, rx_sub }
     src.lib.jac.host ++> src.lib.deliverability.dsn { NULL, nil, either, rx, rx_sub }
     src.lib.jac.host ++> "src/lib/deliverability/mta-sts" { NULL, record, merged, rx, rx_sub }
-    src.lib.jac.host ++> "src/lib/deliverability/org-domain" { NULL, nil, record, rx, rx_sub }
-    src.lib.jac.host ++> src.lib.spam.weights { record }
-    src.lib.jac.host ++> src.lib.spam.analyzers.utils { either, entries }
-    src.lib.jac.host ++> "src/lib/spam/lookup-cache" { record }
-    src.lib.jac.host ++> "src/lib/spam/domain-utils" { NULL, rx, rx_sub }
-    "src/lib/cloudflare-api.types.d" --> "src/lib/cloudflare-api-utils" { CfApiError, CfAuth }
-    src.lib.jac.host ++> "src/lib/cloudflare-api-error" { at }
     src.lib.jac.host ++> "src/lib/dns-query" { NULL, at, record, rx }
-    src.lib.jac.host ++> "src/lib/api-keys" { record }
-    src.lib.jac.host ++> src.lib.zip { at, either, record, rx, rx_sub }
+    src.lib.jac.host ++> "src/lib/email/attachment-limits" { NULL }
+    src.lib.jac.host ++> "src/lib/email/attachment-risk" { NULL, at, nil, record, rx, rx_sub }
+    src.lib.jac.host ++> src.lib.email.base64 { rx, rx_sub }
+    src.lib.jac.host ++> "src/lib/email/bulk-mail" { NULL, entries, record }
+    src.lib.jac.host ++> "src/lib/email/inbound-id" { either }
+    src.lib.jac.host ++> "src/lib/email/inbound-limits" { NULL, merged, record, rx, rx_sub }
+    src.lib.jac.host ++> "src/lib/email/intake-signature" { record }
+    src.lib.jac.host ++> "src/lib/email/mail-type-rule" { nil }
+    src.lib.jac.host ++> "src/lib/email/mime-preflight" { NULL, record }
+    src.lib.jac.host ++> "src/lib/email/provider-trace" { NULL, either, record, rx, rx_sub }
+    "src/lib/email/domain-match" ++> "src/lib/email/provider-trace" { isSameOrSubdomain }
+    "src/lib/spam/domain-utils" ++> "src/lib/email/provider-trace" { extractSenderIp }
+    src.lib.jac.host ++> "src/lib/email/resend-api" { NULL, at, either, merged, nil, record, rx, rx_sub }
+    src.lib.jac.host ++> "src/lib/email/stale-objects" { at, record }
+    src.lib.jac.host ++> src.lib.email.svix { NULL, at, record }
+    src.lib.jac.host ++> "src/lib/email/thread-lookup" { NULL, either, rx, rx_sub }
+    src.lib.jac.host ++> "src/lib/folders/color-keys" { record }
+    src.lib.jac.host ++> src.lib.folders.colors { record }
+    src.lib.jac.host ++> "src/lib/follow-ups/follow-up-utils" { NULL }
     src.lib.jac.host ++> src.lib.http.request { NULL, at, either, record }
-    src.lib.jac.host ++> src.lib.time.utils { NULL, at, either, merged, nil, record, rx }
-    src.lib.jac.host ++> src.lib.utils { NULL, record, rx, rx_sub }
-    src.lib.jac.host ++> "src/lib/database-errors" { rx }
-    src.lib.jac.host ++> "src/lib/avatar-images" { NULL, at, record }
-    src.lib.jac.host ++> src.lib.agent.provider { NULL, at, either, record, rx, rx_sub }
-    src.db.index --> src.lib.promotions.settings { getDb }
-    src.db.schema.index --> src.lib.promotions.settings { mailboxPromotionSettings, messages }
-    src.db.sql --> src.lib.promotions.settings { matchNothing }
-    "src/lib/database-errors" --> src.lib.promotions.settings { isMissingTableError }
-    src.lib.jac.host ++> src.lib.promotions.classify { NULL, at, either, record }
-    src.lib.jac.host ++> src.lib.promotions.refile { NULL, at, either, record }
-    src.lib.jac.host ++> "src/lib/drive/import-utils" { NULL, nil, rx, rx_sub }
-    src.lib.jac.host ++> "src/lib/agent/provider-constants" { record }
-    src.lib.jac.host ++> "src/lib/agent/schema-utils" { record }
-    include "src/lib/promotions/subscriptions-utils" ++> "src/lib/promotions/subscriptions-ui-utils" { SUBSCRIPTIONS_PAGE_SIZE }
+    src.lib.http.errors ++> src.lib.http.request { RequestBodyTooLargeError }
+    src.lib.jac.host ++> src.lib.import.destination { NULL }
+    src.lib.jac.host ++> src.lib.import.mbox { rx, rx_sub }
+    src.lib.jac.host ++> src.lib.import.staging { owns, record }
+    src.lib.jac.host ++> "src/lib/jmap/changes-utils" { NULL }
+    src.lib.jac.host ++> src.lib.jmap.constants { record }
+    src.lib.jac.host ++> "src/lib/jmap/email-import-utils" { NULL, entries }
+    src.lib.jmap.constants ++> "src/lib/jmap/email-import-utils" { KEYWORD_FLAGGED, KEYWORD_SEEN }
+    src.lib.jmap.ids ++> "src/lib/jmap/email-import-utils" { decodeMailboxRef }
+    src.lib.jac.host ++> src.lib.jmap.errors { either, merged, record }
+    src.lib.jac.host ++> src.lib.jmap.ids { NULL }
+    src.lib.jac.host ++> "src/lib/jmap/request-utils" { NULL }
+    src.lib.jmap.constants ++> src.lib.jmap.session {
+        CAPABILITY_CORE,
+        CAPABILITY_MAIL,
+        CAPABILITY_SUBMISSION,
+        LIMITS,
+    }
+    src.lib.jac.host ++> src.lib.licenses.constants { record }
+    src.lib.jac.host ++> src.lib.licenses.paymug { record }
+    src.lib.licenses.utils ++> src.lib.licenses.paymug { parsePaymugLicenseResponse }
+    src.lib.jac.host ++> src.lib.licenses.utils { NULL, merged, nil }
+    src.lib.licenses.constants ++> src.lib.licenses.utils { LICENSE_PRODUCT_IDS }
+    src.lib.jac.host ++> src.lib.messages.actions.definitions { NULL, at }
+    src.lib.jac.host ++> "src/lib/messages/change-events" { at, record }
+    src.lib.jac.host ++> "src/lib/messages/drag-utils" { NULL, at }
+    src.lib.jac.host ++> "src/lib/messages/field-store" { at, either, merged, nil }
+    src.lib.jac.host ++> "src/lib/messages/list-membership" { NULL, at, nil }
+    src.lib.jac.host ++> "src/lib/messages/membership-store" { NULL, at, either, merged, nil }
+    "src/lib/messages/list-membership" ++> "src/lib/messages/membership-store" {
+        getListMembershipContext,
+        getListMembershipKey,
+        messageMatchesFolder,
+    }
+    src.lib.jac.host ++> "src/lib/notes/note-permissions" { NULL }
+    src.lib.jac.host ++> "src/lib/promotions/backfill-utils" { NULL, record }
+    src.lib.jac.host ++> "src/lib/promotions/mode-utils" { NULL }
     src.lib.jac.host ++> "src/lib/promotions/move-utils" { at, record }
     src.lib.jac.host ++> "src/lib/promotions/ui-utils" { NULL, at, entries, record }
-    src.lib.jac.host ++> "src/lib/promotions/subscriptions-ui-utils" { NULL, at, either, nil }
-    include "src/lib/promotions/refile-utils" ++> "src/lib/promotions/subscriptions-utils" { chunk }
-    src.lib.jac.host ++> "src/lib/promotions/refile-utils" { NULL }
-    src.lib.jac.host ++> "src/lib/promotions/mode-utils" { NULL }
-    src.lib.jac.host ++> "src/lib/promotions/subscriptions-utils" { NULL }
-    src.lib.jac.host ++> "src/lib/promotions/backfill-utils" { NULL, record }
-    src.lib.jac.host ++> "src/lib/promotions/classify-utils" { NULL, at }
-    src.lib.jac.host ++> src.lib.agent.pricing { NULL, entries }
-    src.lib.jac.host ++> src.lib.agent.schedule { NULL, rx }
-    src.lib.jac.host ++> src.lib.agent.time { record }
-    src.lib.jac.host ++> "src/lib/agent/rate-limit" { at, record }
-    src.lib.jac.host ++> "src/lib/agent/availability-client" { NULL }
-    src.lib.jac.host ++> src.lib.agent.errors { NULL, nil, rx, rx_sub }
-    src.lib.jac.host ++> "src/lib/notes/note-permissions" { NULL }
-    src.db.index --> "src/lib/auth/device-keys" { getDb }
-    src.db.schema.index --> "src/lib/auth/device-keys" { apiKeys, pushDevices }
-    "src/lib/api-keys" --> "src/lib/auth/device-keys" { generateApiKey, scopesToJson }
-    src.lib.ids --> "src/lib/auth/device-keys" { newId }
-    src.db.index --> src.lib.auth.setup { getDb }
-    src.db.schema.index --> src.lib.auth.setup { users }
-    "src/lib/auth/setup-utils" --> src.lib.auth.setup { isMissingUsersTableError }
-    src.db.index --> src.lib.auth.purge { getDb }
-    src.db.schema.index --> src.lib.auth.purge {
-        loginChallenges,
-        passkeyEnrollmentGrants,
-        passwordResetTokens,
-        sessions,
-    }
-    src.lib.jac.host ++> "src/lib/auth/rate-limit" { at, either, record }
-    src.lib.jac.host ++> src.lib.auth.origin { NULL, at, nil }
-    src.lib.jac.host ++> src.lib.auth.turnstile { at, either, record }
-    src.lib.jac.host ++> "src/lib/auth/password-reset-utils" { NULL, at, record }
-    src.lib.jac.host ++> src.lib.licenses.utils { NULL, merged, nil }
-    src.lib.jac.host ++> src.lib.licenses.paymug { record }
-    src.lib.jac.host ++> "src/lib/auth/error-codes" { record }
-    src.lib.jac.host ++> "src/lib/auth/setup-utils" { rx }
-    src.lib.jac.host ++> "src/lib/auth/client-ip" { NULL }
-    src.lib.jac.host ++> "src/lib/api/query-params" { NULL, either }
-    src.lib.jac.host ++> "src/lib/accounts/deletion-utils" { at }
+    src.lib.jac.host ++> "src/lib/search/query-utils" { NULL, at, either, rx, rx_sub }
+    src.lib.time.utils ++> "src/lib/search/query-utils" { dateFromZonedFields, normalizeTimeZone }
     src.lib.jac.host ++> "src/lib/security/server-secret" { at }
-    src.lib.jac.host ++> src.lib.licenses.constants { record }
+    src.lib.jac.host ++> src.lib.spam.analyzers.authentication { at, rx }
+    src.lib.spam.weights ++> src.lib.spam.analyzers.authentication { SPAM_WEIGHTS }
+    src.lib.spam.analyzers.utils ++> src.lib.spam.analyzers.authentication { findHeader }
+    src.lib.jac.host ++> src.lib.spam.analyzers.utils { either, entries }
+    src.lib.jac.host ++> "src/lib/spam/domain-utils" { NULL, rx, rx_sub }
+    src.lib.spam.analyzers.utils ++> "src/lib/spam/domain-utils" { findHeader }
+    src.lib.jac.host ++> "src/lib/spam/lookup-cache" { record }
+    src.lib.jac.host ++> src.lib.spam.weights { record }
+    src.lib.jac.host ++> src.lib.time.utils { NULL, at, either, merged, nil, record, rx }
+    src.lib.jac.host ++> "src/lib/tracking/open-tracking-utils" { NULL, at, record, rx, rx_sub }
+    src.lib.jac.host ++> src.lib.zip { at, either, record, rx, rx_sub }
     src.lib.security.headers --> "next.config" { getSecurityHeaders }
     server.runtime.mailer --> "server/runtime/types.d" { Mailer }
     server.runtime.queue --> "server/runtime/types.d" { InProcessQueue }
     server.runtime.realtime --> "server/runtime/types.d" { RealtimeHubRegistry }
     "server/runtime/sqlite-database" --> "server/runtime/types.d" { SqliteDatabase }
     src.lib.email.address --> server.runtime.mailer { getEmailAddress }
-    src.lib.utils ++> src.lib.email.address { parseAddress }
-    src.lib.jac.host ++> src.lib.email.address { NULL, record, rx, rx_sub }
+    "src/lib/email/address-types.d" --> src.lib.email.address { EmailAddressParts }
+    src.lib.utils --> src.lib.email.address { parseAddress }
     src.lib.realtime.revision --> server.runtime.realtime { getUserMailRevision }
     "src/lib/realtime/types.d" --> server.runtime.realtime { RevisionNotification, RevisionPing }
     src.lib.i18n.utils --> "src/app/(admin)/accounts/[id]/password/types.d" { Translator }
@@ -435,7 +397,7 @@ graph import {
         timingSafeEqualText,
         verifyApiKey,
     }
-    src.lib.ids ++> "src/lib/api-keys" { newId }
+    src.lib.ids --> "src/lib/api-keys" { newId }
     src.db.index --> "src/lib/api/key-auth" { getDb }
     src.db.schema.index --> "src/lib/api/key-auth" { apiKeys, mcpKeyMailboxes, users }
     "src/lib/api-keys" --> "src/lib/api/key-auth" { parseScopes }
@@ -445,19 +407,14 @@ graph import {
     "src/lib/auth/client-ip" --> "src/lib/api/key-auth" { getClientIp }
     src.db.schema.index --> "src/lib/api/key-auth-types.d" { users }
     "src/lib/api-keys" --> "src/lib/auth/app-password-utils" { parseScopes }
-    src.db.index ++> src.lib.dav.settings { getDb }
-    src.db.schema.index ++> src.lib.dav.settings { appSettings }
-    "src/lib/database-errors" ++> src.lib.dav.settings { isMissingColumnError }
+    src.db.index --> src.lib.dav.settings { getDb }
+    src.db.schema.index --> src.lib.dav.settings { appSettings }
+    "src/lib/database-errors" --> src.lib.dav.settings { isMissingColumnError }
     src.db.index --> "src/lib/auth/device-keys" { getDb }
     src.db.schema.index --> "src/lib/auth/device-keys" { apiKeys, pushDevices }
     "src/lib/api-keys" --> "src/lib/auth/device-keys" { generateApiKey, scopesToJson }
     src.lib.ids --> "src/lib/auth/device-keys" { newId }
     src.lib.runtime --> src.lib.auth.origin { getNodeEnv }
-    "src/lib/api-keys" ++> "src/lib/auth/app-password-utils" { parseScopes }
-    src.db.index --> src.lib.dav.settings { getDb }
-    src.db.schema.index --> src.lib.dav.settings { appSettings }
-    "src/lib/database-errors" --> src.lib.dav.settings { isMissingColumnError }
-    src.lib.runtime ++> src.lib.auth.origin { getNodeEnv }
     src.lib.runtime --> src.lib.cloudflare { getNodeEnv }
     "src/lib/d1-session-context" --> src.lib.cloudflare { getD1Session, withD1Session }
     "src/db/with-database" --> src.lib.cloudflare { withDatabase }
@@ -471,8 +428,6 @@ graph import {
     src.lib.aws.xml --> "src/lib/storage/b2-bucket" { xmlBlocks, xmlTag }
     "src/lib/aws/aws-types.d" --> "src/lib/storage/b2-bucket" { AwsConfig }
     "src/lib/storage/b2-types.d" --> "src/lib/storage/b2-bucket" { B2Config, B2HttpMetadata }
-    src.lib.aws.sigv4 ++> src.lib.aws.client { signAwsRequest }
-    src.lib.aws.xml ++> src.lib.aws.client { xmlTag }
     "src/lib/email/inbound-limits" --> "src/app/api/messages/[messageId]/attachments/[attachmentId]/utils" {
         truncateUtf8,
     }
@@ -515,14 +470,10 @@ graph import {
     }
     "src/lib/dns-query" --> "src/lib/remote-images/fetch" { queryDns }
     "src/lib/spam/domain-utils" --> "src/lib/remote-images/fetch" { isPublicIpv4 }
-    src.lib.spam.analyzers.utils ++> "src/lib/spam/domain-utils" { findHeader }
     src.lib.utils --> "src/lib/email/recipient-address" { parseAddress }
     "src/lib/email/recipient-address-types.d" --> "src/lib/email/recipient-address" {
         ParsedRecipientAddress,
     }
-    src.lib.spam.analyzers.utils --> "src/lib/spam/domain-utils" { findHeader }
-    src.lib.utils ++> "src/lib/email/recipient-address" { parseAddress }
-    "src/lib/folders/types.d" --> src.lib.folders.colors { FolderColorOption }
     src.lib.validators --> "src/app/api/settings/password/types.d" { changePasswordSchema }
     src.lib.validators --> "src/app/api/settings/profile/types.d" { updateProfileSchema }
     src.lib.validators --> "src/app/api/settings/recipient-addresses/types.d" {
@@ -576,9 +527,10 @@ graph import {
         formatState,
         parseState,
     }
-    src.db.schema.index ++> src.lib.jmap.access { folders, mailboxes }
-    src.lib.mailboxes.access ++> src.lib.jmap.access { listAccessibleMailboxes }
-    "src/lib/mailboxes/domain-addresses" ++> src.lib.jmap.access { getMailboxDomainAddresses }
+    src.db.schema.index --> src.lib.jmap.access { folders, mailboxes }
+    src.lib.mailboxes.access --> src.lib.jmap.access { listAccessibleMailboxes }
+    "src/lib/mailboxes/domain-addresses" --> src.lib.jmap.access { getMailboxDomainAddresses }
+    "src/lib/jmap/types.d" --> src.lib.jmap.access { AccessibleMailbox, JmapContext }
     src.db.index --> "src/lib/mailboxes/domain-addresses" { AppDatabase }
     src.db.schema.index --> "src/lib/mailboxes/domain-addresses" {
         domains,
@@ -618,14 +570,6 @@ graph import {
     "src/lib/cloudflare-api-error" --> "src/lib/cloudflare-api" { CloudflareApiError }
     src.lib.domains.utils --> "src/lib/cloudflare-api" { getZoneLookupCandidates }
     "src/lib/cloudflare-api.types.d" --> "src/lib/cloudflare-api-utils" { CfApiError, CfAuth }
-    "src/lib/cloudflare-api.types.d" --> "src/lib/cloudflare-api-error" { CfApiError }
-    src.db.schema.index ++> src.lib.jmap.blobs { messageAttachments, messages }
-    "src/lib/email/draft-access" ++> src.lib.jmap.blobs { isOthersDraft }
-    src.lib.ids ++> src.lib.jmap.blobs { newId }
-    src.lib.jmap.constants ++> src.lib.jmap.blobs { LIMITS }
-    src.lib.jmap.ids ++> src.lib.jmap.blobs { decodeBlobId, uploadBlobId }
-    src.lib.jmap.access ++> src.lib.jmap.blobs { listAccessibleMailboxIdSet }
-    "src/lib/jmap/types.d" --> src.lib.jmap.ids { MailboxRef, SystemRole }
     src.db.schema.index --> src.lib.jmap.blobs { messageAttachments, messages }
     "src/lib/email/draft-access" --> src.lib.jmap.blobs { isOthersDraft }
     src.lib.ids --> src.lib.jmap.blobs { newId }
@@ -783,11 +727,6 @@ graph import {
     src.db.schema.index --> src.lib.promotions.settings { mailboxPromotionSettings, messages }
     src.db.sql --> src.lib.promotions.settings { matchNothing }
     "src/lib/database-errors" --> src.lib.promotions.settings { isMissingTableError }
-    src.lib.jmap.constants ++> "src/lib/jmap/email-import-utils" { KEYWORD_FLAGGED, KEYWORD_SEEN }
-    src.lib.jmap.ids ++> "src/lib/jmap/email-import-utils" { decodeMailboxRef }
-    src.lib.jmap.constants --> "src/lib/jmap/email-import-utils" { KEYWORD_FLAGGED, KEYWORD_SEEN }
-    src.lib.jmap.ids --> "src/lib/jmap/email-import-utils" { decodeMailboxRef }
-    "src/lib/jmap/types.d" --> "src/lib/jmap/email-import-utils" { JmapSetError }
     src.db.schema.index --> "src/lib/jmap/email-query" {
         mailboxPromotionSettings,
         messageAttachments,
@@ -917,8 +856,12 @@ graph import {
     src.lib.contacts.gravatar --> src.lib.contacts.service { importGravatarAvatar }
     src.db.schema.index --> "src/lib/contacts/types.d" { contacts }
     "src/lib/email/address-types.d" --> "src/lib/contacts/types.d" { ContactSource }
-    src.lib.contacts.avatar ++> src.lib.contacts.gravatar { contactAvatarKeyFor }
-    "src/lib/avatar-images" ++> src.lib.contacts.gravatar { avatarPreviewKeyFor }
+    "src/lib/contacts/types.d" --> src.lib.contacts.utils { ContactNameSource }
+    src.lib.email.address --> src.lib.contacts.utils {
+        getEmailDisplayName,
+        normalizeEmailAddress,
+        parseEmailAddressParts,
+    }
     src.db.index --> src.lib.mailboxes.audit { getDb }
     src.db.schema.index --> src.lib.mailboxes.audit { auditLogs }
     src.lib.ids --> src.lib.mailboxes.audit { newId }
@@ -943,19 +886,6 @@ graph import {
     src.db.index --> src.lib.aws.config { getDb }
     src.db.schema.index --> src.lib.aws.config { appSettings }
     "src/lib/aws/aws-types.d" --> src.lib.aws.config { AwsConfig, AwsConfigStatus }
-    src.lib.aws.client --> src.lib.aws.ses { AwsError, awsJson, awsQuery }
-    src.lib.aws.xml --> src.lib.aws.ses { xmlBlocks, xmlTag, xmlTags }
-    "src/lib/aws/aws-types.d" --> src.lib.aws.ses { AwsConfig, SesIdentityStatus }
-    src.db.index ++> src.lib.aws.config { getDb }
-    src.db.schema.index ++> src.lib.aws.config { appSettings }
-    src.lib.aws.client ++> src.lib.aws.ses { AwsError, awsJson, awsQuery }
-    src.lib.aws.xml ++> src.lib.aws.ses { xmlBlocks, xmlTag }
-    include src.lib.aws.xml ++> src.lib.aws.ses { xmlTags }
-    "src/lib/email/resend-api-types.d" --> "src/lib/email/resend-api" {
-        ResendDomain,
-        ResendReceivedEmail,
-        ResendWebhook,
-    }
     "src/lib/email/attachment-types.d" --> "src/lib/email/cloud-attachment-utils" {
         AttachmentContent,
     }
@@ -983,7 +913,7 @@ graph import {
     src.db.index --> "src/lib/email/shared-attachments" { getDb }
     src.db.schema.index --> "src/lib/email/shared-attachments" { sharedAttachmentLinks }
     src.lib.ids --> "src/lib/email/shared-attachments" { newId }
-    src.lib.i18n.utils ++> "src/lib/email/shared-file-notice" { defaultTranslator }
+    src.lib.i18n.utils --> "src/lib/email/shared-file-notice" { Translator, defaultTranslator }
     src.lib.email.address --> "src/lib/tracking/open-tracking" { getEmailAddress }
     src.db.index --> "src/lib/tracking/open-tracking" { getDb }
     src.db.schema.index --> "src/lib/tracking/open-tracking" {
@@ -1019,28 +949,32 @@ graph import {
         parseUndoSendSeconds,
     }
     "src/lib/compose/types.d" --> src.lib.compose.preferences { ComposePreferences }
-    src.db.index ++> src.lib.deliverability.suppression { getDb }
-    src.db.schema.index ++> src.lib.deliverability.suppression {
+    src.db.index --> src.lib.deliverability.suppression { getDb }
+    src.db.schema.index --> src.lib.deliverability.suppression {
         appSettings,
         domains,
         emailSuppressions,
         messages,
     }
-    src.lib.email.address ++> src.lib.deliverability.suppression { getEmailAddressList }
-    src.lib.ids ++> src.lib.deliverability.suppression { newId }
-    src.lib.email.sender ++> src.lib.deliverability.suppression { getAuthorizedSenderAddress }
-    src.lib.deliverability.dsn ++> src.lib.deliverability.suppression { parseDeliveryStatus }
-    "src/lib/deliverability/suppression-utils" ++> src.lib.deliverability.suppression { MAX_SUPPRESSION_DETAIL, SuppressedRecipientError, addressDomain, cleanAddress, filterSuppressed }
-    src.lib.email.address ++> "src/lib/deliverability/suppression-utils" {
+    src.lib.email.address --> src.lib.deliverability.suppression { getEmailAddressList }
+    src.lib.ids --> src.lib.deliverability.suppression { newId }
+    src.lib.email.sender --> src.lib.deliverability.suppression { getAuthorizedSenderAddress }
+    src.lib.deliverability.dsn --> src.lib.deliverability.suppression { parseDeliveryStatus }
+    "src/lib/deliverability/suppression-utils" --> src.lib.deliverability.suppression {
+        MAX_SUPPRESSION_DETAIL,
+        SuppressedRecipientError,
+        SuppressionEntry,
+        SuppressionMode,
+        SuppressionReason,
+        SuppressionSource,
+        addressDomain,
+        cleanAddress,
+        filterSuppressed,
+    }
+    src.lib.email.address --> "src/lib/deliverability/suppression-utils" {
         getEmailAddress,
         normalizeEmailAddress,
         splitEmailAddressList,
-    }
-    src.lib.jmap.constants ++> src.lib.jmap.session {
-        CAPABILITY_CORE,
-        CAPABILITY_MAIL,
-        CAPABILITY_SUBMISSION,
-        LIMITS,
     }
     "src/lib/i18n/types.d" --> "src/app/types.d" { TranslationKey }
     src.components.icons --> "src/app/types.d" { LucideIcon }
@@ -1173,7 +1107,6 @@ graph import {
         joinIcsLines,
     }
     "src/lib/calendar/reminder-utils" --> src.lib.calendar.invite { normalizeReminderMinutes }
-    "src/lib/calendar/tool-occurrences" ++> "src/lib/calendar/reminder-utils" { expandToolEvents }
     "src/lib/import/takeout-data-types.d" --> "src/components/settings/takeout-contacts-card-types.d" {
         ContactSource,
     }
@@ -1324,6 +1257,9 @@ graph import {
     "tests/helpers/dom-component" --> "tests/hotkey-shared-sequence.test" { loadComponent }
     src.lib.email.unsubscribe --> "tests/html-scan-bounds.test" { extractUnsubscribeLinkFromBody }
     src.lib.spam.analyzers.urls --> "tests/html-scan-bounds.test" { analyzeUrls }
+    "src/lib/email/unsubscribe-types.d" --> src.lib.email.unsubscribe { UnsubscribeUrl }
+    src.lib.email.parse --> src.lib.spam.analyzers.urls { ParsedEmail }
+    "src/lib/spam/types.d" --> src.lib.spam.analyzers.urls { PreparedSpamContent, SpamSignal }
     "src/lib/import/imap-utils" --> "tests/imap-chunk-size.test" {
         getImapChunkSize,
         growImapChunkSize,
@@ -1336,6 +1272,13 @@ graph import {
     "src/lib/import/message-hints-utils" --> "tests/import-message-hints.test" {
         applyImportHints,
         getImportMessageHints,
+    }
+    "src/lib/import/gmail-takeout-utils" --> "src/lib/import/message-hints-utils" {
+        mapGmailLabels,
+        parseGmailLabels,
+    }
+    "src/lib/import/destination-types.d" --> "src/lib/import/message-hints-utils" {
+        ImportDestination,
     }
     "tests/helpers/real-db" --> "tests/import-reauthorization.test" { loadApp, sharedMailboxSeed }
     "tests/helpers/real-db" --> "tests/jmap-folder-scope.test" { loadApp, sharedMailboxSeed }
@@ -1497,16 +1440,10 @@ graph import {
         tokenizeSearchText,
     }
     "src/lib/search/types.d" --> src.lib.search.conditions { ParsedSearchQuery }
-    src.lib.time.utils ++> "src/lib/search/query-utils" { dateFromZonedFields, normalizeTimeZone }
     src.db.index --> src.lib.booking.create { getDb }
     src.db.schema.index --> src.lib.booking.create { calendarEvents }
     src.lib.ids --> src.lib.booking.create { newId }
     "src/lib/booking/types.d" --> src.lib.booking.create { BookingEventRecord }
-    "src/lib/search/types.d" --> "src/lib/search/query-utils" { ParsedSearchQuery, SearchToken }
-    src.lib.time.utils --> "src/lib/search/query-utils" { dateFromZonedFields, normalizeTimeZone }
-    src.db.index ++> src.lib.booking.create { getDb }
-    src.db.schema.index ++> src.lib.booking.create { calendarEvents }
-    src.lib.ids ++> src.lib.booking.create { newId }
     src.db.index --> "src/lib/calendar/import-store" { AppDatabase }
     src.db.schema.index --> "src/lib/calendar/import-store" { calendarEvents, domains, mailboxes }
     src.lib.http.errors --> "src/lib/calendar/import-store" { RequestBodyTooLargeError }
@@ -1525,8 +1462,18 @@ graph import {
         planCalendarImportRows,
         planGroupIds,
     }
-    src.lib.calendar.ics ++> "src/lib/calendar/import-store-utils" { isIcsAddress }
-    "src/lib/calendar/invite-store" ++> "src/lib/calendar/import-store-utils" { inviteEventId }
+    src.lib.calendar.ics --> "src/lib/calendar/import-store-utils" { isIcsAddress }
+    "src/lib/calendar/ics-import-types.d" --> "src/lib/calendar/import-store-utils" {
+        ImportEvent,
+        ImportGroup,
+    }
+    "src/lib/calendar/import-store-types.d" --> "src/lib/calendar/import-store-utils" {
+        CalendarImportPlan,
+        CalendarImportRow,
+        ImportGroupIds,
+        PlannedGroup,
+    }
+    "src/lib/calendar/invite-store" --> "src/lib/calendar/import-store-utils" { inviteEventId }
     src.db.index --> "src/lib/calendar/invite-store" { getDb }
     src.db.schema.index --> "src/lib/calendar/invite-store" {
         calendarEventOverrides,
@@ -1558,8 +1505,10 @@ graph import {
         normalizeInviteSender,
         planInboundInvite,
     }
-    src.lib.email.address ++> "src/lib/calendar/invite-rules" { getEmailAddress }
-    src.lib.calendar.recurrence ++> "src/lib/calendar/invite-rules" { parseExcludedOccurrences }
+    src.lib.email.address --> "src/lib/calendar/invite-rules" { getEmailAddress }
+    src.lib.time.utils --> "src/lib/calendar/invite-rules" { isValidTimeZone, normalizeTimeZone }
+    src.lib.calendar.recurrence --> "src/lib/calendar/invite-rules" { parseExcludedOccurrences }
+    src.lib.calendar.invite --> "src/lib/calendar/invite-rules" { ParsedInvite }
     src.db.index --> "src/lib/contacts/import-store" { AppDatabase }
     src.db.schema.index --> "src/lib/contacts/import-store" { contactDetails, contacts }
     "src/lib/database-errors" --> "src/lib/contacts/import-store" { isMissingTableError }
@@ -1586,21 +1535,27 @@ graph import {
     "src/lib/mailboxes/domain-addresses" --> src.lib.profile.sync { getMailboxDomainAddresses }
     "src/lib/profile/identity-utils" --> src.lib.profile.sync { tracksAccountIdentity }
     "src/lib/profile/sync-types.d" --> src.lib.profile.sync { PersonalIdentity }
-    src.lib.http.errors ++> "src/lib/contacts/import-store-utils" { RequestBodyTooLargeError }
-    "src/lib/contacts/details-utils" ++> "src/lib/contacts/import-store-utils" {
+    src.lib.http.errors --> "src/lib/contacts/import-store-utils" { RequestBodyTooLargeError }
+    "src/lib/contacts/details-utils" --> "src/lib/contacts/import-store-utils" {
         importedContactEmails,
         mergeContactDetails,
         mergeImportedContact,
         normalizeContactDetails,
         parseStoredDetails,
     }
-    "src/lib/contacts/google-csv" ++> "src/lib/contacts/import-store-utils" {
+    "src/lib/contacts/google-csv" --> "src/lib/contacts/import-store-utils" {
         MAX_CSV_COLUMNS,
         MAX_CSV_FIELD,
         googleCsvMapper,
     }
-    src.lib.contacts.utils ++> "src/lib/contacts/import-store-utils" { getContactId }
-    src.lib.contacts.vcard ++> "src/lib/contacts/import-store-utils" { MAX_CARD_CHARS, parseVcard }
+    "src/lib/contacts/import-store-types.d" --> "src/lib/contacts/import-store-utils" {
+        ContactImportBody,
+        ContactImportPlan,
+        ExistingContact,
+        ImportedCard,
+    }
+    src.lib.contacts.utils --> "src/lib/contacts/import-store-utils" { getContactId }
+    src.lib.contacts.vcard --> "src/lib/contacts/import-store-utils" { MAX_CARD_CHARS, parseVcard }
     "src/lib/calendar/ics-import" --> src.lib.contacts.vcard { iterIcsLines }
     "src/lib/contacts/details-utils" --> src.lib.contacts.vcard {
         cleanLine,
@@ -1644,8 +1599,9 @@ graph import {
         DatabaseBackupTable,
     }
     src.db.introspect --> "src/lib/search/index-admin" { dialectOf }
-    src.db.index ++> src.lib.spam.repository { getDb }
-    src.db.schema.index ++> src.lib.spam.repository { spamReputation }
+    src.db.index --> src.lib.spam.repository { getDb }
+    src.db.schema.index --> src.lib.spam.repository { spamReputation }
+    "src/lib/spam/types.d" --> src.lib.spam.repository { ReputationKey }
     src.db.index --> src.lib.promotions.subscriptions { getDb }
     src.db.schema.index --> src.lib.promotions.subscriptions { mailboxSenderPreferences, messages }
     src.lib.ids --> src.lib.promotions.subscriptions { newId }
@@ -1664,11 +1620,13 @@ graph import {
     }
     src.db.schema.index --> "src/lib/email/sender-sweep" { messages }
     src.db.sql --> "src/lib/email/sender-sweep" { escapeLike, insensitiveLike }
-    "src/lib/promotions/classify-utils" ++> "src/lib/promotions/subscriptions-utils" {
+    "src/lib/promotions/refile-utils" --> "src/lib/promotions/subscriptions-utils" { chunk }
+    "src/lib/promotions/classify-utils" --> "src/lib/promotions/subscriptions-utils" {
         toSenderAddress,
     }
-    "src/lib/promotions/classify-utils" ++> "src/lib/promotions/refile-utils" { toSenderAddress }
-    src.lib.email.address ++> "src/lib/promotions/classify-utils" { normalizeEmailAddress }
+    "src/lib/promotions/classify-utils" --> "src/lib/promotions/refile-utils" { toSenderAddress }
+    src.lib.email.address --> "src/lib/promotions/classify-utils" { normalizeEmailAddress }
+    "src/lib/email/bulk-mail" --> "src/lib/promotions/classify-utils" { BulkMailVerdict }
     src.db.index --> src.lib.promotions.backfill { getDb }
     src.db.schema.index --> src.lib.promotions.backfill {
         contacts,
@@ -1701,8 +1659,6 @@ graph import {
         serializeCursor,
     }
     "src/lib/promotions/refile-utils" --> src.lib.promotions.backfill { chunk }
-    "src/lib/email/domain-match" ++> "src/lib/email/provider-trace" { isSameOrSubdomain }
-    "src/lib/spam/domain-utils" ++> "src/lib/email/provider-trace" { extractSenderIp }
     src.db.index --> src.lib.deliverability.ingest { getDb }
     src.db.schema.index --> src.lib.deliverability.ingest {
         deliverabilityReports,
@@ -1730,9 +1686,9 @@ graph import {
         rowKey,
         tlsRowKey,
     }
-    src.lib.email.address ++> "src/lib/deliverability/org-domain" { getEmailAddressList }
-    "src/lib/dns-query" ++> "src/lib/deliverability/report-parse" { reverseName }
-    "src/lib/import/zip-utils" ++> "src/lib/deliverability/report-parse" {
+    src.lib.email.address --> "src/lib/deliverability/org-domain" { getEmailAddressList }
+    "src/lib/dns-query" --> "src/lib/deliverability/report-parse" { reverseName }
+    "src/lib/import/zip-utils" --> "src/lib/deliverability/report-parse" {
         listZipEntries,
         openZipEntry,
         sliceChunks,
@@ -1821,12 +1777,12 @@ graph import {
         REPORT_ADDRESS_LOCAL_PART,
         reportAddress,
     }
-    src.db.index ++> "src/lib/deliverability/report-address" { getDb }
-    src.db.schema.index ++> "src/lib/deliverability/report-address" {
+    src.db.index --> "src/lib/deliverability/report-address" { getDb }
+    src.db.schema.index --> "src/lib/deliverability/report-address" {
         domainDeliverability,
         domains,
     }
-    "src/lib/database-errors" ++> "src/lib/deliverability/report-address" { isMissingTableError }
+    "src/lib/database-errors" --> "src/lib/deliverability/report-address" { isMissingTableError }
     src.db.index --> "src/lib/email/system-mail" { getDb }
     src.db.schema.index --> "src/lib/email/system-mail" { domains, mailboxes, users }
     src.lib.email.address --> "src/lib/email/system-mail" { formatEmailAddress }
@@ -1835,15 +1791,19 @@ graph import {
         sendThroughProvider,
     }
     "src/lib/email/system-mail-types.d" --> "src/lib/email/system-mail" { SystemMailInput }
-    src.db.index ++> "src/lib/deliverability/dmarc-stats" { getDb }
-    src.db.schema.index ++> "src/lib/deliverability/dmarc-stats" {
+    src.db.index --> "src/lib/deliverability/dmarc-stats" { getDb }
+    src.db.schema.index --> "src/lib/deliverability/dmarc-stats" {
         deliverabilityReports,
         dmarcDailyStats,
     }
-    src.db.index ++> "src/lib/deliverability/tls-stats" { getDb }
-    src.db.schema.index ++> "src/lib/deliverability/tls-stats" {
+    src.db.index --> "src/lib/deliverability/tls-stats" { getDb }
+    src.db.schema.index --> "src/lib/deliverability/tls-stats" {
         deliverabilityReports,
         tlsDailyStats,
+    }
+    "src/lib/deliverability/dmarc-stats" --> "src/lib/deliverability/tls-stats" {
+        DmarcDays,
+        DmarcRecentReport,
     }
     src.db.index --> "src/lib/deliverability/mta-sts-guard" { getDb }
     src.db.schema.index --> "src/lib/deliverability/mta-sts-guard" { domainDeliverability, domains }
@@ -1953,7 +1913,7 @@ graph import {
     src.db.schema.index --> src.lib.push.server { pushSubscriptions, sessions }
     "src/lib/realtime/types.d" --> src.lib.push.server { NewMessageNotification }
     "src/lib/email/sender-label" --> src.lib.push.server { formatSenderLabel }
-    src.lib.email.address ++> "src/lib/email/sender-label" { getEmailAddress }
+    src.lib.email.address --> "src/lib/email/sender-label" { getEmailAddress }
     src.db.index --> src.lib.push.native { getDb }
     src.db.schema.index --> src.lib.push.native { pushDevices }
     src.lib.ids --> src.lib.push.native { newId }
@@ -2017,8 +1977,6 @@ graph import {
     "src/lib/email/inbound-notification" --> src.lib.email.inbound { buildNewMessageNotification }
     "src/lib/email/provider-trace" --> src.lib.email.inbound { readHeaderMap }
     src.lib.promotions.classify --> src.lib.email.inbound { classifyInboundCategory }
-    src.lib.spam.weights ++> src.lib.spam.analyzers.authentication { SPAM_WEIGHTS }
-    src.lib.spam.analyzers.utils ++> src.lib.spam.analyzers.authentication { findHeader }
     src.db.index --> src.lib.email.routing { AppDatabase }
     src.db.schema.index --> src.lib.email.routing {
         domains,
@@ -2086,24 +2044,41 @@ graph import {
         SPAM_WEIGHTS,
     }
     src.lib.spam.providers.local --> src.lib.spam.engine { LocalSpamIntelligenceProvider }
-    src.lib.email.address ++> src.lib.spam.analyzers.impersonation { parseEmailAddressParts }
-    "src/lib/spam/domain-utils" ++> src.lib.spam.analyzers.impersonation {
+    src.lib.email.address --> src.lib.spam.analyzers.impersonation {
+        getEmailAddress,
+        parseEmailAddressParts,
+    }
+    "src/lib/spam/domain-utils" --> src.lib.spam.analyzers.impersonation {
         domainOwnerLabel,
         isLookalikeDomain,
         registrableDomain,
     }
-    src.lib.spam.weights ++> src.lib.spam.analyzers.impersonation { SPAM_WEIGHTS }
-    src.lib.email.address ++> src.lib.spam.analyzers.reputation { getEmailAddress }
-    src.lib.spam.tokenizer ++> src.lib.spam.analyzers.reputation { getDomain }
-    src.lib.email.address ++> src.lib.spam.tokenizer { getEmailAddress }
-    "src/lib/email/reply-content-utils" ++> src.lib.spam.tokenizer { htmlToReadableText }
-    src.lib.spam.weights ++> src.lib.spam.tokenizer { MAX_CANDIDATE_TOKENS }
-    "src/lib/spam/domain-utils" ++> src.lib.spam.analyzers.solicitation { registrableDomain }
-    src.lib.spam.weights ++> src.lib.spam.analyzers.solicitation { SPAM_WEIGHTS }
-    src.lib.spam.tokenizer ++> src.lib.spam.analyzers.structure { getDomain }
-    src.lib.spam.analyzers.utils ++> src.lib.spam.analyzers.structure { findHeader }
-    src.db.schema.index ++> src.lib.spam.classifier { spamFeedback, spamTokenStats }
-    src.lib.spam.weights ++> src.lib.spam.classifier { MAX_BAYESIAN_TOKENS, SPAM_WEIGHTS }
+    "src/lib/spam/types.d" --> src.lib.spam.analyzers.impersonation { SpamBrand, SpamSignal }
+    src.lib.spam.weights --> src.lib.spam.analyzers.impersonation { SPAM_WEIGHTS }
+    src.lib.email.address --> src.lib.spam.analyzers.reputation { getEmailAddress }
+    src.lib.email.parse --> src.lib.spam.analyzers.reputation { ParsedEmail }
+    src.lib.spam.tokenizer --> src.lib.spam.analyzers.reputation { getDomain }
+    src.lib.email.address --> src.lib.spam.tokenizer { getEmailAddress }
+    "src/lib/email/reply-content-utils" --> src.lib.spam.tokenizer { htmlToReadableText }
+    src.lib.email.parse --> src.lib.spam.tokenizer { ParsedEmail }
+    "src/lib/spam/types.d" --> src.lib.spam.tokenizer { PreparedSpamContent }
+    src.lib.spam.weights --> src.lib.spam.tokenizer { MAX_CANDIDATE_TOKENS }
+    src.lib.email.address --> src.lib.spam.analyzers.solicitation { getEmailAddress }
+    src.lib.email.parse --> src.lib.spam.analyzers.solicitation { ParsedEmail }
+    "src/lib/spam/domain-utils" --> src.lib.spam.analyzers.solicitation { registrableDomain }
+    "src/lib/spam/types.d" --> src.lib.spam.analyzers.solicitation {
+        PreparedSpamContent,
+        SpamSignal,
+    }
+    src.lib.spam.weights --> src.lib.spam.analyzers.solicitation { SPAM_WEIGHTS }
+    src.lib.email.parse --> src.lib.spam.analyzers.structure { ParsedEmail }
+    "src/lib/spam/types.d" --> src.lib.spam.analyzers.structure { PreparedSpamContent, SpamSignal }
+    src.lib.spam.tokenizer --> src.lib.spam.analyzers.structure { getDomain }
+    src.lib.spam.analyzers.utils --> src.lib.spam.analyzers.structure { findHeader }
+    src.db.index --> src.lib.spam.classifier { AppDatabase }
+    src.db.schema.index --> src.lib.spam.classifier { spamFeedback, spamTokenStats }
+    "src/lib/spam/types.d" --> src.lib.spam.classifier { BayesianResult }
+    src.lib.spam.weights --> src.lib.spam.classifier { MAX_BAYESIAN_TOKENS, SPAM_WEIGHTS }
     "src/lib/dns-query" --> src.lib.spam.providers.external { queryDns }
     "src/lib/security/public-url" --> src.lib.spam.providers.external { isPublicHttpsUrl }
     "src/lib/spam/domain-utils" --> src.lib.spam.providers.external { registrableDomain }
@@ -2115,9 +2090,14 @@ graph import {
         SpamSignal,
     }
     src.lib.spam.weights --> src.lib.spam.providers.external { SPAM_WEIGHTS }
-    src.db.index ++> src.lib.spam.settings { getDb }
-    src.db.schema.index ++> src.lib.spam.settings { appSettings }
-    "src/lib/dns-query" ++> src.lib.spam.settings { queryDns }
+    src.db.index --> src.lib.spam.settings { getDb }
+    src.db.schema.index --> src.lib.spam.settings { appSettings }
+    "src/lib/dns-query" --> src.lib.spam.settings { queryDns }
+    "src/lib/spam/types.d" --> src.lib.spam.settings {
+        SpamBrand,
+        SpamIntelligenceConfig,
+        SpamIntelligenceStatus,
+    }
     src.db.index --> src.lib.agent.jobs.utils { getDb }
     src.db.dialect --> src.lib.agent.jobs.utils { schemaDialect }
     src.db.schema.index --> src.lib.agent.jobs.utils {
@@ -2143,15 +2123,20 @@ graph import {
     src.lib.agent.provider --> src.lib.agent.model { getAgentProviderConfig }
     "src/lib/agent/provider-constants" --> src.lib.agent.model { PROVIDER_BASE_URLS }
     src.lib.agent.time --> src.lib.agent.model { agentTimeContext }
-    src.db.index ++> src.lib.agent.provider { getDb }
-    src.db.schema.index ++> src.lib.agent.provider { appSettings }
-    "src/lib/agent/provider-constants" ++> src.lib.agent.provider {
+    src.db.index --> src.lib.agent.provider { getDb }
+    src.db.schema.index --> src.lib.agent.provider { appSettings }
+    "src/lib/agent/provider-types.d" --> src.lib.agent.provider {
+        AgentProviderConfig,
+        AgentProviderPreset,
+        AgentProviderPublicConfig,
+    }
+    "src/lib/agent/provider-constants" --> src.lib.agent.provider {
         AGENT_SETTINGS_ID,
         DEFAULT_CLOUDFLARE_MODEL,
         PROVIDER_BASE_URLS,
     }
-    "src/lib/agent/model-ids" ++> src.lib.agent.provider { parseAgentModelIds }
-    src.lib.agent.pricing ++> src.lib.agent.provider { parseAgentModelRates }
+    "src/lib/agent/model-ids" --> src.lib.agent.provider { parseAgentModelIds }
+    src.lib.agent.pricing --> src.lib.agent.provider { parseAgentModelRates }
     src.db.index --> src.lib.ai.usage { getDb }
     src.db.schema.index --> src.lib.ai.usage { aiUsage }
     src.lib.ids --> src.lib.ai.usage { newId }
@@ -2278,12 +2263,6 @@ graph import {
     "src/lib/contacts/types.d" --> "src/lib/email/inbound-notification" { ContactNameSource }
     src.lib.contacts.utils --> "src/lib/email/inbound-notification" { getPartyDisplayName }
     "src/lib/realtime/types.d" --> "src/lib/email/inbound-notification" { NewMessageNotification }
-    src.db.schema.index ++> src.lib.promotions.classify { mailboxSenderPreferences }
-    "src/lib/database-errors" ++> src.lib.promotions.classify { isMissingTableError }
-    "src/lib/email/bulk-mail" ++> src.lib.promotions.classify { detectBulkMail }
-    "src/lib/promotions/classify-utils" ++> src.lib.promotions.classify {
-    src.lib.promotions.settings --> "src/lib/promotions/mode-utils" { PromotionMode }
-    src.lib.contacts.utils ++> "src/lib/email/inbound-notification" { getPartyDisplayName }
     src.db.index --> src.lib.promotions.classify { getDb }
     src.db.schema.index --> src.lib.promotions.classify { mailboxSenderPreferences }
     "src/lib/database-errors" --> src.lib.promotions.classify { isMissingTableError }
@@ -2438,7 +2417,7 @@ graph import {
         deleteMessageWithObjects,
     }
     src.lib.mailboxes.audit --> "src/lib/email/permanent-delete" { createAuditLog }
-    src.lib.i18n.utils ++> "src/lib/email/trash-retention-utils" { defaultTranslator }
+    src.lib.i18n.utils --> "src/lib/email/trash-retention-utils" { Translator, defaultTranslator }
     src.db.index --> src.lib.drive.retention { getDb }
     src.db.schema.index --> src.lib.drive.retention { driveItems, messageAttachments }
     src.lib.drive.access --> src.lib.drive.retention { deleteDriveItems }
@@ -2497,9 +2476,14 @@ graph import {
         normalizeLicensePlan,
         parseFeatures,
     }
-    src.lib.licenses.utils ++> src.lib.licenses.paymug { parsePaymugLicenseResponse }
-    src.lib.licenses.constants ++> src.lib.licenses.utils { LICENSE_PRODUCT_IDS }
     "src/app/api/profile/avatar/types.d" --> src.app.api.profile.avatar.utils { UploadedAvatarFile }
+    src.db.index --> src.lib.auth.purge { getDb }
+    src.db.schema.index --> src.lib.auth.purge {
+        loginChallenges,
+        passkeyEnrollmentGrants,
+        passwordResetTokens,
+        sessions,
+    }
     src.db.index --> src.lib.dav.changes { getDb }
     src.db.schema.index --> src.lib.dav.changes { davChanges, davSyncState }
     src.db.sql --> src.lib.dav.changes { excluded, greatest }
@@ -4273,11 +4257,6 @@ graph import {
         MessageFolder,
         MessageListResponse,
     }
-    "src/lib/messages/list-membership" ++> "src/lib/messages/membership-store" {
-        getListMembershipContext,
-        getListMembershipKey,
-        messageMatchesFolder,
-    }
     "src/hooks/types.d" --> "src/hooks/counts-delta-utils" { MessageCounts, MessageCountsDelta }
     src.lib.auth.client --> src.lib.auth.logout {
         authFetch,
@@ -5002,6 +4981,9 @@ graph import {
     src.lib.cloudflare --> "src/app/(auth)/login/page" { getEnv }
     "src/app/(auth)/auth-metadata" --> "src/app/(auth)/login/page" { authPageMetadata }
     "src/app/(auth)/login/login-client" --> "src/app/(auth)/login/page" { LoginClient }
+    src.db.index --> src.lib.auth.setup { getDb }
+    src.db.schema.index --> src.lib.auth.setup { users }
+    "src/lib/auth/setup-utils" --> src.lib.auth.setup { isMissingUsersTableError }
     src.components.icons --> "src/app/(auth)/onboarding/onboarding-client" {
         AlertTriangle,
         ArrowRight,
@@ -5180,9 +5162,6 @@ graph import {
         BookingHostAvatar,
     }
     src.components.ui.select --> "src/app/(calendar)/booking/booking-editor" { Select }
-    src.lib.calendar.utils ++> "src/lib/booking/confirmation-utils" { createCalendarInvitation }
-    src.lib.calendar.colors ++> src.lib.booking.utils { normalizeCalendarColor }
-    src.lib.folders.colors ++> src.lib.calendar.colors { DEFAULT_FOLDER_COLOR, FOLDER_COLOR_VALUES }
     "src/lib/i18n/types.d" --> "src/app/(calendar)/booking/utils" { TranslationKey }
     src.lib.i18n.utils --> "src/app/(calendar)/booking/utils" { Translator, defaultTranslator }
     "src/app/(calendar)/booking/types.d" --> "src/app/(calendar)/booking/utils" {
@@ -5200,7 +5179,8 @@ graph import {
     src.lib.folders.colors --> "src/app/(calendar)/booking/utils" { DEFAULT_FOLDER_COLOR }
     src.lib.calendar.colors --> "src/app/(calendar)/booking/utils" { normalizeCalendarColor }
     src.lib.booking.hosts --> "src/app/(calendar)/booking/utils" { parseBookingHostIds }
-    src.db.schema.index ++> src.lib.booking.hosts { users }
+    src.db.index --> src.lib.booking.hosts { getDb }
+    src.db.schema.index --> src.lib.booking.hosts { users }
     "src/components/language-provider" --> "src/app/(calendar)/booking/booking-host-avatar" {
         useLanguage,
     }
@@ -6315,7 +6295,13 @@ graph import {
     }
     src.components.ui.tooltip --> "src/components/message-actions/action-menu" { Tooltip }
     src.lib.utils --> "src/components/message-actions/action-menu" { cn }
-    src.lib.i18n.utils ++> "src/lib/messages/permanent-delete-utils" { defaultTranslator }
+    "src/app/api/messages/bulk/types.d" --> "src/lib/messages/permanent-delete-utils" {
+        PermanentDeleteFolder,
+    }
+    src.lib.i18n.utils --> "src/lib/messages/permanent-delete-utils" {
+        Translator,
+        defaultTranslator,
+    }
     "src/app/api/messages/bulk/types.d" --> "src/components/message-actions/utils" {
         BulkMessageAction,
     }
@@ -6454,7 +6440,7 @@ graph import {
         MessageBodyDisplay,
         MessageDetailResponse,
     }
-    src.lib.email.address ++> "src/lib/email/recipient-display" {
+    src.lib.email.address --> "src/lib/email/recipient-display" {
         getEmailAddress,
         parseEmailAddressParts,
         splitEmailAddressList,
@@ -7864,9 +7850,22 @@ graph import {
         SubscriptionRowData,
         TrashPreview,
     }
-    "src/lib/promotions/move-utils" ++> "src/lib/promotions/subscriptions-ui-utils" { senderResultCopy }
-    "src/lib/promotions/ui-utils" ++> "src/lib/promotions/subscriptions-ui-utils" {
+    "src/lib/promotions/move-utils" --> "src/lib/promotions/subscriptions-ui-utils" {
+        CopyDescriptor,
+        senderResultCopy,
+    }
+    "src/lib/promotions/ui-utils" --> "src/lib/promotions/subscriptions-ui-utils" {
         canManagePromotions,
+    }
+    "src/lib/promotions/subscriptions-ui-types.d" --> "src/lib/promotions/subscriptions-ui-utils" {
+        SubscriptionCategory,
+        SubscriptionRowData,
+        SubscriptionRowView,
+        SubscriptionTrashAction,
+        TrashPreview,
+    }
+    "src/lib/promotions/subscriptions-utils" --> "src/lib/promotions/subscriptions-ui-utils" {
+        SUBSCRIPTIONS_PAGE_SIZE,
     }
     src.components.icons --> "src/components/subscriptions/subscription-parts" {
         Ban,
@@ -8558,10 +8557,16 @@ graph import {
         readStreamChunks,
         readZipEntryBytes,
     }
-    src.lib.drive.utils ++> "src/lib/drive/import-utils" {
+    src.lib.drive.utils --> "src/lib/drive/import-utils" {
         DRIVE_MAX_DEPTH,
         DRIVE_MAX_NAME_LENGTH,
         normalizeDriveName,
+    }
+    "src/lib/drive/import-types.d" --> "src/lib/drive/import-utils" {
+        ImportFilePlan,
+        ImportFileRequest,
+        KnownDriveItem,
+        TakeoutDrivePath,
     }
     src.components.icons --> "src/components/settings/takeout-calendar-card" { Upload }
     "src/components/language-provider" --> "src/components/settings/takeout-calendar-card" {
@@ -9328,7 +9333,6 @@ graph import {
     "src/app/api/accounts/[id]/types.d" --> "src/app/api/accounts/[id]/recovery/route" {
         AccountRouteParams,
     }
-    src.lib.http.errors ++> src.lib.http.request { RequestBodyTooLargeError }
     src.lib.auth.password --> src.lib.auth.webauthn.authorize { verifyPassword }
     src.lib.auth.mfa --> src.lib.auth.webauthn.authorize { verifySecondFactor }
     src.lib.auth.webauthn.grants --> src.lib.auth.webauthn.authorize { consumeStepUpGrant }
@@ -9441,10 +9445,10 @@ graph import {
         domainOwnerIdsForAdmin,
         getDomainForAdmin,
     }
-    "src/lib/database-errors" ++> src.lib.booking.username { isUniqueConstraintError }
-    src.db.index ++> src.lib.booking.username { getDb }
-    src.db.schema.index ++> src.lib.booking.username { users }
-    src.lib.booking.utils ++> src.lib.booking.username { bookingUsernameFromEmail }
+    "src/lib/database-errors" --> src.lib.booking.username { isUniqueConstraintError }
+    src.db.index --> src.lib.booking.username { getDb }
+    src.db.schema.index --> src.lib.booking.username { users }
+    src.lib.booking.utils --> src.lib.booking.username { bookingUsernameFromEmail }
     src.db.index --> src.app.api.accounts.route { getDb }
     src.lib.validators --> src.app.api.accounts.route { createUserAccountSchema }
     src.lib.auth.admin --> src.app.api.accounts.route { canManageUsers, isPrimaryAdmin }
@@ -9551,12 +9555,6 @@ graph import {
     src.lib.aws.sns --> src.lib.aws.validate { listTopics }
     src.lib.aws.sts --> src.lib.aws.validate { getCallerIdentity }
     "src/lib/aws/aws-types.d" --> src.lib.aws.validate { AwsCapabilityReport, AwsConfig }
-    src.lib.aws.client ++> src.lib.aws.s3 { AwsError, awsRequest }
-    src.lib.aws.sigv4 ++> src.lib.aws.s3 { sha256Hex }
-    src.lib.aws.client ++> src.lib.aws.sns { awsQuery }
-    src.lib.aws.xml ++> src.lib.aws.sns { xmlBlocks, xmlTag }
-    src.lib.aws.client ++> src.lib.aws.sts { awsQuery }
-    src.lib.aws.xml ++> src.lib.aws.sts { xmlTag }
     src.app.api.admin.general.utils --> src.app.api.admin.general.route { GET, PUT }
     src.db.index --> src.app.api.admin.general.utils { getDb }
     src.db.schema.index --> src.app.api.admin.general.utils { appSettings }
@@ -9718,7 +9716,6 @@ graph import {
     "src/lib/api/key-auth" --> "src/lib/calendar/api-auth" { authenticateApiRequest, hasScope }
     "src/lib/api/key-auth-types.d" --> "src/lib/calendar/api-auth" { ApiAuthResult }
     "src/lib/calendar/api-auth-types.d" --> "src/lib/calendar/api-auth" { CalendarAuthorization }
-    "src/lib/security/server-secret" ++> src.lib.calendar.confirmation { getServerSecret }
     src.db.index --> src.lib.calendar.tools { getDb }
     src.db.schema.index --> src.lib.calendar.tools { calendarEventOverrides, calendarEvents }
     "src/lib/agent/schema-utils" --> src.lib.calendar.tools { toolEmailSchema }
@@ -9967,7 +9964,6 @@ graph import {
         revokeDeviceKey,
     }
     "src/lib/api/key-auth" --> src.app.api.auth.device.route { authenticateApiRequest }
-    "src/lib/auth/client-ip" ++> "src/lib/auth/rate-limit" { getClientIp }
     src.db.index --> "src/lib/auth/login-challenge" { getDb }
     src.db.schema.index --> "src/lib/auth/login-challenge" { loginChallenges }
     src.lib.ids --> "src/lib/auth/login-challenge" { newId }
@@ -9990,8 +9986,8 @@ graph import {
     src.lib.auth.webauthn.credentials --> src.app.api.auth.login.route { countPasskeys }
     "src/lib/auth/recovery-codes" --> src.app.api.auth.login.route { countUnusedRecoveryCodes }
     "src/lib/http/auth-error" --> src.app.api.auth.login.route { authError }
-    src.lib.ids ++> src.lib.auth.turnstile { newId }
-    "src/lib/auth/client-ip" ++> src.lib.auth.turnstile { getClientIp }
+    src.lib.ids --> src.lib.auth.turnstile { newId }
+    "src/lib/auth/client-ip" --> src.lib.auth.turnstile { getClientIp }
     src.lib.auth.accounts --> "src/lib/auth/login-response" { ACCOUNTS_COOKIE, rememberLogin }
     src.lib.auth.session --> "src/lib/auth/login-response" { SESSION_COOKIE, createSession }
     src.lib.auth.activity --> "src/lib/auth/login-response" { recordAuthActivity }
@@ -10617,7 +10613,6 @@ graph import {
         buildSplitAnnouncement,
     }
     src.lib.http.request --> "src/app/api/calendar/events/[eventId]/route" { readJsonObject }
-    src.lib.calendar.utils ++> "src/lib/calendar/split-announcement" { createCalendarInvitation }
     src.db.index --> src.app.api.calendar.events.route { getDb }
     src.db.schema.index --> src.app.api.calendar.events.route {
         calendarEventOverrides,
@@ -10751,8 +10746,8 @@ graph import {
     "src/lib/deliverability/route-utils" --> "src/app/api/deliverability/[domainId]/alerts/[alertId]/route" {
         migrationRequired,
     }
-    src.db.index ++> src.lib.deliverability.alerts { getDb }
-    src.db.schema.index ++> src.lib.deliverability.alerts { deliverabilityAlerts }
+    src.db.index --> src.lib.deliverability.alerts { getDb }
+    src.db.schema.index --> src.lib.deliverability.alerts { deliverabilityAlerts }
     src.lib.api.auth --> src.lib.deliverability.access { requireSessionUser }
     src.lib.auth.admin --> src.lib.deliverability.access { canManageDomains }
     src.lib.auth.origin --> src.lib.deliverability.access { hasValidSessionMutationOrigin }
@@ -10836,9 +10831,13 @@ graph import {
         confirmSuppression,
         removeSuppression,
     }
-    src.db.index ++> "src/lib/deliverability/suppression-admin" { getDb }
-    src.db.schema.index ++> "src/lib/deliverability/suppression-admin" { emailSuppressions }
-    src.db.sql ++> "src/lib/deliverability/suppression-admin" { containsLike }
+    src.db.index --> "src/lib/deliverability/suppression-admin" { getDb }
+    src.db.schema.index --> "src/lib/deliverability/suppression-admin" { emailSuppressions }
+    src.db.sql --> "src/lib/deliverability/suppression-admin" { containsLike }
+    "src/lib/deliverability/suppression-utils" --> "src/lib/deliverability/suppression-admin" {
+        SuppressionReason,
+        SuppressionSource,
+    }
     src.lib.cloudflare --> "src/app/api/deliverability/[domainId]/suppressions/route" { getEnv }
     "src/lib/database-errors" --> "src/app/api/deliverability/[domainId]/suppressions/route" {
         isMissingTableError,
@@ -12162,9 +12161,16 @@ graph import {
         checkManagedMailbox,
         isMissingSchema,
     }
-    src.db.schema.index ++> src.lib.promotions.refile { mailboxSenderPreferences, messages }
-    src.lib.ids ++> src.lib.promotions.refile { newId }
-    "src/lib/promotions/refile-utils" ++> src.lib.promotions.refile { MAX_REFILE_ROWS, REFILE_CHUNK_SIZE, chunk, refileCutoff }
+    src.db.index --> src.lib.promotions.refile { getDb }
+    src.db.schema.index --> src.lib.promotions.refile { mailboxSenderPreferences, messages }
+    src.lib.ids --> src.lib.promotions.refile { newId }
+    "src/lib/promotions/refile-utils" --> src.lib.promotions.refile {
+        MAX_REFILE_ROWS,
+        REFILE_CHUNK_SIZE,
+        RefileTarget,
+        chunk,
+        refileCutoff,
+    }
     src.db.index --> "src/lib/promotions/route-guards" { getDb }
     src.lib.api.auth --> "src/lib/promotions/route-guards" { requireSessionUser }
     src.lib.auth.origin --> "src/lib/promotions/route-guards" { hasValidSessionMutationOrigin }
