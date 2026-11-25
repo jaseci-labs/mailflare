@@ -7,6 +7,8 @@ graph spaces {
 }
 
 graph import {
+    src.lib.jac.host ++> src.lib.aws.xml { NULL, rx }
+    src.lib.jac.host ++> src.lib.aws.sigv4 { at, either, entries, merged, rx, rx_sub }
     src.lib.security.headers --> "next.config" { getSecurityHeaders }
     server.runtime.mailer --> "server/runtime/types.d" { Mailer }
     server.runtime.queue --> "server/runtime/types.d" { InProcessQueue }
@@ -286,7 +288,6 @@ graph import {
     src.lib.aws.sigv4 --> src.lib.aws.client { signAwsRequest }
     src.lib.aws.xml --> src.lib.aws.client { xmlTag }
     "src/lib/aws/aws-types.d" --> src.lib.aws.client { AwsConfig }
-    "src/lib/aws/aws-types.d" --> src.lib.aws.sigv4 { AwsCredentials }
     "src/lib/email/inbound-limits" --> "src/app/api/messages/[messageId]/attachments/[attachmentId]/utils" {
         truncateUtf8,
     }
