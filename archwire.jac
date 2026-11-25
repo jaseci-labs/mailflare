@@ -7,6 +7,26 @@ graph spaces {
 }
 
 graph import {
+    src.db.index --> "src/lib/auth/device-keys" { getDb }
+    src.db.schema.index --> "src/lib/auth/device-keys" { apiKeys, pushDevices }
+    "src/lib/api-keys" --> "src/lib/auth/device-keys" { generateApiKey, scopesToJson }
+    src.lib.ids --> "src/lib/auth/device-keys" { newId }
+    src.db.index --> src.lib.auth.setup { getDb }
+    src.db.schema.index --> src.lib.auth.setup { users }
+    "src/lib/auth/setup-utils" --> src.lib.auth.setup { isMissingUsersTableError }
+    src.db.index --> src.lib.auth.purge { getDb }
+    src.db.schema.index --> src.lib.auth.purge {
+        loginChallenges,
+        passkeyEnrollmentGrants,
+        passwordResetTokens,
+        sessions,
+    }
+    src.lib.jac.host ++> "src/lib/auth/rate-limit" { at, either, record }
+    src.lib.jac.host ++> src.lib.auth.origin { NULL, at, nil }
+    src.lib.jac.host ++> src.lib.auth.turnstile { at, either, record }
+    src.lib.jac.host ++> "src/lib/auth/password-reset-utils" { NULL, at, record }
+    src.lib.jac.host ++> src.lib.licenses.utils { NULL, merged, nil }
+    src.lib.jac.host ++> src.lib.licenses.paymug { record }
     src.lib.jac.host ++> "src/lib/auth/error-codes" { record }
     src.lib.jac.host ++> "src/lib/auth/setup-utils" { rx }
     src.lib.jac.host ++> "src/lib/auth/client-ip" { NULL }
@@ -268,15 +288,11 @@ graph import {
     src.lib.api.scopes --> "src/lib/api/key-auth" { ADMIN_API_KEY_SCOPES }
     "src/lib/auth/client-ip" --> "src/lib/api/key-auth" { getClientIp }
     src.db.schema.index --> "src/lib/api/key-auth-types.d" { users }
-    "src/lib/api-keys" --> "src/lib/auth/app-password-utils" { parseScopes }
+    "src/lib/api-keys" ++> "src/lib/auth/app-password-utils" { parseScopes }
     src.db.index --> src.lib.dav.settings { getDb }
     src.db.schema.index --> src.lib.dav.settings { appSettings }
     "src/lib/database-errors" --> src.lib.dav.settings { isMissingColumnError }
-    src.db.index --> "src/lib/auth/device-keys" { getDb }
-    src.db.schema.index --> "src/lib/auth/device-keys" { apiKeys, pushDevices }
-    "src/lib/api-keys" --> "src/lib/auth/device-keys" { generateApiKey, scopesToJson }
-    src.lib.ids --> "src/lib/auth/device-keys" { newId }
-    src.lib.runtime --> src.lib.auth.origin { getNodeEnv }
+    src.lib.runtime ++> src.lib.auth.origin { getNodeEnv }
     src.lib.runtime --> src.lib.cloudflare { getNodeEnv }
     "src/lib/d1-session-context" --> src.lib.cloudflare { getD1Session, withD1Session }
     "src/db/with-database" --> src.lib.cloudflare { withDatabase }
@@ -2419,27 +2435,9 @@ graph import {
         normalizeLicensePlan,
         parseFeatures,
     }
-    "src/lib/licenses/types.d" --> src.lib.licenses.paymug {
-        LicenseActivationInput,
-        LicenseDeactivationInput,
-        PaymugLicenseAction,
-        PaymugLicenseResponse,
-    }
-    src.lib.licenses.utils --> src.lib.licenses.paymug { parsePaymugLicenseResponse }
-    "src/lib/licenses/types.d" --> src.lib.licenses.utils {
-        LicensePlan,
-        LicenseState,
-        PaymugLicenseResponse,
-    }
-    src.lib.licenses.constants --> src.lib.licenses.utils { LICENSE_PRODUCT_IDS }
+    src.lib.licenses.utils ++> src.lib.licenses.paymug { parsePaymugLicenseResponse }
+    src.lib.licenses.constants ++> src.lib.licenses.utils { LICENSE_PRODUCT_IDS }
     "src/app/api/profile/avatar/types.d" --> src.app.api.profile.avatar.utils { UploadedAvatarFile }
-    src.db.index --> src.lib.auth.purge { getDb }
-    src.db.schema.index --> src.lib.auth.purge {
-        loginChallenges,
-        passkeyEnrollmentGrants,
-        passwordResetTokens,
-        sessions,
-    }
     src.db.index --> src.lib.dav.changes { getDb }
     src.db.schema.index --> src.lib.dav.changes { davChanges, davSyncState }
     src.db.sql --> src.lib.dav.changes { excluded, greatest }
@@ -4964,9 +4962,6 @@ graph import {
     src.lib.cloudflare --> "src/app/(auth)/login/page" { getEnv }
     "src/app/(auth)/auth-metadata" --> "src/app/(auth)/login/page" { authPageMetadata }
     "src/app/(auth)/login/login-client" --> "src/app/(auth)/login/page" { LoginClient }
-    src.db.index --> src.lib.auth.setup { getDb }
-    src.db.schema.index --> src.lib.auth.setup { users }
-    "src/lib/auth/setup-utils" --> src.lib.auth.setup { isMissingUsersTableError }
     src.components.icons --> "src/app/(auth)/onboarding/onboarding-client" {
         AlertTriangle,
         ArrowRight,
@@ -9989,7 +9984,7 @@ graph import {
         revokeDeviceKey,
     }
     "src/lib/api/key-auth" --> src.app.api.auth.device.route { authenticateApiRequest }
-    "src/lib/auth/client-ip" --> "src/lib/auth/rate-limit" { getClientIp }
+    "src/lib/auth/client-ip" ++> "src/lib/auth/rate-limit" { getClientIp }
     src.db.index --> "src/lib/auth/login-challenge" { getDb }
     src.db.schema.index --> "src/lib/auth/login-challenge" { loginChallenges }
     src.lib.ids --> "src/lib/auth/login-challenge" { newId }
@@ -10012,8 +10007,8 @@ graph import {
     src.lib.auth.webauthn.credentials --> src.app.api.auth.login.route { countPasskeys }
     "src/lib/auth/recovery-codes" --> src.app.api.auth.login.route { countUnusedRecoveryCodes }
     "src/lib/http/auth-error" --> src.app.api.auth.login.route { authError }
-    src.lib.ids --> src.lib.auth.turnstile { newId }
-    "src/lib/auth/client-ip" --> src.lib.auth.turnstile { getClientIp }
+    src.lib.ids ++> src.lib.auth.turnstile { newId }
+    "src/lib/auth/client-ip" ++> src.lib.auth.turnstile { getClientIp }
     src.lib.auth.accounts --> "src/lib/auth/login-response" { ACCOUNTS_COOKIE, rememberLogin }
     src.lib.auth.session --> "src/lib/auth/login-response" { SESSION_COOKIE, createSession }
     src.lib.auth.activity --> "src/lib/auth/login-response" { recordAuthActivity }
@@ -10256,7 +10251,6 @@ graph import {
         buildPasswordResetEmail,
     }
     src.lib.i18n.utils --> "src/lib/auth/password-reset" { Translator }
-    src.lib.i18n.utils --> "src/lib/auth/password-reset-utils" { Translator }
     src.lib.cloudflare --> "src/app/api/auth/password-reset/request/route" { getEnv }
     src.lib.validators --> "src/app/api/auth/password-reset/request/route" {
         passwordResetRequestSchema,
