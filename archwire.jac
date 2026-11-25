@@ -9,6 +9,7 @@ graph spaces {
 graph import {
     src.lib.runtime ++> src.lib.auth.origin { getNodeEnv }
     src.lib.jac.host ++> src.lib.auth.origin { NULL, at, either, nil }
+    src.lib.jac.host ++> src.lib.auth.turnstile { either, record }
     src.lib.jac.host ++> "src/lib/storage/b2-bucket" {
         NULL, at, either, entries, js_sort, merged, nil, promise, record, rx, rx_sub, whole,
     }
@@ -9948,8 +9949,8 @@ graph import {
     src.lib.auth.webauthn.credentials --> src.app.api.auth.login.route { countPasskeys }
     "src/lib/auth/recovery-codes" --> src.app.api.auth.login.route { countUnusedRecoveryCodes }
     "src/lib/http/auth-error" --> src.app.api.auth.login.route { authError }
-    src.lib.ids --> src.lib.auth.turnstile { newId }
-    "src/lib/auth/client-ip" --> src.lib.auth.turnstile { getClientIp }
+    src.lib.ids ++> src.lib.auth.turnstile { newId }
+    "src/lib/auth/client-ip" ++> src.lib.auth.turnstile { getClientIp }
     src.lib.auth.accounts --> "src/lib/auth/login-response" { ACCOUNTS_COOKIE, rememberLogin }
     src.lib.auth.session --> "src/lib/auth/login-response" { SESSION_COOKIE, createSession }
     src.lib.auth.activity --> "src/lib/auth/login-response" { recordAuthActivity }
