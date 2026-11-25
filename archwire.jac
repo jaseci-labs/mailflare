@@ -7,6 +7,7 @@ graph spaces {
 }
 
 graph import {
+    src.lib.jac.host ++> "src/lib/messages/membership-store" { NULL, at, either, merged, nil }
     src.lib.jac.host ++> "src/lib/messages/permanent-delete-utils" { NULL, at, either }
     src.lib.jac.host ++> "src/lib/messages/change-events" { at, record }
     src.lib.jac.host ++> "src/lib/messages/list-membership" { NULL, at, nil }
@@ -4218,12 +4219,7 @@ graph import {
         MessageFolder,
         MessageListResponse,
     }
-    "src/hooks/types.d" --> "src/lib/messages/membership-store" { Message }
-    "src/lib/messages/change-events" --> "src/lib/messages/membership-store" {
-        MessageMembershipState,
-    }
-    "src/lib/messages/list-membership" --> "src/lib/messages/membership-store" {
-        MessageMembershipFields,
+    "src/lib/messages/list-membership" ++> "src/lib/messages/membership-store" {
         getListMembershipContext,
         getListMembershipKey,
         messageMatchesFolder,
