@@ -7,6 +7,8 @@ graph spaces {
 }
 
 graph import {
+    src.lib.runtime ++> src.lib.auth.origin { getNodeEnv }
+    src.lib.jac.host ++> src.lib.auth.origin { NULL, at, either, nil }
     src.lib.jac.host ++> "src/lib/storage/b2-bucket" {
         NULL, at, either, entries, js_sort, merged, nil, promise, record, rx, rx_sub, whole,
     }
@@ -474,7 +476,6 @@ graph import {
     src.db.schema.index --> "src/lib/auth/device-keys" { apiKeys, pushDevices }
     "src/lib/api-keys" --> "src/lib/auth/device-keys" { generateApiKey, scopesToJson }
     src.lib.ids --> "src/lib/auth/device-keys" { newId }
-    src.lib.runtime --> src.lib.auth.origin { getNodeEnv }
     src.lib.runtime --> src.lib.cloudflare { getNodeEnv }
     "src/lib/d1-session-context" --> src.lib.cloudflare { getD1Session, withD1Session }
     "src/db/with-database" --> src.lib.cloudflare { withDatabase }
