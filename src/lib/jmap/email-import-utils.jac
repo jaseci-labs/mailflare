@@ -15,15 +15,13 @@ def importFlags(keywords: any) -> dict[str, bool] {
 
 # A UTCDate in RFC 8621, but client libraries also send epoch seconds or milliseconds.
 def parseReceivedAt(value: any) -> any {
-    if isinstance(value, (int, float)) and globalThis.Number.isFinite(value) {
-        # Seconds until the value is too large to be one: 1e12 is the year 33658 in seconds.
-        stamp: any = value * 1000 if value < 1e12 else value;
-    } elif isinstance(value, str) and value.strip() {
-        stamp = value.strip();
-    } else {
+    num = isinstance(value, (int, float)) and globalThis.Number.isFinite(value);
+    text = isinstance(value, str) and value.strip();
+    if not num and not text {
         return NULL;
     }
-    date = new(globalThis.Date, stamp);
+    # Seconds until the value is too large to be one: 1e12 is the year 33658 in seconds.
+    date = new(globalThis.Date, (value * 1000 if value < 1e12 else value) if num else text);
     return NULL if globalThis.Number.isNaN(date.getTime()) else date;
 }
 
