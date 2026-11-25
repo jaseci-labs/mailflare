@@ -1,18 +1,14 @@
-# One run reads at most 25 messages, every 5 minutes. A promoted row costs about 6 D1 row writes
-# (row, indexes, change log): 2,000 rows a day for the installation is ~12,000 of D1 Free's 100,000.
+# 25 messages a run, every 5 minutes; a promoted row costs ~6 D1 row writes, so 2,000 rows a day is
+# ~12,000 of D1 Free's 100,000. Mail of the last 90 days; 32 KiB of head holds every header the detector
+# reads; the cursor is saved every 10 rows; a `running` row idle 15 minutes died; 3 stalls fail the job.
 glob BACKFILL_BATCH = 25,
-     BACKFILL_DAILY_CAP = 2000;
-
-# Mail of the last 90 days; 32 KiB of head holds every header the detector reads; the cursor is
-# saved every 10 rows (a killed run loses one chunk); a `running` row idle 15 minutes is dead;
-# 3 runs dying with no progress fail the job.
-glob BACKFILL_WINDOW_DAYS = 90,
+     BACKFILL_DAILY_CAP = 2000,
+     BACKFILL_WINDOW_DAYS = 90,
      BACKFILL_HEAD_BYTES = 32768,
      BACKFILL_CHUNK = 10,
      BACKFILL_STALE_MS = 15 * 60000,
      BACKFILL_MAX_STALLS = 3;
 
-# The UTC day a timestamp falls on, as a whole number.
 def backfillDay(now: any) -> int {
     return globalThis.Math.floor(now.getTime() / 86400000);
 }
