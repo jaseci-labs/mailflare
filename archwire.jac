@@ -7,6 +7,9 @@ graph spaces {
 }
 
 graph import {
+    src.lib.jac.host ++> "src/lib/email/attachment-risk" { NULL, at, nil, rx, rx_sub }
+    src.lib.jac.host ++> "src/lib/email/bulk-mail" { NULL, entries }
+    src.lib.jac.host ++> "src/lib/email/mime-preflight" { NULL, record }
     src.lib.jac.host ++> "src/lib/email/intake-signature" { record }
     src.lib.jac.host ++> "src/lib/email/attachment-limits" { NULL }
     src.lib.jac.host ++> "src/lib/email/inbound-limits" { NULL, merged, record, rx, rx_sub }
