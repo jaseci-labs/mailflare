@@ -7,6 +7,10 @@ graph spaces {
 }
 
 graph import {
+    src.lib.jac.host ++> "src/components/compose/send-notice-utils" { NULL, either, num_or }
+    src.lib.jac.host ++> "src/components/settings/takeout-drive-card-utils" { NULL, dig, either, first, js_sort }
+    src.lib.jac.host ++> "src/components/settings/settings-nav-utils" { record }
+    src.lib.jac.host ++> "src/components/theme-utils" { at, record }
     src.lib.jac.host ++> "src/lib/accounts/deletion-utils" { at }
     src.lib.jac.host ++> "src/lib/agent/availability-client" { NULL, at, nil }
     src.lib.jac.host ++> src.lib.agent.errors { NULL, nil, rx, sub, dig, first, either, is_object }
@@ -4484,9 +4488,6 @@ graph import {
         settingsNavSections,
     }
     "src/lib/i18n/types.d" --> "src/components/route-title-utils" { TranslationKey }
-    "src/components/settings/settings-nav-types.d" --> "src/components/settings/settings-nav-utils" {
-        SettingsNavSection,
-    }
     "src/components/ui/confirm-dialog" --> "src/app/(admin)/licenses/license-activation" {
         confirmDestructive,
     }
@@ -8737,12 +8738,6 @@ graph import {
     "src/lib/import/zip-utils" --> "src/lib/import/takeout-drive-utils" {
         createZipPartReader,
         openZipEntry,
-    }
-    "src/lib/import/takeout-data-types.d" --> "src/components/settings/takeout-drive-card-utils" {
-        DriveRoot,
-    }
-    "src/lib/import/takeout-drive-types.d" --> "src/components/settings/takeout-drive-card-utils" {
-        DriveRunSummary,
     }
     src.components.icons --> "src/components/settings/takeout-import" { Upload }
     "src/components/language-provider" --> "src/components/settings/takeout-import" { useLanguage }
