@@ -1,108 +1,52 @@
-glob:priv XMLNS = 'xmlns="http://s3.amazonaws.com/doc/2006-03-01/"';
+glob:priv XMLNS: str = 'xmlns="http://s3.amazonaws.com/doc/2006-03-01/"';
 
-"""A request to the bucket's own host; `more` adds method, path, query, body and headers."""
-async def:priv bucket_request(config: any, bucket: str, more: any = None) -> any {
-    return await awsRequest(
-        merged(
-            {
-                "config": config,
-                "service": "s3",
-                "host": f"{bucket}.s3.{config['region']}.amazonaws.com",
-            },
-            either(more, {}),
-        ),
-    );
+"""A request to the bucket's own host (the service host without a bucket)."""
+async def:priv on(c: any, bucket: str, m: any = None, **more: any) -> any {
+    h = (f"{bucket}." if bucket else "") + f"s3.{c['region']}.amazonaws.com";
+    return await awsRequest({"config": c, "service": "s3", "host": h, "method": m, **more});
 }
 
-def:priv object_path(key: str) -> str {
+def:priv key_path(key: str) -> str {
     return "/" + "/".join([globalThis.encodeURIComponent(part) for part in key.split("/")]);
 }
 
-"""The error as it was thrown: Jac hands `except` a wrapper of a JavaScript error, the original in `js`."""
-def:priv thrown(caught: any) -> any {
-    return getattr(caught, "js", caught);
-}
-
-def:priv is_aws_error(error: any, field: str, value: any) -> bool {
-    return isinstance(error, AwsError) and getattr(error, field) == value;
-}
-
 async def listBuckets(config: any) {
-    await awsRequest({
-        "config": config,
-        "service": "s3",
-        "host": f"s3.{config['region']}.amazonaws.com",
-    });
+    await on(config, "");
 }
 
 async def bucketExists(config: any, bucket: str) -> bool {
-    try {
-        await bucket_request(config, bucket, {"method": "HEAD"});
-        return True;
-    } except Exception as caught {
-        if is_aws_error(thrown(caught), "status", 404) {
-            return False;
-        }
-        raise thrown(caught);
-    }
+    return await awsSpare(on(config, bucket, "HEAD"), status=404) is not None;
 }
 
 async def createBucket(config: any, bucket: str) {
     region = config["region"];
-    body = ""
-        if region == "us-east-1"
-        else f"<CreateBucketConfiguration {XMLNS}><LocationConstraint>{region}</LocationConstraint></CreateBucketConfiguration>";
-    try {
-        await bucket_request(config, bucket, {"method": "PUT", "body": body});
-    } except Exception as caught {
-        if not is_aws_error(thrown(caught), "code", "BucketAlreadyOwnedByYou") {
-            raise thrown(caught);
-        }
-    }
+    xml = f"<CreateBucketConfiguration {XMLNS}><LocationConstraint>{region}</LocationConstraint>";
+    body = "" if region == "us-east-1" else xml + "</CreateBucketConfiguration>";
+    await awsSpare(on(config, bucket, "PUT", body=body), "BucketAlreadyOwnedByYou");
 }
 
 async def putBucketPolicy(config: any, bucket: str, policy: any) {
-    await bucket_request(
-        config,
-        bucket,
-        {
-            "method": "PUT",
-            "query": {"policy": ""},
-            "body": globalThis.JSON.stringify(policy),
-            "headers": {"Content-Type": "application/json"},
-        },
-    );
+    (json, hs) = (globalThis.JSON.stringify(policy), {"Content-Type": "application/json"});
+    await on(config, bucket, "PUT", query={"policy": ""}, body=json, headers=hs);
 }
 
 """Expires leftover raw messages; best effort, since we delete each object after intake."""
 async def putExpiryLifecycle(config: any, bucket: str, prefix: str, days: any) {
-    body = f"<LifecycleConfiguration {XMLNS}><Rule><ID>mailflare-expire-inbound</ID><Filter><Prefix>{prefix}</Prefix></Filter><Status>Enabled</Status><Expiration><Days>{days}</Days></Expiration></Rule></LifecycleConfiguration>";
-    digest: str = await sha256Hex(body);
-    octets = "".join([
-        globalThis.String.fromCharCode(globalThis.parseInt(digest[i:i + 2], 16))
-        for i in range(0, len(digest), 2)
-    ]);
-    await bucket_request(
-        config,
-        bucket,
-        {
-            "method": "PUT",
-            "query": {"lifecycle": ""},
-            "body": body,
-            "headers": {
-                "Content-Type": "application/xml",
-                "x-amz-sdk-checksum-algorithm": "SHA256",
-                "x-amz-checksum-sha256": globalThis.btoa(octets),
-            },
-        },
-    );
+    r = f"<ID>mailflare-expire-inbound</ID><Filter><Prefix>{prefix}</Prefix></Filter>";
+    r = f"<Rule>{r}<Status>Enabled</Status><Expiration><Days>{days}</Days></Expiration></Rule>";
+    body = f"<LifecycleConfiguration {XMLNS}>{r}</LifecycleConfiguration>";
+    hex: str = await sha256Hex(body);
+    digest = [globalThis.parseInt(hex[i:i + 2], 16) for i in range(0, len(hex), 2)];
+    hs = {"Content-Type": "application/xml", "x-amz-sdk-checksum-algorithm": "SHA256"};
+    sum = globalThis.String.fromCharCode.apply(None, digest);
+    hs["x-amz-checksum-sha256"] = globalThis.btoa(sum);
+    await on(config, bucket, "PUT", query={"lifecycle": ""}, body=body, headers=hs);
 }
 
 async def getObject(config: any, bucket: str, key: str) -> any {
-    response = await bucket_request(config, bucket, {"path": object_path(key)});
-    return await response.arrayBuffer();
+    return await (await on(config, bucket, path=key_path(key))).arrayBuffer();
 }
 
 async def deleteObject(config: any, bucket: str, key: str) {
-    await bucket_request(config, bucket, {"method": "DELETE", "path": object_path(key)});
+    await on(config, bucket, "DELETE", path=key_path(key));
 }
