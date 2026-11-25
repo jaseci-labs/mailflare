@@ -21,7 +21,7 @@ def decodeContactsCsv(data: any) -> str {
 # and dropped), a row at MAX_CSV_COLUMNS fields, and reading stops after `maxRows` rows, with
 # `truncated` set when more followed.
 def parseCsv(text: any, limits: any = None) -> dict[str, any] {
-    maxRows = MAX_CSV_ROWS if limits is None else either(limits["maxRows"], MAX_CSV_ROWS);
+    maxRows: int = MAX_CSV_ROWS if limits is None else either(limits["maxRows"], MAX_CSV_ROWS);
     # UTF-16 code units, as JavaScript indexes a string, in typed locals that keep the loop fast.
     chars: list[str] = globalThis.String.prototype.split.call(text, "");
     (n, i, size, field, rows, row) = (len(chars), 0, 0, "", [], []);
@@ -30,7 +30,9 @@ def parseCsv(text: any, limits: any = None) -> dict[str, any] {
         if len(row) < MAX_CSV_COLUMNS {
             row.append(field);
         }
-        (field, size, touched) = ("", 0, False);
+        field = "";
+        size = 0;
+        touched = False;
     }
     def end_row {
         end_field();
@@ -52,7 +54,13 @@ def parseCsv(text: any, limits: any = None) -> dict[str, any] {
         } elif not quoted and ch == '"' and not touched {
             (quoted, touched) = (True, True);
         } elif not quoted and ch == "," {
-            end_field();
+            # end_field inlined: this is the hot path of a long row.
+            if len(row) < MAX_CSV_COLUMNS {
+                row.append(field);
+            }
+            field = "";
+            size = 0;
+            touched = False;
         } elif not quoted and (ch == "\r" or ch == "\n") {
             i += 1 if ch == "\r" and nx == "\n" else 0;
             end_row();
