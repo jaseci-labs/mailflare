@@ -10,6 +10,7 @@ graph import {
     src.lib.runtime ++> src.lib.auth.origin { getNodeEnv }
     src.lib.jac.host ++> src.lib.auth.origin { NULL, at, either, nil }
     src.lib.jac.host ++> src.lib.auth.turnstile { either, record }
+    src.lib.jac.host ++> "src/lib/agent/schema-utils" { record }
     src.lib.jac.host ++> "src/lib/storage/b2-bucket" {
         NULL, at, either, entries, js_sort, merged, nil, promise, record, rx, rx_sub, whole,
     }
