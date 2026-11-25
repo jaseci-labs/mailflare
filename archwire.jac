@@ -7,6 +7,7 @@ graph spaces {
 }
 
 graph import {
+    src.lib.jac.host ++> server.runtime.realtime { NULL, either, nil, promise, record }
     src.lib.jac.host ++> server.runtime.queue { NULL, dig, promise, record }
     src.lib.jac.host ++> src.db.drivers.types { NULL, either, promise, record }
     src.lib.jac.host ++> "src/db/d1-compat" { NULL, at, either, promise, record }
@@ -169,8 +170,7 @@ graph import {
     src.lib.email.address --> server.runtime.mailer { getEmailAddress }
     "src/lib/email/address-types.d" --> src.lib.email.address { EmailAddressParts }
     src.lib.utils --> src.lib.email.address { parseAddress }
-    src.lib.realtime.revision --> server.runtime.realtime { getUserMailRevision }
-    "src/lib/realtime/types.d" --> server.runtime.realtime { RevisionNotification, RevisionPing }
+    src.lib.realtime.revision ++> server.runtime.realtime { getUserMailRevision }
     src.lib.i18n.utils --> "src/app/(admin)/accounts/[id]/password/types.d" { Translator }
     "src/app/(admin)/accounts/[id]/types.d" --> "src/app/(admin)/accounts/[id]/password/types.d" {
         ManagedAccount,
