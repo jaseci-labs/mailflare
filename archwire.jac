@@ -108,6 +108,13 @@ graph import {
     src.lib.jac.host ++> "src/lib/agent/availability-client" { NULL }
     src.lib.jac.host ++> src.lib.agent.errors { NULL, nil, rx, rx_sub }
     src.lib.jac.host ++> "src/lib/notes/note-permissions" { NULL }
+    src.lib.jac.host ++> "src/lib/auth/error-codes" { record }
+    src.lib.jac.host ++> "src/lib/auth/setup-utils" { rx }
+    src.lib.jac.host ++> "src/lib/auth/client-ip" { NULL }
+    src.lib.jac.host ++> "src/lib/api/query-params" { NULL, either }
+    src.lib.jac.host ++> "src/lib/accounts/deletion-utils" { at }
+    src.lib.jac.host ++> "src/lib/security/server-secret" { at }
+    src.lib.jac.host ++> src.lib.licenses.constants { record }
     src.lib.security.headers --> "next.config" { getSecurityHeaders }
     server.runtime.mailer --> "server/runtime/types.d" { Mailer }
     server.runtime.queue --> "server/runtime/types.d" { InProcessQueue }
@@ -2415,7 +2422,6 @@ graph import {
         DeleteAccountsResult,
     }
     "src/lib/drive/shared-objects" --> src.lib.accounts.deletion { deleteUnreferencedObjects }
-    "src/lib/auth/types.d" --> src.lib.auth.admin { SessionUser }
     src.db.index --> src.lib.licenses.seats { getDb }
     src.db.schema.index --> src.lib.licenses.seats { users }
     src.lib.licenses.service --> src.lib.licenses.seats { getLicenseEntitlements }
@@ -2434,7 +2440,6 @@ graph import {
         normalizeLicensePlan,
         parseFeatures,
     }
-    "src/lib/licenses/types.d" --> src.lib.licenses.constants { LicensePlan }
     "src/lib/licenses/types.d" --> src.lib.licenses.paymug {
         LicenseActivationInput,
         LicenseDeactivationInput,
