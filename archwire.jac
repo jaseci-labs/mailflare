@@ -113,7 +113,7 @@ graph import {
     src.lib.aws.xml ++> src.lib.aws.ses { xmlBlocks, xmlTag }
     include src.lib.aws.xml ++> src.lib.aws.ses { xmlTags }
     src.lib.jac.host ++> "src/lib/aws/ses-notification" { NULL, either, merged, nil }
-    src.lib.jac.host ++> src.lib.aws.sigv4 { at, either, entries, js_sort, merged, rx, rx_sub }
+    src.lib.jac.host ++> src.lib.aws.sigv4 { either, nil, record, rx, rx_sub }
     src.lib.jac.host ++> src.lib.aws.sns { either }
     src.lib.aws.client ++> src.lib.aws.sns { awsQuery }
     src.lib.aws.xml ++> src.lib.aws.sns { xmlBlocks, xmlTag }
