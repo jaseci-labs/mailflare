@@ -151,7 +151,7 @@ graph import {
     src.lib.jac.host ++> "src/lib/cloudflare-api-error" { at }
     src.lib.jac.host ++> "src/lib/compose/compose-utils" { NULL }
     src.lib.jac.host ++> "src/lib/contacts/avatar-client" { record }
-    src.lib.jac.host ++> "src/lib/contacts/details-utils" { NULL, at, either, entries, is_object, merged, nil, record, rx, sub }
+    src.lib.jac.host ++> "src/lib/contacts/details-utils" { NULL, at, either, is_object, merged, nil, record, rx }
     src.lib.jac.host ++> "src/lib/contacts/google-csv" { NULL, either, record, rx }
     "src/lib/contacts/details-utils" ++> "src/lib/contacts/google-csv" { cleanLine, cleanText, normalizeContactDetails, withoutEmails }
     src.lib.jac.host ++> src.lib.contacts.gravatar { NULL, either, nil, record }
