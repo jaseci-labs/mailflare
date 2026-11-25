@@ -74,6 +74,8 @@ graph import {
     src.lib.jac.host ++> "src/lib/email/thread-lookup" { NULL, either, rx, rx_sub }
     src.lib.jac.host ++> "src/lib/email/mail-type-rule" { nil }
     src.lib.jac.host ++> src.lib.email.base64 { rx, rx_sub }
+    src.lib.jac.host ++> src.lib.jmap.blobs { NULL, at, either, merged, nil, record, rx }
+    src.lib.jac.host ++> src.lib.jmap.access { NULL, at, nil, record }
     src.lib.jac.host ++> src.lib.import.destination { NULL }
     src.lib.jac.host ++> src.lib.import.mbox { rx, rx_sub }
     src.lib.jac.host ++> src.lib.import.staging { owns, record }
@@ -494,10 +496,9 @@ graph import {
         formatState,
         parseState,
     }
-    src.db.schema.index --> src.lib.jmap.access { folders, mailboxes }
-    src.lib.mailboxes.access --> src.lib.jmap.access { listAccessibleMailboxes }
-    "src/lib/mailboxes/domain-addresses" --> src.lib.jmap.access { getMailboxDomainAddresses }
-    "src/lib/jmap/types.d" --> src.lib.jmap.access { AccessibleMailbox, JmapContext }
+    src.db.schema.index ++> src.lib.jmap.access { folders, mailboxes }
+    src.lib.mailboxes.access ++> src.lib.jmap.access { listAccessibleMailboxes }
+    "src/lib/mailboxes/domain-addresses" ++> src.lib.jmap.access { getMailboxDomainAddresses }
     src.db.index --> "src/lib/mailboxes/domain-addresses" { AppDatabase }
     src.db.schema.index --> "src/lib/mailboxes/domain-addresses" {
         domains,
@@ -538,13 +539,12 @@ graph import {
     src.lib.domains.utils --> "src/lib/cloudflare-api" { getZoneLookupCandidates }
     "src/lib/cloudflare-api.types.d" --> "src/lib/cloudflare-api-utils" { CfApiError, CfAuth }
     "src/lib/cloudflare-api.types.d" --> "src/lib/cloudflare-api-error" { CfApiError }
-    src.db.schema.index --> src.lib.jmap.blobs { messageAttachments, messages }
-    "src/lib/email/draft-access" --> src.lib.jmap.blobs { isOthersDraft }
-    src.lib.ids --> src.lib.jmap.blobs { newId }
-    src.lib.jmap.constants --> src.lib.jmap.blobs { LIMITS }
-    src.lib.jmap.ids --> src.lib.jmap.blobs { decodeBlobId, uploadBlobId }
-    src.lib.jmap.access --> src.lib.jmap.blobs { listAccessibleMailboxIdSet }
-    "src/lib/jmap/types.d" --> src.lib.jmap.blobs { JmapContext }
+    src.db.schema.index ++> src.lib.jmap.blobs { messageAttachments, messages }
+    "src/lib/email/draft-access" ++> src.lib.jmap.blobs { isOthersDraft }
+    src.lib.ids ++> src.lib.jmap.blobs { newId }
+    src.lib.jmap.constants ++> src.lib.jmap.blobs { LIMITS }
+    src.lib.jmap.ids ++> src.lib.jmap.blobs { decodeBlobId, uploadBlobId }
+    src.lib.jmap.access ++> src.lib.jmap.blobs { listAccessibleMailboxIdSet }
     src.lib.jmap.constants --> src.lib.jmap.processor {
         CAPABILITY_CORE,
         CAPABILITY_MAIL,
