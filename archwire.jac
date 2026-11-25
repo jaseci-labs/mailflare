@@ -7,6 +7,7 @@ graph spaces {
 }
 
 graph import {
+    src.lib.jac.host ++> "src/lib/messages/permanent-delete-utils" { NULL, at, either }
     src.lib.jac.host ++> "src/lib/messages/change-events" { at, record }
     src.lib.jac.host ++> "src/lib/messages/list-membership" { NULL, at, nil }
     src.lib.jac.host ++> "src/lib/messages/field-store" { at, either, merged, nil }
@@ -6292,13 +6293,7 @@ graph import {
     }
     src.components.ui.tooltip --> "src/components/message-actions/action-menu" { Tooltip }
     src.lib.utils --> "src/components/message-actions/action-menu" { cn }
-    "src/app/api/messages/bulk/types.d" --> "src/lib/messages/permanent-delete-utils" {
-        PermanentDeleteFolder,
-    }
-    src.lib.i18n.utils --> "src/lib/messages/permanent-delete-utils" {
-        Translator,
-        defaultTranslator,
-    }
+    src.lib.i18n.utils ++> "src/lib/messages/permanent-delete-utils" { defaultTranslator }
     "src/app/api/messages/bulk/types.d" --> "src/components/message-actions/utils" {
         BulkMessageAction,
     }
