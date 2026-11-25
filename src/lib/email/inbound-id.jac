@@ -1,31 +1,18 @@
-def:priv encoded(text: str) -> any {
-    return new(globalThis.TextEncoder).encode(text);
-}
-
-async def:priv sha256_hex(data: any) -> str {
-    digest = await globalThis.crypto.subtle.digest("SHA-256", data);
-    return globalThis.Array.prototype.map.call(
-        new(globalThis.Uint8Array, digest),
-        lambda (b: any) -> any { b.toString(16).padStart(2, "0") },
-    ).join("");
+# Hex SHA-256 of `parts` one after another, strings as UTF-8.
+async def:priv sha256_hex(*parts: any) -> str {
+    data = await new(globalThis.Blob, parts).arrayBuffer();
+    digest = new(globalThis.Uint8Array, await globalThis.crypto.subtle.digest("SHA-256", data));
+    return "".join([globalThis.String(b.toString(16)).padStart(2, "0") for b in digest]);
 }
 
 async def inboundMessageId(rawR2Key: str) -> str {
-    return "msg_" + await sha256_hex(encoded(rawR2Key));
+    return "msg_" + await sha256_hex(rawR2Key);
 }
 
-"""Deterministic storage key for an inbound message, from the mailbox and the raw bytes.
-
-A relay retry replays identical bytes, so it overwrites the same object and the inbound queue
-consumer, which dedupes by `(mailboxId, rawR2Key)`, skips it. Sender-controlled headers such as
-`Message-ID` are deliberately not part of the key: a third party who knows a message's
-`Message-ID` could otherwise overwrite its stored raw MIME or make the real delivery look like a
-duplicate.
-"""
+# Deterministic storage key from the mailbox and the raw bytes: a relay retry replays identical
+# bytes, overwriting the same object, and the inbound consumer (deduping by `(mailboxId, rawR2Key)`)
+# skips it. Sender-controlled headers such as `Message-ID` are deliberately left out: a third party
+# who knows one could otherwise overwrite stored raw MIME or make the real delivery a duplicate.
 async def inboundStorageKey(raw: any, mailboxId: any = None) -> str {
-    prefix = encoded(either(mailboxId, "") + "\0");
-    joined = new(globalThis.Uint8Array, prefix.length + raw.byteLength);
-    joined.set(prefix, 0);
-    joined.set(new(globalThis.Uint8Array, raw), prefix.length);
-    return "inbound/" + await sha256_hex(joined) + ".eml";
+    return "inbound/" + await sha256_hex(either(mailboxId, ""), "\0", raw) + ".eml";
 }

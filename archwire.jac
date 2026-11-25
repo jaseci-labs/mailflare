@@ -56,6 +56,12 @@ graph import {
     src.lib.jac.host ++> "src/lib/domains/manual-dns" { at, dig }
     src.lib.jac.host ++> "src/lib/domains/sending-status" { NULL, either, first }
     src.lib.jac.host ++> src.lib.http.response { NULL, is_object }
+    src.lib.jac.host ++> "src/app/(admin)/deliverability/dmarc-utils" { NULL, merged, num_or }
+    src.lib.jac.host ++> "src/app/(admin)/deliverability/mta-sts-utils" { NULL, dig, rx, sub }
+    src.lib.jac.host ++> "src/app/(admin)/domains/domain-dns-details-utils" { at }
+    src.lib.jac.host ++> "src/app/(calendar)/booking/default-events" { merged, record }
+    src.lib.jac.host ++> "src/app/(dashboard)/inbox/[messageId]/cloud-attachment-utils" { merged, rx, rx_sub, sub }
+    src.lib.jac.host ++> "src/app/(dashboard)/inbox/[messageId]/quote-collapse-utils" { NULL, either, rx }
     src.lib.jac.host ++> "src/lib/accounts/deletion-utils" { at }
     src.lib.jac.host ++> "src/lib/agent/availability-client" { NULL, at, nil }
     src.lib.jac.host ++> src.lib.agent.errors { NULL, nil, rx, sub, dig, first, either, is_object }
@@ -144,15 +150,15 @@ graph import {
     src.lib.jac.host ++> "src/lib/email/inbound-id" { either }
     src.lib.jac.host ++> "src/lib/email/inbound-limits" { NULL, merged, record, rx, rx_sub }
     src.lib.jac.host ++> "src/lib/email/intake-signature" { record }
-    src.lib.jac.host ++> "src/lib/email/mail-type-rule" { nil }
+    src.lib.jac.host ++> "src/lib/email/mail-type-rule" { dig, nil }
     src.lib.jac.host ++> "src/lib/email/mime-preflight" { NULL, record }
     src.lib.jac.host ++> "src/lib/email/provider-trace" { NULL, either, record, rx, rx_sub }
     "src/lib/email/domain-match" ++> "src/lib/email/provider-trace" { isSameOrSubdomain }
     "src/lib/spam/domain-utils" ++> "src/lib/email/provider-trace" { extractSenderIp }
-    src.lib.jac.host ++> "src/lib/email/resend-api" { NULL, at, either, merged, nil, record, rx, rx_sub }
+    src.lib.jac.host ++> "src/lib/email/resend-api" { NULL, at, dig, either, merged, record, rx, rx_sub }
     src.lib.jac.host ++> "src/lib/email/stale-objects" { at, record }
     src.lib.jac.host ++> src.lib.email.svix { NULL, at, record }
-    src.lib.jac.host ++> "src/lib/email/thread-lookup" { NULL, either, rx, rx_sub }
+    src.lib.jac.host ++> "src/lib/email/thread-lookup" { NULL, either, first, rx, rx_sub }
     src.lib.jac.host ++> "src/lib/folders/color-keys" { record }
     src.lib.jac.host ++> src.lib.folders.colors { record }
     src.lib.jac.host ++> "src/lib/follow-ups/follow-up-utils" { NULL }
@@ -3231,10 +3237,6 @@ graph import {
         dayTotal,
         segmentPercents,
     }
-    "src/lib/i18n/types.d" --> "src/app/(admin)/deliverability/dmarc-utils" { TranslationKey }
-    "src/app/(admin)/deliverability/types.d" --> "src/app/(admin)/deliverability/dmarc-utils" {
-        DmarcSeriesDay,
-    }
     "src/components/language-provider" --> "src/app/(admin)/deliverability/DmarcRecordPreviewDialog" {
         useLanguage,
     }
@@ -3354,7 +3356,6 @@ graph import {
         postMtaStsVerified,
         putMtaSts,
     }
-    "src/lib/i18n/types.d" --> "src/app/(admin)/deliverability/mta-sts-utils" { TranslationKey }
     "src/components/language-provider" --> "src/app/(admin)/deliverability/SettingsPanel" {
         useLanguage,
     }
@@ -3645,9 +3646,6 @@ graph import {
     }
     "src/app/(admin)/domains/types.d" --> "src/app/(admin)/domains/DomainItemCard" {
         DomainItemCardProps,
-    }
-    "src/app/(admin)/domains/types.d" --> "src/app/(admin)/domains/domain-dns-details-utils" {
-        DnsRecord,
     }
     "src/components/page-header-utils" --> "src/app/(admin)/domains/page" {
         mobilePrimaryActionClass,
@@ -5198,10 +5196,7 @@ graph import {
     "src/components/language-provider" --> "src/app/(calendar)/booking/booking-list-skeleton" {
         useLanguage,
     }
-    src.lib.folders.colors --> "src/app/(calendar)/booking/default-events" { DEFAULT_FOLDER_COLOR }
-    "src/app/(calendar)/booking/types.d" --> "src/app/(calendar)/booking/default-events" {
-        BookingEvent,
-    }
+    src.lib.folders.colors ++> "src/app/(calendar)/booking/default-events" { DEFAULT_FOLDER_COLOR }
     "src/components/ui/confirm-dialog" --> "src/app/(calendar)/booking/page" { confirmDestructive }
     "src/components/page-header-utils" --> "src/app/(calendar)/booking/page" {
         mobilePrimaryActionClass,
@@ -6891,10 +6886,6 @@ graph import {
     }
     src.lib.auth.client --> "src/components/messages/use-show-full-recipient-addresses-utils" {
         authFetch,
-    }
-    "src/app/(dashboard)/inbox/[messageId]/cloud-attachment-types.d" --> "src/app/(dashboard)/inbox/[messageId]/cloud-attachment-utils" {
-        CloudAttachment,
-        CloudAttachmentExtraction,
     }
     src.lib.auth.client --> "src/components/messages/use-send-view-status" { authFetch }
     "src/lib/messages/detail-cache" --> "src/components/messages/use-send-view-status" {

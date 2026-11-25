@@ -1,144 +1,41 @@
-"""Attachment risk without an antivirus engine.
-
-File types that run code or carry macros, names that disguise their type, and the contents of ZIP
-archives (bounded). It does not detect malware in ordinary-looking files; it stops a one-click
-download of things that are dangerous by design. A risk is `{level, reasons}` with level `ok`,
-`warning` or `blocked`.
-"""
-
-# Run code when opened.
-glob:priv EXECUTABLE: list[str] = [
-    "exe",
-    "scr",
-    "com",
-    "pif",
-    "bat",
-    "cmd",
-    "msi",
-    "msp",
-    "dll",
-    "cpl",
-    "jar",
-    "js",
-    "jse",
-    "vbs",
-    "vbe",
-    "wsf",
-    "wsh",
-    "ps1",
-    "psm1",
-    "lnk",
-    "hta",
-    "reg",
-    "apk",
-    "appimage",
-    "scf",
-    "url",
-    "chm",
-    "gadget",
-    "inf",
-    "sh",
-    "command",
-    "app",
-    "pkg",
-    "dmg",
-];
-
-# Office formats that carry macros.
-glob:priv MACRO: list[str] = [
-    "docm",
-    "xlsm",
-    "pptm",
-    "dotm",
-    "xltm",
-    "potm",
-    "ppam",
-    "xlam",
-    "sldm",
-];
-
-# Open in a browser or mount like a disk: common phishing and smuggling containers.
-glob:priv CONTAINER: list[str] = [
-    "html",
-    "htm",
-    "xhtml",
-    "shtml",
-    "svg",
-    "iso",
-    "img",
-    "vhd",
-    "vhdx",
-    "one",
-];
-
-glob:priv ARCHIVE: list[str] = ["zip", "rar", "7z", "tar", "gz", "tgz", "bz2", "xz", "cab", "ace"],
-          DOCUMENT_LOOKING: list[str] = [
-              "pdf",
-              "doc",
-              "docx",
-              "xls",
-              "xlsx",
-              "ppt",
-              "pptx",
-              "txt",
-              "rtf",
-              "jpg",
-              "jpeg",
-              "png",
-              "gif",
-              "csv",
-              "mp3",
-              "mp4",
-          ],
-          PROGRAM_TYPES: list[str] = [
-              "application/x-msdownload",
-              "application/x-msdos-program",
-              "application/x-sh",
-              "application/vnd.microsoft.portable-executable",
-          ],
+# Attachment risk without an antivirus engine: it stops one-click downloads of what is dangerous by
+# design, not malware in general. EXECUTABLE files run code when opened, MACRO Office formats carry
+# macros, CONTAINER files open in a browser or mount like a disk (phishing and smuggling).
+glob:priv EXECUTABLE: list[str] = """exe scr com pif bat cmd msi msp dll cpl jar js jse vbs vbe wsf
+              wsh ps1 psm1 lnk hta reg apk appimage scf url chm gadget inf sh command app pkg dmg""".split(),
+          MACRO: list[str] = "docm xlsm pptm dotm xltm potm ppam xlam sldm".split(),
+          CONTAINER: list[str] = "html htm xhtml shtml svg iso img vhd vhdx one".split(),
+          ARCHIVE: list[str] = "zip rar 7z tar gz tgz bz2 xz cab ace".split(),
+          DOCUMENT_LOOKING: list[str] = """pdf doc docx xls xlsx ppt pptx txt rtf jpg jpeg png gif
+              csv mp3 mp4""".split(),
+          PROGRAM_TYPES: list[str] = """application/x-msdownload application/x-msdos-program
+              application/x-sh application/vnd.microsoft.portable-executable""".split(),
           BIDI_OR_CONTROL: any = rx(r"[\u0000-\u001f‪-‮⁦-⁩]"),
-          TRAILING_SPACE: any = rx(r"\s+$"),
-          RANK: dict[str, int] = {"ok": 0, "warning": 1, "blocked": 2};
+          LEVELS: list[str] = ["ok", "warning", "blocked"],
+          HIDDEN: str = "The file name contains hidden characters that can disguise its real type.",
+          ARCHIVED: str = "Archives can hide other files; open them only if you expected this.",
+          BIG: str = "This archive holds an unusually large number of files and was not fully checked.",
+          LOCKED: str = "This archive is password protected, so its contents could not be checked.",
+          MAX_ZIP_ENTRIES: int = 1000,
+          MAX_CENTRAL_DIRECTORY_BYTES: int = 1024 * 1024;
+type AttachmentRisk = any;
 
-glob:priv MAX_ZIP_ENTRIES: int = 1000,
-          MAX_CENTRAL_DIRECTORY_BYTES: int = 1024 * 1024,
-          MAX_ZIP_DEPTH_NAMES: int = 50,
-          END_OF_DIRECTORY: int = 0x06054b50,
-          DIRECTORY_ENTRY: int = 0x02014b50;
-
-def:priv extensions(filename: any) -> list[str] {
-    parts: list[str] = filename.toLowerCase().trim().split(".");
-    return [rx_sub(part, TRAILING_SPACE, "") for part in parts[1:]];
-}
-
-def:priv warning(reason: str) -> any {
-    return record({"level": "warning", "reasons": [reason]});
-}
-
-def mergeRisks(*risks: any) -> any {
-    level = "ok";
-    reasons: list[str] = [];
-    for risk in risks {
-        if RANK[risk["level"]] > RANK[level] {
-            level = risk["level"];
-        }
-        reasons += [reason for reason in risk["reasons"] if reason not in reasons];
-    }
+def:priv risk(level: str, reasons: list[str]) -> any {
     return record({"level": level, "reasons": reasons});
 }
 
-"""Risk judged from the name and declared type alone."""
+def mergeRisks(*risks: any) -> any {
+    every = [x for r in risks for x in r["reasons"]];
+    worst = max([LEVELS.index(r["level"]) for r in risks] + [0]);
+    return risk(LEVELS[worst], [x for (i, x) in enumerate(every) if x not in every[:i]]);
+}
+
+# Risk judged from the name and declared type alone.
 def assessAttachmentRisk(attachment: any) -> any {
-    filename = attachment["filename"];
-    found: list[tuple[str, str]] = [];
-    exts = extensions(filename);
+    filename: any = attachment["filename"];
+    exts = [rx_sub(p, rx(r"\s+$"), "") for p in filename.toLowerCase().trim().split(".")[1:]];
     last = exts[-1] if exts else "";
-    if BIDI_OR_CONTROL.test(filename) {
-        found.append((
-            "blocked",
-            "The file name contains hidden characters that can disguise its real type.",
-        ));
-    }
+    found = [("blocked", HIDDEN)] if BIDI_OR_CONTROL.test(filename) else [];
     if last in EXECUTABLE {
         found.append(("blocked", f".{last} files run code when opened."));
     } elif last in MACRO {
@@ -146,114 +43,69 @@ def assessAttachmentRisk(attachment: any) -> any {
     } elif last in CONTAINER {
         found.append(("warning", f".{last} files can show a fake login page or hide other files."));
     } elif last in ARCHIVE {
-        found.append((
-            "warning",
-            "Archives can hide other files; open them only if you expected this.",
-        ));
+        found.append(("warning", ARCHIVED));
     }
     if len(exts) >= 2 and exts[-2] in DOCUMENT_LOOKING and last in EXECUTABLE + MACRO + CONTAINER {
         found.append(("blocked", "The name has two extensions to look like a harmless document."));
     }
-    declared: any = at(attachment, "type", "");
-    if declared.toLowerCase() in PROGRAM_TYPES {
+    if globalThis.String(at(attachment, "type", "")).toLowerCase() in PROGRAM_TYPES {
         found.append(("blocked", "The file is declared as a program."));
     }
-    level = "ok";
-    for (next_level, reason) in found {
-        if RANK[next_level] > RANK[level] {
-            level = next_level;
+    return mergeRisks(*[risk(l, [x]) for (l, x) in found]);
+}
+
+def:priv eocd(tail: any) -> tuple[any, int] {
+    view = new(globalThis.DataView, tail.buffer, tail.byteOffset, tail.byteLength);
+    for i in range(view.byteLength - 22, -1, -1) {
+        if view.getUint32(i, True) == 0x06054b50 {
+            return (view, i);
         }
     }
-    return record({"level": level, "reasons": [reason for (next_level, reason) in found]});
+    return (view, -1);
 }
 
-def:priv data_view(chunk: any) -> any {
-    return new(globalThis.DataView, chunk.buffer, chunk.byteOffset, chunk.byteLength);
-}
-
-"""Index of the end-of-central-directory record, searched from the end; -1 when there is none."""
-def:priv end_of_directory(view: any) -> int {
-    for index in range(view.byteLength - 22, -1, -1) {
-        if view.getUint32(index, True) == END_OF_DIRECTORY {
-            return index;
-        }
-    }
-    return -1;
-}
-
-"""Where a ZIP's central directory sits, from the last 64 KiB of the file."""
+# Where a ZIP's central directory sits, from the last 64 KiB of the file.
 def locateZipDirectory(tail: any) -> any {
-    view = data_view(tail);
-    index = end_of_directory(view);
-    if index < 0 {
-        return NULL;
-    }
-    return record({
-        "size": view.getUint32(index + 12, True),
-        "offset": view.getUint32(index + 16, True),
-    });
+    (v, i) = eocd(tail);
+    return NULL
+        if i < 0
+        else record({"size": v.getUint32(i + 12, True), "offset": v.getUint32(i + 16, True)});
 }
 
-"""Names inside a ZIP, read from its central directory without extracting anything."""
+# Names inside a ZIP, read from its central directory without extracting anything.
 def inspectZipDirectory(tail: any, centralDirectory: any) -> any {
-    view = data_view(tail);
-    eocd = end_of_directory(view);
-    if eocd < 0 {
-        return record({"level": "ok", "reasons": []});
+    (v, e) = eocd(tail);
+    if e < 0 {
+        return risk("ok", []);
     }
-    count = view.getUint16(eocd + 10, True);
-    size = view.getUint32(eocd + 12, True);
-    offset = view.getUint32(eocd + 16, True);
+    count = v.getUint16(e + 10, True);
+    (size, offset) = (v.getUint32(e + 12, True), v.getUint32(e + 16, True));
     if size == 0xffffffff or offset == 0xffffffff or count == 0xffff {
-        return warning("This archive uses a format that cannot be checked here.");
+        return risk("warning", ["This archive uses a format that cannot be checked here."]);
     }
     if count > MAX_ZIP_ENTRIES or size > MAX_CENTRAL_DIRECTORY_BYTES {
-        return warning(
-            "This archive holds an unusually large number of files and was not fully checked."
-        );
+        return risk("warning", [BIG]);
     }
-    directory = centralDirectory(offset, size);
-    if nil(directory) {
-        return warning("This archive could not be checked.");
+    d = centralDirectory(offset, size);
+    if nil(d) {
+        return risk("warning", ["This archive could not be checked."]);
     }
-    dv = data_view(directory);
-    risks: list[any] = [];
-    encrypted = False;
-    position = 0;
-    for seen in range(globalThis.Math.min(count, MAX_ZIP_DEPTH_NAMES * 20)) {
-        if position + 46 > directory.byteLength or dv.getUint32(position, True) != DIRECTORY_ENTRY {
+    dv = new(globalThis.DataView, d.buffer, d.byteOffset, d.byteLength);
+    (risks, encrypted, pos) = ([], False, 0);
+    for _ in range(count) {
+        listed = pos + 46 <= d.byteLength and dv.getUint32(pos, True) == 0x02014b50;
+        n = dv.getUint16(pos + 28, True) if listed else 0;  # name length
+        if not listed or pos + 46 + n > d.byteLength {
             break;
         }
-        flags = dv.getUint16(position + 8, True);
-        name_length = dv.getUint16(position + 28, True);
-        extra_length = dv.getUint16(position + 30, True);
-        comment_length = dv.getUint16(position + 32, True);
-        if position + 46 + name_length > directory.byteLength {
-            break;
-        }
-        if flags & 1 {
-            encrypted = True;
-        }
-        name: str = new(globalThis.TextDecoder).decode(
-            directory.subarray(position + 46, position + 46 + name_length)
-        );
+        encrypted = encrypted or bool(dv.getUint16(pos + 8, True) & 1);
+        name: str = new(globalThis.TextDecoder).decode(d.subarray(pos + 46, pos + 46 + n));
         inner = assessAttachmentRisk({"filename": name.split("/")[-1]});
-        if inner["level"] != "ok" {
-            risks.append({
-                "level": inner["level"],
-                "reasons": [f"Inside the archive, {name}: {reason}" for reason in inner["reasons"]],
-            });
-        }
-        position += 46 + name_length + extra_length + comment_length;
+        why = [f"Inside the archive, {name}: {x}" for x in inner["reasons"]];
+        risks.append(risk(inner["level"], why));  # an "ok" risk has no reasons and changes nothing
+        pos += 46 + n + dv.getUint16(pos + 30, True) + dv.getUint16(pos + 32, True);
     }
-    if encrypted {
-        risks.append(
-            warning("This archive is password protected, so its contents could not be checked.")
-        );
-    }
+    risks += [risk("warning", [LOCKED])] if encrypted else [];
     merged = mergeRisks(*risks);
-    return record({"level": merged["level"], "reasons": merged["reasons"][:5]});
+    return risk(merged["level"], merged["reasons"][:5]);
 }
-
-# Types that TypeScript modules still import by name.
-type AttachmentRisk = dict[str, any];
