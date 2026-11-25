@@ -23,7 +23,7 @@ graph import {
     src.lib.jac.host ++> "src/lib/auth/rate-limit" { at, either, record }
     "src/lib/auth/client-ip" ++> "src/lib/auth/rate-limit" { getClientIp }
     src.lib.jac.host ++> "src/lib/auth/setup-utils" { rx }
-    src.lib.jac.host ++> "src/lib/avatar-images" { NULL, at, record }
+    src.lib.jac.host ++> "src/lib/avatar-images" { NULL, dig, record }
     src.lib.jac.host ++> src.lib.aws.client { NULL, at, either, entries, merged, nil, record, rx }
     src.lib.aws.sigv4 ++> src.lib.aws.client { signAwsRequest }
     src.lib.aws.xml ++> src.lib.aws.client { xmlTag }
