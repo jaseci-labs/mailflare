@@ -7,7 +7,7 @@ graph spaces {
 }
 
 graph import {
-    src.lib.jac.host ++> "src/lib/import/imap-utils" { NULL, either, rx, rx_sub }
+    src.lib.jac.host ++> "src/lib/import/imap-utils" { NULL, either, nil, rx, rx_sub }
     src.lib.jac.host ++> "src/lib/import/message-hints-utils" { at, record, rx, rx_sub }
     src.lib.jac.host ++> src.lib.import.destination { NULL }
     src.lib.jac.host ++> src.lib.import.mbox { rx, rx_sub }
