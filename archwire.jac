@@ -7,6 +7,13 @@ graph spaces {
 }
 
 graph import {
+    "src/lib/cloudflare-api.types.d" --> "src/lib/cloudflare-api-utils" { CfApiError, CfAuth }
+    src.lib.jac.host ++> "src/lib/cloudflare-api-error" { at }
+    src.lib.jac.host ++> "src/lib/dns-query" { NULL, at, record, rx }
+    src.lib.jac.host ++> "src/lib/api-keys" { record }
+    src.lib.jac.host ++> src.lib.zip { at, either, record, rx, rx_sub }
+    src.lib.jac.host ++> src.lib.http.request { NULL, at, either, record }
+    src.lib.jac.host ++> src.lib.time.utils { NULL, at, either, merged, nil, record, rx }
     src.lib.jac.host ++> src.lib.utils { NULL, record, rx, rx_sub }
     src.lib.jac.host ++> "src/lib/database-errors" { rx }
     src.lib.jac.host ++> "src/lib/avatar-images" { NULL, at, record }
@@ -20,7 +27,6 @@ graph import {
     src.lib.jac.host ++> src.lib.email.address { NULL, rx, rx_sub }
     src.lib.realtime.revision --> server.runtime.realtime { getUserMailRevision }
     "src/lib/realtime/types.d" --> server.runtime.realtime { RevisionNotification, RevisionPing }
-    "src/lib/realtime/types.d" --> src.lib.realtime.revision { MailboxRevisionRow }
     src.lib.i18n.utils --> "src/app/(admin)/accounts/[id]/password/types.d" { Translator }
     "src/app/(admin)/accounts/[id]/types.d" --> "src/app/(admin)/accounts/[id]/password/types.d" {
         ManagedAccount,
@@ -255,7 +261,7 @@ graph import {
         timingSafeEqualText,
         verifyApiKey,
     }
-    src.lib.ids --> "src/lib/api-keys" { newId }
+    src.lib.ids ++> "src/lib/api-keys" { newId }
     src.db.index --> "src/lib/api/key-auth" { getDb }
     src.db.schema.index --> "src/lib/api/key-auth" { apiKeys, mcpKeyMailboxes, users }
     "src/lib/api-keys" --> "src/lib/api/key-auth" { parseScopes }
@@ -434,8 +440,6 @@ graph import {
     }
     "src/lib/cloudflare-api-error" --> "src/lib/cloudflare-api" { CloudflareApiError }
     src.lib.domains.utils --> "src/lib/cloudflare-api" { getZoneLookupCandidates }
-    "src/lib/cloudflare-api.types.d" --> "src/lib/cloudflare-api-utils" { CfApiError, CfAuth }
-    "src/lib/cloudflare-api.types.d" --> "src/lib/cloudflare-api-error" { CfApiError }
     "src/lib/jmap/types.d" --> src.lib.jmap.ids { MailboxRef, SystemRole }
     src.db.schema.index --> src.lib.jmap.blobs { messageAttachments, messages }
     "src/lib/email/draft-access" --> src.lib.jmap.blobs { isOthersDraft }
@@ -905,7 +909,6 @@ graph import {
         AuthSessionChangedDetail,
         AuthSessionResponse,
     }
-    "src/lib/time/types.d" --> src.lib.time.utils { ZonedDay }
     src.lib.time.utils --> src.lib.time.client { clearUserTimeZoneCache }
     "src/lib/profile/types.d" --> "src/lib/profile/name-client" { ProfileNameChangedDetail }
     "src/lib/profile/types.d" --> "src/lib/profile/avatar-client" { ProfileAvatarChangedDetail }
@@ -9344,7 +9347,7 @@ graph import {
     "src/app/api/accounts/[id]/types.d" --> "src/app/api/accounts/[id]/recovery/route" {
         AccountRouteParams,
     }
-    src.lib.http.errors --> src.lib.http.request { RequestBodyTooLargeError }
+    src.lib.http.errors ++> src.lib.http.request { RequestBodyTooLargeError }
     src.lib.auth.password --> src.lib.auth.webauthn.authorize { verifyPassword }
     src.lib.auth.mfa --> src.lib.auth.webauthn.authorize { verifySecondFactor }
     src.lib.auth.webauthn.grants --> src.lib.auth.webauthn.authorize { consumeStepUpGrant }
