@@ -1,13 +1,10 @@
 glob:priv XMLNS: str = 'xmlns="http://s3.amazonaws.com/doc/2006-03-01/"';
 
-"""A request to the bucket's own host (the service host without a bucket)."""
-async def:priv on(c: any, bucket: str, m: any = None, **more: any) -> any {
+# A request to the bucket's host (the service's own without a bucket), for the object at `key`.
+async def:priv on(c: any, bucket: str, m: any = None, key: any = None, **kw: any) -> any {
     h = (f"{bucket}." if bucket else "") + f"s3.{c['region']}.amazonaws.com";
-    return await awsRequest({"config": c, "service": "s3", "host": h, "method": m, **more});
-}
-
-def:priv key_path(key: str) -> str {
-    return "/" + "/".join([globalThis.encodeURIComponent(part) for part in key.split("/")]);
+    kw["path"] = "/" + "/".join([globalThis.encodeURIComponent(s) for s in (key or "").split("/")]);
+    return await awsRequest({"config": c, "service": "s3", "host": h, "method": m, **kw});
 }
 
 async def listBuckets(config: any) {
@@ -35,18 +32,17 @@ async def putExpiryLifecycle(config: any, bucket: str, prefix: str, days: any) {
     r = f"<ID>mailflare-expire-inbound</ID><Filter><Prefix>{prefix}</Prefix></Filter>";
     r = f"<Rule>{r}<Status>Enabled</Status><Expiration><Days>{days}</Days></Expiration></Rule>";
     body = f"<LifecycleConfiguration {XMLNS}>{r}</LifecycleConfiguration>";
-    hex: str = await sha256Hex(body);
-    digest = [globalThis.parseInt(hex[i:i + 2], 16) for i in range(0, len(hex), 2)];
+    x: any = await sha256Hex(body);
+    sha = globalThis.btoa("".join([chr(int(b, 16)) for b in x.match(rx("..", "g"))]));
     hs = {"Content-Type": "application/xml", "x-amz-sdk-checksum-algorithm": "SHA256"};
-    sum = globalThis.String.fromCharCode.apply(None, digest);
-    hs["x-amz-checksum-sha256"] = globalThis.btoa(sum);
+    hs["x-amz-checksum-sha256"] = sha;
     await on(config, bucket, "PUT", query={"lifecycle": ""}, body=body, headers=hs);
 }
 
 async def getObject(config: any, bucket: str, key: str) -> any {
-    return await (await on(config, bucket, path=key_path(key))).arrayBuffer();
+    return await (await on(config, bucket, key=key)).arrayBuffer();
 }
 
 async def deleteObject(config: any, bucket: str, key: str) {
-    await on(config, bucket, "DELETE", path=key_path(key));
+    await on(config, bucket, "DELETE", key);
 }

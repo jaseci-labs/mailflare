@@ -85,6 +85,7 @@ graph import {
     src.lib.aws.xml ++> src.lib.aws.client { xmlTag }
     src.lib.aws.client ++> src.lib.aws.s3 { awsRequest, awsSpare }
     src.lib.aws.sigv4 ++> src.lib.aws.s3 { sha256Hex }
+    src.lib.jac.host ++> src.lib.aws.s3 { rx }
     src.lib.jac.host ++> src.lib.aws.ses { at, dig, entries }
     src.lib.aws.client ++> src.lib.aws.ses { awsJson, awsQuery, awsSpare }
     src.lib.aws.xml ++> src.lib.aws.ses { xmlBlocks, xmlTag }
