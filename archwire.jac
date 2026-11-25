@@ -7,6 +7,7 @@ graph spaces {
 }
 
 graph import {
+    src.lib.jac.host ++> "src/lib/messages/list-membership" { NULL, at, nil }
     src.lib.jac.host ++> "src/lib/messages/field-store" { at, either, merged, nil }
     src.lib.jac.host ++> "src/lib/search/query-utils" { NULL, at, either, rx, rx_sub }
     src.lib.jac.host ++> "src/lib/tracking/open-tracking-utils" { NULL, at, record, rx, rx_sub }
@@ -4231,10 +4232,6 @@ graph import {
     }
     "src/lib/messages/actions/types.d" --> "src/lib/messages/change-events" {
         ReversibleMessageAction,
-    }
-    "src/hooks/types.d" --> "src/lib/messages/list-membership" { MessageFolder }
-    "src/lib/messages/actions/types.d" --> "src/lib/messages/list-membership" {
-        MessageStateSnapshot,
     }
     "src/hooks/types.d" --> "src/hooks/counts-delta-utils" { MessageCounts, MessageCountsDelta }
     src.lib.auth.client --> src.lib.auth.logout {
