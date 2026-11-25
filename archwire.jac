@@ -7,6 +7,7 @@ graph spaces {
 }
 
 graph import {
+    src.lib.jac.host ++> src.lib.email.unsubscribe { NULL, either, record, rx, rx_sub }
     src.lib.jac.host ++> "src/lib/email/attachment-risk" { NULL, at, nil, rx, rx_sub }
     src.lib.jac.host ++> "src/lib/email/bulk-mail" { NULL, entries }
     src.lib.jac.host ++> "src/lib/email/mime-preflight" { NULL, record }
@@ -1167,7 +1168,6 @@ graph import {
     "tests/helpers/dom-component" --> "tests/hotkey-shared-sequence.test" { loadComponent }
     src.lib.email.unsubscribe --> "tests/html-scan-bounds.test" { extractUnsubscribeLinkFromBody }
     src.lib.spam.analyzers.urls --> "tests/html-scan-bounds.test" { analyzeUrls }
-    "src/lib/email/unsubscribe-types.d" --> src.lib.email.unsubscribe { UnsubscribeUrl }
     src.lib.email.parse --> src.lib.spam.analyzers.urls { ParsedEmail }
     "src/lib/spam/types.d" --> src.lib.spam.analyzers.urls { PreparedSpamContent, SpamSignal }
     "src/lib/import/imap-utils" --> "tests/imap-chunk-size.test" {
