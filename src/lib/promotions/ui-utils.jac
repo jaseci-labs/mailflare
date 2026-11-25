@@ -34,12 +34,10 @@ def getModeErrorKey(status: any, code: any = None) -> str {
     return "settings.promotions.forbidden" if status == 403 else "settings.promotions.saveFailed";
 }
 
+glob:priv KEYS: list[str] = ["inboxUnreadDelta", "promotionsUnreadDelta"];
+
 def:priv deltas(inbox: any, promo: any) -> dict[str, any] {
-    return {
-        k: v
-        for (k, v) in [("inboxUnreadDelta", inbox), ("promotionsUnreadDelta", promo)]
-        if v
-    };
+    return {k: v for (k, v) in zip(KEYS, [inbox, promo]) if v};
 }
 
 # Inbox rows count toward Inbox, and Promotions too when promotions in a mailbox that has it on;
@@ -53,13 +51,12 @@ def unreadDeltas(c: any, flip: any) -> any {
     if c["folder"] == "inbox" {
         return deltas(flip, flip if on and at(c, "category") == "promotions" else 0);
     }
-    return deltas(flip if mode == "show" else 0, flip)
-        if c["folder"] == "promotions" and on
-        else NULL;
+    listed = c["folder"] == "promotions" and on;
+    return deltas(flip if mode == "show" else 0, flip) if listed else NULL;
 }
 
 def:priv pick(d: any) -> any {
-    return (at(d, "inboxUnreadDelta", 0), at(d, "promotionsUnreadDelta", 0));
+    return [at(d, k, 0) for k in KEYS];
 }
 
 def mergeUnreadDeltas(a: any, b: any) -> any {
