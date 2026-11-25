@@ -7,6 +7,9 @@ graph spaces {
 }
 
 graph import {
+    src.lib.jac.host ++> "src/lib/storage/b2-bucket" {
+        NULL, at, either, entries, js_sort, merged, nil, promise, record, rx, rx_sub, whole,
+    }
     src.lib.jac.host ++> "src/lib/remote-images/fetch" { NULL, at, either, nil, record, rx }
     src.lib.jac.host ++> server.runtime.realtime { NULL, either, nil, promise, record }
     src.lib.jac.host ++> server.runtime.queue { NULL, dig, promise, record }
@@ -479,10 +482,8 @@ graph import {
     src.db.external --> "src/db/with-database" { ExternalDatabase, openExternalDatabase }
     "src/lib/storage/b2-config" --> src.lib.storage.index { getObjectStorageConfig }
     "src/lib/storage/b2-bucket" --> src.lib.storage.index { openB2Bucket }
-    src.lib.aws.client --> "src/lib/storage/b2-bucket" { AwsError, awsRequest }
-    src.lib.aws.xml --> "src/lib/storage/b2-bucket" { xmlBlocks, xmlTag }
-    "src/lib/aws/aws-types.d" --> "src/lib/storage/b2-bucket" { AwsConfig }
-    "src/lib/storage/b2-types.d" --> "src/lib/storage/b2-bucket" { B2Config, B2HttpMetadata }
+    src.lib.aws.client ++> "src/lib/storage/b2-bucket" { awsRequest, awsSpare }
+    src.lib.aws.xml ++> "src/lib/storage/b2-bucket" { xmlBlocks, xmlTag }
     "src/lib/email/inbound-limits" --> "src/app/api/messages/[messageId]/attachments/[attachmentId]/utils" {
         truncateUtf8,
     }
