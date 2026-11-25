@@ -7,6 +7,11 @@ graph spaces {
 }
 
 graph import {
+    src.lib.jac.host ++> src.lib.calendar.ics { rx, rx_sub }
+    src.lib.jac.host ++> "src/lib/calendar/invite-attachment" { rx }
+    src.lib.jac.host ++> src.lib.dav.body { NULL, either }
+    src.lib.jac.host ++> "src/lib/dav/xml-writer" { rx, rx_sub }
+    src.lib.jac.host ++> src.lib.calendar.recurrence { NULL, either }
     src.lib.security.headers --> "next.config" { getSecurityHeaders }
     server.runtime.mailer --> "server/runtime/types.d" { Mailer }
     server.runtime.queue --> "server/runtime/types.d" { InProcessQueue }
@@ -1008,7 +1013,6 @@ graph import {
         parseExcludedOccurrences,
     }
     src.db.schema.index --> "src/lib/calendar/tool-occurrences" { calendarEvents }
-    "src/lib/calendar/types.d" --> src.lib.calendar.recurrence { CalendarRepeat }
     "src/lib/import/takeout-data-types.d" --> "src/components/settings/takeout-contacts-card-types.d" {
         ContactSource,
     }
