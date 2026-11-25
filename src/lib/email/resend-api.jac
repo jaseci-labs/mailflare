@@ -1,165 +1,96 @@
 """The Resend REST API. A client is `{apiKey, baseUrl}`: where calls go and the key they carry."""
 
-glob:priv RESEND_DEFAULT_BASE_URL: str = "https://api.resend.com",
-          TRAILING_SLASHES: any = rx(r"\/+$"),
-          # Until a send leaves the provider's queue its message_id can be a placeholder
-          # (one compatible service answers <id@unsent.…> while `last_event` is "queued").
-          UNSENT_EVENTS: list[str] = ["queued", "scheduled"],
-          MESSAGE_ID_SHAPE: any = rx(r"^<[^<>\s]+@[^<>\s]+>$");
+# Until a send leaves the provider's queue its message_id can be a placeholder
+# (one compatible service answers <id@unsent.…> while `last_event` is "queued").
+glob:priv UNSENT_EVENTS: list[str] = ["queued", "scheduled"],
+          MESSAGE_ID_SHAPE: any = rx(r"^<[^<>\s]+@[^<>\s]+>$"),
+          RESTRICTED: str = "This Resend key can only send mail, so Mailflare cannot add or check domains. Add the domain in the Resend dashboard, or use a full-access key.";
+type ResendClient = any;
+type ResendCapabilities = any;
 
-# Types that TypeScript modules still import by name.
-type ResendClient = dict[str, str];
-
-type ResendCapabilities = dict[str, bool];
-
-type SentMessageIdPolling = dict[str, any];
-
-"""An optional string setting of the environment, trimmed; None when unset."""
-def:priv setting(env: any, name: str) -> any {
-    value = at(env, name);
-    return None if value is None else value.trim();
-}
-
-"""RESEND_BASE_URL points the Resend provider at a Resend-compatible API instead of api.resend.com."""
+# RESEND_BASE_URL points the Resend provider at a Resend-compatible API instead of api.resend.com.
 def resendBaseUrl(env: any) -> str {
-    return rx_sub(setting(env, "RESEND_BASE_URL") or RESEND_DEFAULT_BASE_URL, TRAILING_SLASHES, "");
+    url: any = at(env, "RESEND_BASE_URL", "");
+    return rx_sub(url.trim() or "https://api.resend.com", rx(r"\/+$"), "");
 }
 
 def resendClient(env: any, apiKey: str) -> any {
     return record({"apiKey": apiKey, "baseUrl": resendBaseUrl(env)});
 }
 
-"""Resend accepts a custom Message-ID header; some Resend-compatible services refuse it.
-
-RESEND_CUSTOM_MESSAGE_ID=false stops sending it, and the sent message's own Message-ID is read
-back instead (see fetchSentMessageId).
-"""
+# Some Resend-compatible services refuse a custom Message-ID: RESEND_CUSTOM_MESSAGE_ID=false stops
+# sending it, and fetchSentMessageId reads the sent message's own back instead.
 def resendSetsMessageId(env: any) -> bool {
-    value = setting(env, "RESEND_CUSTOM_MESSAGE_ID");
-    return value is None or value.toLowerCase() != "false";
+    return at(env, "RESEND_CUSTOM_MESSAGE_ID", "").trim().toLowerCase() != "false";
 }
 
-"""Lower-cased names from RESEND_OMIT_HEADERS (comma-separated).
-
-Headers a Resend-compatible service refuses, such as Auto-Submitted, left out of sends.
-"""
+# Lower-cased RESEND_OMIT_HEADERS (comma-separated): headers a compatible service refuses.
 def resendOmittedHeaders(env: any) -> any {
-    listed: any = at(env, "RESEND_OMIT_HEADERS", "");
-    names = [
-        part.trim().toLowerCase()
-        for part in globalThis.String.prototype.split.call(listed, ",")
-    ];
-    return new(globalThis.Set, [name for name in names if name]);
+    names = globalThis.String.prototype.split.call(at(env, "RESEND_OMIT_HEADERS", ""), ",");
+    return new(globalThis.Set, [n.trim().toLowerCase() for n in names if n.trim()]);
 }
 
 def:priv bearer(client: any) -> any {
     return record({"Authorization": f"Bearer {client['apiKey']}"});
 }
 
-"""The JSON body of a response, null when it has none."""
-async def:priv json_of(response: any) -> any {
-    try {
-        return await response.json();
-    } except Exception {
-        return NULL;
-    }
+def:priv enc(s: str) -> str {
+    return globalThis.encodeURIComponent(s);
 }
 
-"""`body?.name` of a parsed JSON body that may be null."""
-def:priv field(body: any, name: str) -> any {
-    return None if nil(body) else body[name];
-}
-
-async def:priv read_sent_email(client: any, emailId: str) -> any {
-    try {
-        response = await globalThis.fetch(
-            f"{client['baseUrl']}/emails/{globalThis.encodeURIComponent(emailId)}",
-            {"headers": bearer(client)},
-        );
-    } except Exception {
-        return None;
-    }
-    if not response or not response.ok {
-        return None;
-    }
-    body = await json_of(response);
-    message_id = field(body, "message_id");
-    value = message_id.trim() if isinstance(message_id, str) else "";
-    return record({
-        "messageId": value if MESSAGE_ID_SHAPE.test(value) else NULL,
-        "unsent": globalThis.String(field(body, "last_event")) in UNSENT_EVENTS,
-    });
+def:priv json_of(response: any) -> any {
+    return response.json().catch(lambda (e: any) -> any { NULL });
 }
 
 def:priv pause(ms: any) -> any {
-    return new(
-        globalThis.Promise, lambda (resolve: any) -> any { globalThis.setTimeout(resolve, ms) }
-    );
+    return new(globalThis.Promise, lambda (done: any) -> any { globalThis.setTimeout(done, ms) });
 }
 
-"""The Message-ID the provider gave a sent email, read from `GET /emails/{id}`.
-
-It is there once the email has left the queue. Resend reports none; some compatible services
-do. Polls briefly (the ID arrives within seconds), else null.
-"""
+# The Message-ID the provider gave a sent email, from `GET /emails/{id}` once it left the queue.
+# Resend reports none; some compatible services do. Polls briefly, else null.
 async def fetchSentMessageId(client: any, emailId: str, polling: any = None) -> any {
-    (attempts, delay, sleep) = (6, 1000, pause)
-        if polling is None
-        else (polling.attempts, polling.delayMs, polling.sleep);
-    attempt = 1;
-    while attempt <= attempts {
-        email = await read_sent_email(client, emailId);
-        if not email {
+    p = polling or {"attempts": 6, "delayMs": 1000, "sleep": pause};
+    url = f"{client['baseUrl']}/emails/{enc(emailId)}";
+    for attempt in range(1, p["attempts"] + 1) {
+        try {
+            res = await globalThis.fetch(url, {"headers": bearer(client)});
+        } except Exception {
             return NULL;
         }
-        if not email["unsent"] {
-            return email["messageId"];
+        body = await json_of(res) if res.ok else NULL;
+        if not res.ok or globalThis.String(dig(body, ["last_event"])) not in UNSENT_EVENTS {
+            mid = dig(body, ["message_id"]);
+            v = mid.trim() if res.ok and isinstance(mid, str) else "";
+            return v if MESSAGE_ID_SHAPE.test(v) else NULL;
         }
-        if attempt < attempts {
-            await sleep(delay);
+        if attempt < p["attempts"] {
+            await p["sleep"](p["delayMs"]);
         }
-        attempt += 1;
     }
     return NULL;
 }
 
 obj ResendRestrictedKeyError(globalThis.Error) {
     def init {
-        super.init(
-            "This Resend key can only send mail, so Mailflare cannot add or check domains. Add the domain in the Resend dashboard, or use a full-access key.",
-        );
+        super.init(RESTRICTED);
     }
 }
 
-async def:priv request(client: any, path: str, options: any = None) -> any {
-    headers = merged(
-        bearer(client),
-        {"Content-Type": "application/json"},
-        at(options, "headers", {}) if options else {},
-    );
-    response = await globalThis.fetch(
-        f"{client['baseUrl']}{path}", merged(options or {}, {"headers": headers})
-    );
-    body = await json_of(response);
-    if not response.ok {
+async def:priv request(client: any, path: str, method: any = None, body: any = None) -> any {
+    pairs = [("method", method), ("body", globalThis.JSON.stringify(body))];
+    headers = merged(bearer(client), {"Content-Type": "application/json"});
+    init = merged({k: v for (k, v) in pairs if v is not None}, {"headers": headers});
+    res = await globalThis.fetch(f"{client['baseUrl']}{path}", init);
+    body = await json_of(res);
+    if not res.ok {
         # A send-only key cannot manage domains; say so instead of a bare 401.
-        if field(body, "name") == "restricted_api_key" {
+        if dig(body, ["name"]) == "restricted_api_key" {
             raise new(ResendRestrictedKeyError);
         }
-        detail = either(
-            field(body, "message"), f"request failed ({globalThis.String(response.status)})"
-        );
-        raise new(globalThis.Error, f"Resend: {detail}");
+        why = either(dig(body, ["message"]), f"request failed ({globalThis.String(res.status)})");
+        raise new(globalThis.Error, f"Resend: {why}");
     }
     return body;
-}
-
-def:priv json(value: any) -> str {
-    return globalThis.JSON.stringify(value);
-}
-
-def:priv domain_path(domain_id: str) -> str {
-    return f"/domains/{globalThis.encodeURIComponent(domain_id)}";
 }
 
 def:priv enabled(on: any) -> str {
@@ -167,43 +98,28 @@ def:priv enabled(on: any) -> str {
 }
 
 async def findResendDomain(client: any, hostname: any) -> any {
-    listing = await request(client, "/domains");
-    for domain in listing.data {
-        if domain.name.toLowerCase() == hostname.toLowerCase() {
-            return await getResendDomain(client, domain.id);
+    for d in (await request(client, "/domains")).data {
+        if d.name.toLowerCase() == hostname.toLowerCase() {
+            return await getResendDomain(client, d.id);
         }
     }
     return NULL;
 }
 
 async def getResendDomain(client: any, domain_id: str) -> any {
-    return await request(client, domain_path(domain_id));
+    return await request(client, f"/domains/{enc(domain_id)}");
 }
 
 async def createResendDomain(client: any, hostname: str, capabilities: any = None) -> any {
-    caps = {"sending": "enabled", "receiving": "disabled"}
-        if capabilities is None
-        else {
-            "sending": enabled(capabilities["sending"]),
-            "receiving": enabled(capabilities["receiving"]),
-        };
-    return await request(
-        client,
-        "/domains",
-        {"method": "POST", "body": json({"name": hostname, "capabilities": caps})},
-    );
+    c = capabilities or {"sending": True, "receiving": False};
+    caps = {"sending": enabled(c["sending"]), "receiving": enabled(c["receiving"])};
+    return await request(client, "/domains", "POST", {"name": hostname, "capabilities": caps});
 }
 
-"""Turns a capability on without touching the other (omitted fields keep their value)."""
-async def updateResendCapabilities(client: any, domain_id: str, capabilities: any) {
-    caps = {
-        name: enabled(capabilities[name])
-        for name in ["sending", "receiving"]
-        if capabilities[name] is not None
-    };
-    await request(
-        client, domain_path(domain_id), {"method": "PATCH", "body": json({"capabilities": caps})}
-    );
+# Turns a capability on without touching the other (omitted fields keep their value).
+async def updateResendCapabilities(client: any, domain_id: str, c: any) {
+    on = {k: enabled(c[k]) for k in ["sending", "receiving"] if c[k] is not None};
+    await request(client, f"/domains/{enc(domain_id)}", "PATCH", {"capabilities": on});
 }
 
 async def listResendWebhooks(client: any) -> any {
@@ -212,42 +128,32 @@ async def listResendWebhooks(client: any) -> any {
 
 async def createResendWebhook(client: any, endpoint: str, events: any = None) -> any {
     wanted = ["email.received"] if events is None else events;
-    return await request(
-        client,
-        "/webhooks",
-        {"method": "POST", "body": json({"endpoint": endpoint, "events": wanted})},
-    );
+    return await request(client, "/webhooks", "POST", {"endpoint": endpoint, "events": wanted});
 }
 
 async def deleteResendWebhook(client: any, webhook_id: str) {
-    await request(
-        client, f"/webhooks/{globalThis.encodeURIComponent(webhook_id)}", {"method": "DELETE"}
-    );
+    await request(client, f"/webhooks/{enc(webhook_id)}", "DELETE");
 }
 
 async def getReceivedEmail(client: any, email_id: str) -> any {
-    return await request(client, f"/emails/receiving/{globalThis.encodeURIComponent(email_id)}");
+    return await request(client, f"/emails/receiving/{enc(email_id)}");
 }
 
 async def verifyResendDomain(client: any, domain_id: str) {
-    await request(client, domain_path(domain_id) + "/verify", {"method": "POST"});
+    await request(client, f"/domains/{enc(domain_id)}/verify", "POST");
 }
 
-"""A key is valid if Resend accepts it at all.
-
-Send-only keys are rejected by the domains endpoint with `restricted_api_key`, which still
-means the key works.
-"""
+# Valid if Resend accepts the key at all: the domains endpoint rejects a send-only key with
+# `restricted_api_key`, which still means the key works.
 async def checkResendKey(client: any) -> any {
-    response = await globalThis.fetch(f"{client['baseUrl']}/domains", {"headers": bearer(client)});
-    if response.ok {
-        return record({"valid": True, "canManageDomains": True});
+    res = await globalThis.fetch(f"{client['baseUrl']}/domains", {"headers": bearer(client)});
+    if res.ok {
+        return {"valid": True, "canManageDomains": True};
     }
-    body = await json_of(response);
-    restricted = response.status == 401 and field(body, "name") == "restricted_api_key";
-    return record({"valid": restricted, "canManageDomains": False});
+    restricted = res.status == 401 and dig(await json_of(res), ["name"]) == "restricted_api_key";
+    return {"valid": restricted, "canManageDomains": False};
 }
 
 async def deleteResendDomain(client: any, domain_id: str) {
-    await request(client, domain_path(domain_id), {"method": "DELETE"});
+    await request(client, f"/domains/{enc(domain_id)}", "DELETE");
 }

@@ -91,15 +91,15 @@ graph import {
     src.lib.jac.host ++> "src/lib/email/inbound-id" { either }
     src.lib.jac.host ++> "src/lib/email/inbound-limits" { NULL, merged, record, rx, rx_sub }
     src.lib.jac.host ++> "src/lib/email/intake-signature" { record }
-    src.lib.jac.host ++> "src/lib/email/mail-type-rule" { nil }
+    src.lib.jac.host ++> "src/lib/email/mail-type-rule" { dig, nil }
     src.lib.jac.host ++> "src/lib/email/mime-preflight" { NULL, record }
     src.lib.jac.host ++> "src/lib/email/provider-trace" { NULL, either, record, rx, rx_sub }
     "src/lib/email/domain-match" ++> "src/lib/email/provider-trace" { isSameOrSubdomain }
     "src/lib/spam/domain-utils" ++> "src/lib/email/provider-trace" { extractSenderIp }
-    src.lib.jac.host ++> "src/lib/email/resend-api" { NULL, at, either, merged, nil, record, rx, rx_sub }
+    src.lib.jac.host ++> "src/lib/email/resend-api" { NULL, at, dig, either, merged, record, rx, rx_sub }
     src.lib.jac.host ++> "src/lib/email/stale-objects" { at, record }
     src.lib.jac.host ++> src.lib.email.svix { NULL, at, record }
-    src.lib.jac.host ++> "src/lib/email/thread-lookup" { NULL, either, rx, rx_sub }
+    src.lib.jac.host ++> "src/lib/email/thread-lookup" { NULL, either, first, rx, rx_sub }
     src.lib.jac.host ++> "src/lib/folders/color-keys" { record }
     src.lib.jac.host ++> src.lib.folders.colors { record }
     src.lib.jac.host ++> "src/lib/follow-ups/follow-up-utils" { NULL }
