@@ -5,25 +5,85 @@ glob:priv BYDAY: list[str] = "SU MO TU WE TH FR SA".split(),
           TEXTS: list[str] = ["description", "location"],
           D: any = globalThis.Date,
           TTL: list[str] = ["REFRESH-INTERVAL;VALUE=DURATION:PT1H", "X-PUBLISHED-TTL:PT1H"],
-          TWO_DIGITS: any = {k: "2-digit" for k in "month day hour minute second".split()};
+          LOCAL_OPTIONS: any = {
+              "hourCycle": "h23",
+              "year": "numeric",
+              "month": "2-digit",
+              "day": "2-digit",
+              "hour": "2-digit",
+              "minute": "2-digit",
+              "second": "2-digit",
+          },
+          # Formatters by zone, and whether a zone is valid: the same answer every time, so kept
+          # (at most 64 of each, emptied when full) instead of constructed per date.
+          LOCAL: dict[any, any] = {},
+          VALID: dict[any, any] = {};
 
-# The wall-clock time of an instant in a zone, as an iCalendar local DATE-TIME.
-def:priv zoned(value: any, tz: str) -> str {
-    options = merged({"hourCycle": "h23", "year": "numeric"}, TWO_DIGITS, {"timeZone": tz});
-    f = {"T": "T"};
-    for p in new(globalThis.Intl.DateTimeFormat, "en-CA", options).formatToParts(value) {
-        f.setdefault(p["type"], p["value"]);
+# The wall-clock time of an instant in a zone, as an iCalendar local DATE-TIME (each field the
+# first part of its type, "00" when there is none).
+def:priv zoned(value: any, tz: any) -> str {
+    dtf = LOCAL.get(tz);
+    if dtf is None {
+        dtf = new(globalThis.Intl.DateTimeFormat, "en-CA", merged(LOCAL_OPTIONS, {"timeZone": tz}));
+        if len(LOCAL) >= 64 {
+            LOCAL.clear();
+        }
+        LOCAL[tz] = dtf;
     }
-    return "".join([f.get(k, "00") for k in "year month day T hour minute second".split()]);
+    year: any = None;
+    month: any = None;
+    day: any = None;
+    hour: any = None;
+    minute: any = None;
+    second: any = None;
+    for part in globalThis.Intl.DateTimeFormat.prototype.formatToParts.call(dtf, value) {
+        kind = globalThis.Reflect.get(part, "type");
+        if kind == "year" and year is None {
+            year = globalThis.Reflect.get(part, "value");
+        } elif kind == "month" and month is None {
+            month = globalThis.Reflect.get(part, "value");
+        } elif kind == "day" and day is None {
+            day = globalThis.Reflect.get(part, "value");
+        } elif kind == "hour" and hour is None {
+            hour = globalThis.Reflect.get(part, "value");
+        } elif kind == "minute" and minute is None {
+            minute = globalThis.Reflect.get(part, "value");
+        } elif kind == "second" and second is None {
+            second = globalThis.Reflect.get(part, "value");
+        }
+    }
+    return globalThis.String.prototype.concat.call(
+        "",
+        either(year, "00"),
+        either(month, "00"),
+        either(day, "00"),
+        "T",
+        either(hour, "00"),
+        either(minute, "00"),
+        either(second, "00"),
+    );
 }
 
 def:priv valid_zone(value: any) -> any {
-    try {
-        new(globalThis.Intl.DateTimeFormat, "en", record({"timeZone": value}));
-        return value or NULL;
-    } except Exception {
+    if not value {
         return NULL;
     }
+    ok = VALID.get(value) if isinstance(value, str) else None;
+    if ok is None {
+        try {
+            new(globalThis.Intl.DateTimeFormat, "en", record({"timeZone": value}));
+            ok = True;
+        } except Exception {
+            ok = False;
+        }
+        if isinstance(value, str) {
+            if len(VALID) >= 64 {
+                VALID.clear();
+            }
+            VALID[value] = ok;
+        }
+    }
+    return value if ok else NULL;
 }
 
 def:priv prop(name: str, value: any, tz: any) -> str {
@@ -39,7 +99,9 @@ def:priv month_day_rule(day: any) -> str {
 }
 
 def:priv rrule(ev: any) -> any {
-    (rep, n, until) = (ev["repeat"], ev["repeatInterval"], ev["repeatUntil"]);
+    rep = ev["repeat"];
+    n = ev["repeatInterval"];
+    until = ev["repeatUntil"];
     if rep == "none" {
         return NULL;
     } elif rep in FREQ {

@@ -1,108 +1,215 @@
-glob:priv D: any = globalThis.Date,
-          UTC: any = globalThis.Date.UTC,
-          dim: any = lambda (y: int, m: int) -> int { new(D, UTC(y, m + 1, 0)).getUTCDate() },
-          dow: any = lambda (y: int, m: int, d: int) -> int { new(D, UTC(y, m, d)).getUTCDay() },
-          by_start: any = lambda (a: any, b: any) -> any { a.startsAt.localeCompare(b.startsAt) },
-          # Listed days step day by day and filter by weekday, so their interval is always 1.
-          every: any = lambda (rep: str, n: any) -> int {
-              n if rep != "weekdays" and whole(n, 1, 999) else 1
-          };
+# Expansion runs per occurrence for the calendar views and the five-minute reminder cron, so it
+# makes no closures and no tuples, and reads events and dates with JavaScript's own methods
+# through `globalThis` (a direct call) instead of Jac's attribute and item lookups.
+glob:priv by_start: any = lambda (a: any, b: any) -> any { a.startsAt.localeCompare(b.startsAt) };
 
-def:priv nth_weekday_date(y: int, m: int, wd: int, week: int) -> int {
-    # At most 35, and a month has at least 28 days: one step back always fits.
-    (last, d) = (dim(y, m), 1 + (wd - dow(y, m, 1) + 7) % 7 + (week - 1) * 7);
-    return last - (dow(y, m, last) - wd + 7) % 7 if week == -1 else (d - 7 if d > last else d);
+def:priv get(o: any, k: str) -> any {
+    return globalThis.Reflect.get(o, k);
 }
 
-# The occurrence `step` intervals after the first.
-def:priv occurrence_start(ev: any, zone: any, step: int) -> any {
-    if step == 0 {
-        return ev["startsAt"];
+def:priv time_of(d: any) -> float {
+    return globalThis.Date.prototype.getTime.call(d);
+}
+
+def:priv valid_interval(value: any) -> any {
+    return value if whole(value, 1, 999) else 1;
+}
+
+def:priv days_in_month(year: any, month: any) -> float {
+    last = new(globalThis.Date, globalThis.Date.UTC(year, month + 1, 0));
+    return globalThis.Date.prototype.getUTCDate.call(last);
+}
+
+def:priv weekday_of(year: any, month: any, day: any) -> float {
+    return globalThis.Date.prototype.getUTCDay.call(new(globalThis.Date, globalThis.Date.UTC(year, month, day)));
+}
+
+def:priv nth_weekday_date(year: any, month: any, weekday: any, week: any) -> float {
+    dim: float = days_in_month(year, month);
+    if week == -1 {
+        last_dow: float = weekday_of(year, month, dim);
+        return dim - (last_dow - weekday + 7) % 7;
     }
-    (rep, f) = (ev["repeat"], zonedDateFields(ev["startsAt"], zone));
-    (day, month, mo) = (f.getUTCDate(), f.getUTCMonth(), rep == "monthly");
-    if mo or rep == "yearly" {
-        f.setUTCFullYear(f.getUTCFullYear() + (0 if mo else step), month + (step if mo else 0), 1);
-        (y, m, wd, wk) = (
-            f.getUTCFullYear(),
-            f.getUTCMonth(),
-            ev["repeatWeekday"],
-            ev["repeatWeek"],
-        );
-        nth = mo and whole(wd, 0, 6) and (whole(wk, 1, 5) or wk == -1);
-        anchor = either(ev["repeatAnchorDay"], day) if mo else day;
-        day = nth_weekday_date(y, m, wd, wk) if nth else globalThis.Math.min(anchor, dim(y, m));
+    first_dow: float = weekday_of(year, month, 1);
+    date: float = 1 + (weekday - first_dow + 7) % 7 + (week - 1) * 7;
+    while date > dim {
+        date -= 7;
+    }
+    return date;
+}
+
+def:priv has_nth_weekday(event: any) -> bool {
+    weekday = get(event, "repeatWeekday");
+    week = get(event, "repeatWeek");
+    return get(event, "repeat") == "monthly"
+        and whole(weekday, 0, 6)
+        and (whole(week, 1, 5) or week == -1);
+}
+
+def:priv occurrence_start(event: any, index: float) -> any {
+    if index == 0 {
+        return get(event, "startsAt");
+    }
+    rep = get(event, "repeat");
+    # A listed-days repeat steps day by day and filters by weekday, so its interval is always 1.
+    interval: float = 1 if rep == "weekdays" else valid_interval(get(event, "repeatInterval"));
+    zone = normalizeTimeZone(get(event, "timeZone"));
+    fields = zonedDateFields(get(event, "startsAt"), zone);
+    if rep == "monthly" {
+        nth = has_nth_weekday(event);
+        day = NULL;
+        if not nth {
+            day = either(get(event, "repeatAnchorDay"), globalThis.Date.prototype.getUTCDate.call(fields));
+        }
+        globalThis.Date.prototype.setUTCDate.call(fields, 1);
+        month0: float = globalThis.Date.prototype.getUTCMonth.call(fields);
+        globalThis.Date.prototype.setUTCMonth.call(fields, month0 + index * interval);
+        year = globalThis.Date.prototype.getUTCFullYear.call(fields);
+        month = globalThis.Date.prototype.getUTCMonth.call(fields);
+        if nth {
+            wd = get(event, "repeatWeekday");
+            wk = get(event, "repeatWeek");
+            globalThis.Date.prototype.setUTCDate.call(fields, nth_weekday_date(year, month, wd, wk));
+        } else {
+            globalThis.Date.prototype.setUTCDate.call(fields, globalThis.Math.min(day, days_in_month(year, month)));
+        }
+    } elif rep == "yearly" {
+        day = globalThis.Date.prototype.getUTCDate.call(fields);
+        month = globalThis.Date.prototype.getUTCMonth.call(fields);
+        globalThis.Date.prototype.setUTCDate.call(fields, 1);
+        year0: float = globalThis.Date.prototype.getUTCFullYear.call(fields);
+        globalThis.Date.prototype.setUTCFullYear.call(fields, year0 + index * interval);
+        globalThis.Date.prototype.setUTCMonth.call(fields, month);
+        days = days_in_month(globalThis.Date.prototype.getUTCFullYear.call(fields), month);
+        globalThis.Date.prototype.setUTCDate.call(fields, globalThis.Math.min(day, days));
     } else {
-        day += step * (7 if rep == "weekly" else 1);
+        step: float = index * interval * (7 if rep == "weekly" else 1);
+        day0: float = globalThis.Date.prototype.getUTCDate.call(fields);
+        globalThis.Date.prototype.setUTCDate.call(fields, day0 + step);
     }
-    f.setUTCDate(day);
-    return dateFromZonedFields(f, zone);
+    return dateFromZonedFields(fields, zone);
 }
 
-# Index of the first rule occurrence worth generating for a window that opens at `t`.
-def:priv first_index(ev: any, zone: any, n: int, t: any) -> int {
-    (rep, floor) = (ev["repeat"], globalThis.Math.floor);
-    (a, b) = (zonedDateFields(ev["startsAt"], zone), zonedDateFields(new(D, t), zone));
-    years = b.getUTCFullYear() - a.getUTCFullYear();
-    months = years * 12 + b.getUTCMonth() - a.getUTCMonth();
-    days = floor((b.getTime() - a.getTime()) / (86400000 * n * (7 if rep == "weekly" else 1))) - 1;
-    k = {"monthly": floor((months - 1) / n), "yearly": floor((years - 1) / n)}.get(rep, days);
-    return globalThis.Math.max(0, k);
-}
-
-def:priv row(ev: any, zone: any, key: any, s: any, e: any) -> any {
+def:priv attendees_of(event: any) -> any {
+    attendees: any = [];
     try {
-        att = globalThis.JSON.parse(ev["attendees"]);
+        attendees = globalThis.JSON.parse(get(event, "attendees"));
     } except Exception {
-        att = [];  # Old malformed data remains readable.
+        # Old malformed data remains readable.
     }
-    texts = {k: ev[k] for k in ["title", "description", "location"]};
-    mid = {"attendees": att, "color": ev["color"], "repeat": ev["repeat"], "timeZone": zone};
-    times = {"startsAt": s.toISOString(), "endsAt": e.toISOString()};
-    return merged({"id": key, "seriesId": ev["id"]}, texts, mid, times);
+    return attendees;
+}
+
+def:priv occurrence_row(event: any, zone: any, id: any, s: any, e: any) -> any {
+    out: any = globalThis.Object();
+    out.id = id;
+    out.seriesId = get(event, "id");
+    out.title = get(event, "title");
+    out.description = get(event, "description");
+    out.location = get(event, "location");
+    out.attendees = attendees_of(event);
+    out.color = get(event, "color");
+    out.repeat = get(event, "repeat");
+    out.timeZone = zone;
+    out.startsAt = globalThis.Date.prototype.toISOString.call(s);
+    out.endsAt = globalThis.Date.prototype.toISOString.call(e);
+    return out;
+}
+
+def:priv first_index(event: any, first: any, target: any, interval: float) -> float {
+    rep = get(event, "repeat");
+    ty: float = globalThis.Date.prototype.getUTCFullYear.call(target);
+    fy: float = globalThis.Date.prototype.getUTCFullYear.call(first);
+    years: float = ty - fy;
+    if rep == "monthly" {
+        tm: float = globalThis.Date.prototype.getUTCMonth.call(target);
+        fm: float = globalThis.Date.prototype.getUTCMonth.call(first);
+        months: float = years * 12 + tm - fm;
+        return globalThis.Math.max(0, globalThis.Math.floor((months - 1) / interval));
+    }
+    if rep == "yearly" {
+        return globalThis.Math.max(0, globalThis.Math.floor((years - 1) / interval));
+    }
+    step: float = (7 if rep == "weekly" else 1) * interval;
+    span: float = time_of(target) - time_of(first);
+    return globalThis.Math.max(0, globalThis.Math.floor(span / (86400000 * step)) - 1);
 }
 
 # An override is one edited occurrence (RECURRENCE-ID): it replaces the rule occurrence at
 # `occurrenceMs`, or adds an extra one when no rule occurrence has that start.
-def expandToolEvents(events: any, start: any, end: any, cap: any = None, ov: any = None) -> any {
-    cap = 500 if cap is None else globalThis.Number(cap);
-    (out, t0, t1) = ([], start.getTime(), end.getTime());
-    for ev in events {
-        (id, rep, zone) = (ev["id"], ev["repeat"], normalizeTimeZone(ev["timeZone"]));
-        (until, dur) = (ev["repeatUntil"], ev["endsAt"].getTime() - ev["startsAt"].getTime());
-        n = every(rep, ev["repeatInterval"]);
-        i0 = 0 if rep == "none" else first_index(ev, zone, n, t0 - dur);
-        excluded = parseExcludedOccurrences(ev["excludedOccurrences"]);
-        days = parseCalendarRepeatDays(ev["repeatDays"]);
-        byMs = {o["occurrenceMs"]: o for o in (either(ov.get(id), []) if ov else [])};
-        (taken, found) = ([*excluded], []);
-        for i in range(i0, i0 + (1 if rep == "none" else 400)) {
-            at = occurrence_start(ev, zone, i * n);
-            ms = at.getTime();
-            if ms >= t1 or (until and ms >= until.getTime()) {
+def expandToolEvents(events: any, start: any, end: any, max: any = None, overrides: any = None) -> any {
+    cap: float = 500 if max is None else globalThis.Number(max);
+    result: list[any] = [];
+    t0: float = time_of(start);
+    for event in events {
+        rep = get(event, "repeat");
+        starts_at = get(event, "startsAt");
+        duration: float = time_of(get(event, "endsAt")) - time_of(starts_at);
+        zone = normalizeTimeZone(get(event, "timeZone"));
+        first = zonedDateFields(starts_at, zone);
+        target = zonedDateFields(new(globalThis.Date, t0 - duration), zone);
+        interval: float = 1 if rep == "weekdays" else valid_interval(get(event, "repeatInterval"));
+        initial: float = first_index(event, first, target, interval);
+        excluded = new(globalThis.Set, parseExcludedOccurrences(get(event, "excludedOccurrences")));
+        days = parseCalendarRepeatDays(get(event, "repeatDays"));
+        by_ms: dict[any, any] = {};
+        listed = NULL if nil(overrides) else overrides.get(get(event, "id"));
+        for edit in ([] if nil(listed) else listed) {
+            by_ms[get(edit, "occurrenceMs")] = edit;
+        }
+        rule_ms = new(globalThis.Set);
+        until = get(event, "repeatUntil");
+        index: float = 0 if rep == "none" else initial;
+        stop: float = 1 if rep == "none" else initial + 400;
+        while index < stop {
+            at = occurrence_start(event, index);
+            index += 1;
+            ms: float = time_of(at);
+            if ms >= globalThis.Number(end) or (until and ms >= globalThis.Number(until)) {
                 break;
             }
-            taken.append(ms);
-            shown = rep != "weekdays" or zonedDateFields(at, zone).getUTCDay() in days;
-            if ms + dur > t0 and ms not in excluded and shown {
-                o = byMs.get(ms);
-                (s, e) = (o["startsAt"], o["endsAt"]) if o else (at, new(D, ms + dur));
-                found.append((id if rep == "none" and not o else f"{id}@{ms}", s, e));
+            globalThis.Set.prototype.add.call(rule_ms, ms);
+            if ms + duration <= t0 or globalThis.Set.prototype.has.call(excluded, ms) {
+                continue;
+            }
+            if rep == "weekdays" {
+                weekday = globalThis.Date.prototype.getUTCDay.call(zonedDateFields(at, zone));
+                if weekday not in days {
+                    continue;
+                }
+            }
+            edit = by_ms.get(ms);
+            if edit {
+                s = get(edit, "startsAt");
+                e = get(edit, "endsAt");
+                key = globalThis.String(get(event, "id")) + "@" + globalThis.String(ms);
+            } else {
+                s = at;
+                e = new(globalThis.Date, ms + duration);
+                key = get(event, "id") if rep == "none" else globalThis.String(get(event, "id")) + "@" + globalThis.String(ms);
+            }
+            result.append(occurrence_row(event, zone, key, s, e));
+            if len(result) >= cap {
+                return js_sort(result, by_start);
             }
         }
         # Overrides on no rule occurrence (RDATEs) are extra, unless excluded or outside the window.
-        for (ms, o) in byMs.items() {
-            if ms not in taken and o["endsAt"].getTime() > t0 and o["startsAt"].getTime() < t1 {
-                found.append((f"{id}@{ms}", o["startsAt"], o["endsAt"]));
+        for edit in by_ms.values() {
+            occurrence = get(edit, "occurrenceMs");
+            if globalThis.Set.prototype.has.call(rule_ms, occurrence) or globalThis.Set.prototype.has.call(excluded, occurrence) {
+                continue;
             }
-        }
-        # In the order they were found, up to `cap` rows in all.
-        for (key, s, e) in found {
-            out.append(row(ev, zone, key, s, e));
-            if len(out) >= cap {
-                return js_sort(out, by_start);
+            s = get(edit, "startsAt");
+            e = get(edit, "endsAt");
+            if globalThis.Number(e) <= t0 or globalThis.Number(s) >= globalThis.Number(end) {
+                continue;
+            }
+            key = globalThis.String(get(event, "id")) + "@" + globalThis.String(occurrence);
+            result.append(occurrence_row(event, zone, key, s, e));
+            if len(result) >= cap {
+                return js_sort(result, by_start);
             }
         }
     }
-    return js_sort(out, by_start);
+    return js_sort(result, by_start);
 }
