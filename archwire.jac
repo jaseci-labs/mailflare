@@ -3,21 +3,7 @@ graph layers {
 }
 
 graph spaces {
-    space mailflare: browser { "."; }
-    space mailflare_dev: node {
-        "cloudflare-env.d";
-        "drizzle.config";
-        "drizzle.config.mysql";
-        "drizzle.config.pg";
-        "env.d";
-        "lint.config";
-        "next.config";
-        "playwright.config";
-        "postcss.config";
-        "vite.config";
-        "worker-utils";
-        server.* | src.* | tests.* | public.* | scripts.* | worker;
-    }
+    space mailflare: node { "."; }
 }
 
 graph import {
@@ -27,8 +13,8 @@ graph import {
     server.runtime.realtime --> "server/runtime/types.d" { RealtimeHubRegistry }
     "server/runtime/sqlite-database" --> "server/runtime/types.d" { SqliteDatabase }
     src.lib.email.address --> server.runtime.mailer { getEmailAddress }
-    "src/lib/email/address-types.d" --> src.lib.email.address { EmailAddressParts }
-    src.lib.utils --> src.lib.email.address { parseAddress }
+    src.lib.utils ++> src.lib.email.address { parseAddress }
+    src.lib.jac.host ++> src.lib.email.address { NULL, rx, rx_sub }
     src.lib.realtime.revision --> server.runtime.realtime { getUserMailRevision }
     "src/lib/realtime/types.d" --> server.runtime.realtime { RevisionNotification, RevisionPing }
     "src/lib/realtime/types.d" --> src.lib.realtime.revision { MailboxRevisionRow }
