@@ -85,6 +85,9 @@ graph import {
     src.lib.jac.host ++> "src/lib/jmap/changes-utils" { NULL }
     src.lib.jac.host ++> src.lib.jmap.ids { NULL }
     src.lib.jac.host ++> "src/lib/jmap/email-import-utils" { NULL, entries }
+    src.lib.jac.host ++> "src/lib/deliverability/report-address" { NULL }
+    src.lib.jac.host ++> "src/lib/deliverability/report-parse" { NULL, at, either, record, rx, rx_sub }
+    src.lib.jac.host ++> "src/lib/deliverability/suppression-utils" { NULL, at, either, nil, rx }
     src.lib.jac.host ++> src.lib.spam.analyzers.authentication { at, rx }
     src.lib.email.parse --> src.lib.spam.analyzers.urls { ParsedEmail }
     "src/lib/spam/types.d" --> src.lib.spam.analyzers.urls { PreparedSpamContent, SpamSignal }
@@ -940,7 +943,7 @@ graph import {
         cleanAddress,
         filterSuppressed,
     }
-    src.lib.email.address --> "src/lib/deliverability/suppression-utils" {
+    src.lib.email.address ++> "src/lib/deliverability/suppression-utils" {
         getEmailAddress,
         normalizeEmailAddress,
         splitEmailAddressList,
@@ -1664,8 +1667,8 @@ graph import {
         tlsRowKey,
     }
     src.lib.email.address ++> "src/lib/deliverability/org-domain" { getEmailAddressList }
-    "src/lib/dns-query" --> "src/lib/deliverability/report-parse" { reverseName }
-    "src/lib/import/zip-utils" --> "src/lib/deliverability/report-parse" {
+    "src/lib/dns-query" ++> "src/lib/deliverability/report-parse" { reverseName }
+    "src/lib/import/zip-utils" ++> "src/lib/deliverability/report-parse" {
         listZipEntries,
         openZipEntry,
         sliceChunks,
@@ -1754,12 +1757,12 @@ graph import {
         REPORT_ADDRESS_LOCAL_PART,
         reportAddress,
     }
-    src.db.index --> "src/lib/deliverability/report-address" { getDb }
-    src.db.schema.index --> "src/lib/deliverability/report-address" {
+    src.db.index ++> "src/lib/deliverability/report-address" { getDb }
+    src.db.schema.index ++> "src/lib/deliverability/report-address" {
         domainDeliverability,
         domains,
     }
-    "src/lib/database-errors" --> "src/lib/deliverability/report-address" { isMissingTableError }
+    "src/lib/database-errors" ++> "src/lib/deliverability/report-address" { isMissingTableError }
     src.db.index --> "src/lib/email/system-mail" { getDb }
     src.db.schema.index --> "src/lib/email/system-mail" { domains, mailboxes, users }
     src.lib.email.address --> "src/lib/email/system-mail" { formatEmailAddress }
@@ -10776,8 +10779,8 @@ graph import {
     "src/lib/deliverability/route-utils" --> "src/app/api/deliverability/[domainId]/alerts/[alertId]/route" {
         migrationRequired,
     }
-    src.db.index --> src.lib.deliverability.alerts { getDb }
-    src.db.schema.index --> src.lib.deliverability.alerts { deliverabilityAlerts }
+    src.db.index ++> src.lib.deliverability.alerts { getDb }
+    src.db.schema.index ++> src.lib.deliverability.alerts { deliverabilityAlerts }
     src.lib.api.auth --> src.lib.deliverability.access { requireSessionUser }
     src.lib.auth.admin --> src.lib.deliverability.access { canManageDomains }
     src.lib.auth.origin --> src.lib.deliverability.access { hasValidSessionMutationOrigin }
