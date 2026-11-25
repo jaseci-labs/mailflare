@@ -1,61 +1,49 @@
-glob:priv STATES: any = ["active", "invalid", "expired", "deactivated"],
-          INVALID: str = "Paymug returned an invalid license response";
+glob:priv STATES: any = "active invalid expired deactivated".split(),
+          BAD: str = "Paymug returned an invalid license response",
+          arr: any = globalThis.Array.isArray;
 
 async def hashLicenseKey(licenseKey: any) -> str {
-    digest = await globalThis.crypto.subtle.digest(
+    d = await globalThis.crypto.subtle.digest(
         "SHA-256", new(globalThis.TextEncoder).encode(licenseKey)
     );
-    return "".join([
-        byte.toString(16).padStart(2, "0")
-        for byte in list(new(globalThis.Uint8Array, digest))
-    ]);
+    return "".join([b.toString(16).padStart(2, "0") for b in [*new(globalThis.Uint8Array, d)]]);
 }
 
-def:priv strings(values: any) -> list[str] {
-    return [value for value in values if isinstance(value, str)];
+def:priv strings(vs: any) -> any {
+    return [v for v in vs if isinstance(v, str)];
 }
 
-def parseFeatures(value: any) -> list[str] {
+def:priv text(v: any) -> any {
+    return v if isinstance(v, str) else None;
+}
+
+def parseFeatures(value: any) -> any {
     try {
-        parsed = globalThis.JSON.parse(value);
-        return strings(parsed) if globalThis.Array.isArray(parsed) else [];
+        p = globalThis.JSON.parse(value);
+        return strings(p) if arr(p) else [];
     } except Exception {
         return [];
     }
 }
 
-def parsePaymugLicenseResponse(value: any = None) -> any {
-    if not value or globalThis.Object(value) is not value or callable(value) {
-        raise new(globalThis.Error, INVALID);
+def parsePaymugLicenseResponse(v: any = None) -> any {
+    if not is_object(v) or not isinstance(v["valid"], bool) or not STATES.includes(v["state"]) {
+        raise new(globalThis.Error, BAD);
     }
-    if not isinstance(value["valid"], bool) or not STATES.includes(value["state"]) {
-        raise new(globalThis.Error, INVALID);
-    }
-    def text(v: any) -> any {
-        return v if isinstance(v, str) else None;
-    }
-    seats = value["seatLimit"];
-    return merged({
-        "valid": value["valid"],
-        "state": value["state"],
-        "instanceId": text(value["instanceId"]),
-        "productId": text(value["productId"]),
-        "plan": text(value["plan"]),
-        "features": strings(value["features"])
-            if globalThis.Array.isArray(value["features"])
-            else None,
-        "seatLimit": seats
-            if seats is NULL or (globalThis.Number.isInteger(seats) and seats >= 0)
-            else None,
-    });
+    s = v["seatLimit"];
+    seats = s if s is NULL or globalThis.Number.isInteger(s) and s >= 0 else None;
+    out = {k: text(v[k]) for k in ["instanceId", "productId", "plan"]};
+    f = strings(v["features"]) if arr(v["features"]) else None;
+    return merged(
+        out, {"valid": v["valid"], "state": v["state"], "features": f, "seatLimit": seats}
+    );
 }
 
 def normalizeLicensePlan(productId: any = None, plan: any = None) -> any {
+    ids = LICENSE_PRODUCT_IDS;
     if productId {
-        return "pro"
-            if productId == LICENSE_PRODUCT_IDS["pro"]
-            else ("team" if productId == LICENSE_PRODUCT_IDS["team"] else NULL);
+        return "pro" if productId == ids["pro"] else ("team" if productId == ids["team"] else NULL);
     }
-    normalized = None if nil(plan) else plan.trim().toLowerCase();
-    return normalized if normalized in ["pro", "team"] else NULL;
+    n = plan.trim().toLowerCase() if plan else None;
+    return n if n in ["pro", "team"] else NULL;
 }
