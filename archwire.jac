@@ -7,6 +7,12 @@ graph spaces {
 }
 
 graph import {
+    src.db.index --> src.lib.promotions.settings { getDb }
+    src.db.schema.index --> src.lib.promotions.settings { mailboxPromotionSettings, messages }
+    src.db.sql --> src.lib.promotions.settings { matchNothing }
+    "src/lib/database-errors" --> src.lib.promotions.settings { isMissingTableError }
+    src.lib.jac.host ++> src.lib.promotions.classify { NULL, at, either, record }
+    src.lib.jac.host ++> src.lib.promotions.refile { NULL, at, either, record }
     src.lib.jac.host ++> "src/lib/drive/import-utils" { NULL, nil, rx, rx_sub }
     src.lib.jac.host ++> "src/lib/agent/provider-constants" { record }
     src.lib.jac.host ++> "src/lib/agent/schema-utils" { record }
@@ -607,10 +613,6 @@ graph import {
         EmailBodyPart,
         JmapContext,
     }
-    src.db.index --> src.lib.promotions.settings { getDb }
-    src.db.schema.index --> src.lib.promotions.settings { mailboxPromotionSettings, messages }
-    src.db.sql --> src.lib.promotions.settings { matchNothing }
-    "src/lib/database-errors" --> src.lib.promotions.settings { isMissingTableError }
     src.lib.jmap.constants --> "src/lib/jmap/email-import-utils" { KEYWORD_FLAGGED, KEYWORD_SEEN }
     src.lib.jmap.ids --> "src/lib/jmap/email-import-utils" { decodeMailboxRef }
     "src/lib/jmap/types.d" --> "src/lib/jmap/email-import-utils" { JmapSetError }
@@ -2208,11 +2210,10 @@ graph import {
     "src/lib/contacts/types.d" --> "src/lib/email/inbound-notification" { ContactNameSource }
     src.lib.contacts.utils --> "src/lib/email/inbound-notification" { getPartyDisplayName }
     "src/lib/realtime/types.d" --> "src/lib/email/inbound-notification" { NewMessageNotification }
-    src.db.index --> src.lib.promotions.classify { getDb }
-    src.db.schema.index --> src.lib.promotions.classify { mailboxSenderPreferences }
-    "src/lib/database-errors" --> src.lib.promotions.classify { isMissingTableError }
-    "src/lib/email/bulk-mail" --> src.lib.promotions.classify { MailHeaders, detectBulkMail }
-    "src/lib/promotions/classify-utils" --> src.lib.promotions.classify {
+    src.db.schema.index ++> src.lib.promotions.classify { mailboxSenderPreferences }
+    "src/lib/database-errors" ++> src.lib.promotions.classify { isMissingTableError }
+    "src/lib/email/bulk-mail" ++> src.lib.promotions.classify { detectBulkMail }
+    "src/lib/promotions/classify-utils" ++> src.lib.promotions.classify {
         decideCategory,
         toSenderAddress,
     }
@@ -12189,16 +12190,9 @@ graph import {
         checkManagedMailbox,
         isMissingSchema,
     }
-    src.db.index --> src.lib.promotions.refile { getDb }
-    src.db.schema.index --> src.lib.promotions.refile { mailboxSenderPreferences, messages }
-    src.lib.ids --> src.lib.promotions.refile { newId }
-    "src/lib/promotions/refile-utils" --> src.lib.promotions.refile {
-        MAX_REFILE_ROWS,
-        REFILE_CHUNK_SIZE,
-        RefileTarget,
-        chunk,
-        refileCutoff,
-    }
+    src.db.schema.index ++> src.lib.promotions.refile { mailboxSenderPreferences, messages }
+    src.lib.ids ++> src.lib.promotions.refile { newId }
+    "src/lib/promotions/refile-utils" ++> src.lib.promotions.refile { MAX_REFILE_ROWS, REFILE_CHUNK_SIZE, chunk, refileCutoff }
     src.db.index --> "src/lib/promotions/route-guards" { getDb }
     src.lib.api.auth --> "src/lib/promotions/route-guards" { requireSessionUser }
     src.lib.auth.origin --> "src/lib/promotions/route-guards" { hasValidSessionMutationOrigin }
