@@ -5,5 +5,5 @@ dir=$1; port=$2
 cd "$dir" || exit 1
 s=$(date +%s.%N)
 setsid neojac npx vp preview --port "$port" --strictPort > "/tmp/preview-$port.log" 2>&1 < /dev/null &
-until curl -s -o /dev/null "http://localhost:$port/api/auth/me"; do sleep 0.05; done
+for _ in $(seq 1 2400); do curl -s -o /dev/null "http://localhost:$port/api/auth/me" && break; sleep 0.05; done
 echo "$(echo "$(date +%s.%N) - $s" | bc)"
