@@ -546,5 +546,7 @@ def clearKnownMessageFieldsForTests {
 # without a `def`'s conversion of each argument and result at the boundary.
 glob applyPendingToMessage: any = lambda (message: any) -> any { apply_pending(message) },
      applyPendingToMessages: any = lambda (messages: any) -> any { apply_pending_rows(messages) },
-     applyPendingToMessageList: any = lambda (response: any) -> any { apply_pending_list(response) },
+     applyPendingToMessageList: any = lambda (response: any) -> any {
+         apply_pending_list(response)
+     },
      rememberMessageRows: any = lambda (rows: any) -> any { remember_rows(rows) };

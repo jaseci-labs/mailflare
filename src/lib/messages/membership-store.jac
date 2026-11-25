@@ -473,12 +473,14 @@ def getRestoredRowsForList(key: any, now: any = None, offset: any = None) -> lis
         if len(patch) > 0 {
             row = spread(row, patch);
         }
-        result.append(globalThis.Object({
-            "row": row,
-            "index": t["index"],
-            "offset": t["offset"],
-            "eligible": eligible,
-        }));
+        result.append(
+            globalThis.Object({
+                "row": row,
+                "index": t["index"],
+                "offset": t["offset"],
+                "eligible": eligible,
+            }),
+        );
     }
     if len(result) < 2 {
         return result;
@@ -595,8 +597,7 @@ def:priv apply_membership(response: any, key: any, now: any = None) -> any {
     }
     total: float = globalThis.Number(either(get(response, "total"), len(source)));
     return spread(
-        response,
-        {"messages": messages, "total": globalThis.Math.max(0, total - hidden + added)},
+        response, {"messages": messages, "total": globalThis.Math.max(0, total - hidden + added)}
     );
 }
 
@@ -627,5 +628,7 @@ def clearMembershipForTests {
 
 # The entry points of every list render, as function values: JavaScript calls them as they are,
 # without a `def`'s conversion of each argument and result at the boundary.
-glob applyMembershipToList: any = lambda (response: any, key: any, now: any = None) -> any { apply_membership(response, key, now) },
+glob applyMembershipToList: any = lambda (response: any, key: any, now: any = None) -> any {
+         apply_membership(response, key, now)
+     },
      rememberMembershipRows: any = lambda (rows: any) -> any { remember_rows(rows) };
