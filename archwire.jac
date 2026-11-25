@@ -7,6 +7,13 @@ graph spaces {
 }
 
 graph import {
+    "src/lib/import/gmail-takeout-utils" --> "src/lib/import/message-hints-utils" {
+        mapGmailLabels,
+        parseGmailLabels,
+    }
+    "src/lib/import/destination-types.d" --> "src/lib/import/message-hints-utils" {
+        ImportDestination,
+    }
     src.lib.jac.host ++> "src/lib/search/query-utils" { NULL, at, either, rx, rx_sub }
     src.lib.jac.host ++> "src/lib/tracking/open-tracking-utils" { NULL, at, record, rx, rx_sub }
     src.lib.jac.host ++> "src/lib/compose/compose-utils" { NULL }
@@ -30,8 +37,6 @@ graph import {
     src.lib.jac.host ++> "src/lib/email/thread-lookup" { NULL, either, rx, rx_sub }
     src.lib.jac.host ++> "src/lib/email/mail-type-rule" { nil }
     src.lib.jac.host ++> src.lib.email.base64 { rx, rx_sub }
-    src.lib.jac.host ++> "src/lib/import/imap-utils" { NULL, either, nil, rx, rx_sub }
-    src.lib.jac.host ++> "src/lib/import/message-hints-utils" { at, record, rx, rx_sub }
     src.lib.jac.host ++> src.lib.import.destination { NULL }
     src.lib.jac.host ++> src.lib.import.mbox { rx, rx_sub }
     src.lib.jac.host ++> src.lib.import.staging { owns, record }
@@ -1210,10 +1215,6 @@ graph import {
     "src/lib/import/message-hints-utils" --> "tests/import-message-hints.test" {
         applyImportHints,
         getImportMessageHints,
-    }
-    "src/lib/import/gmail-takeout-utils" ++> "src/lib/import/message-hints-utils" {
-        mapGmailLabels,
-        parseGmailLabels,
     }
     "tests/helpers/real-db" --> "tests/import-reauthorization.test" { loadApp, sharedMailboxSeed }
     "tests/helpers/real-db" --> "tests/jmap-folder-scope.test" { loadApp, sharedMailboxSeed }
