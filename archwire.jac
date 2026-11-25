@@ -7,6 +7,7 @@ graph spaces {
 }
 
 graph import {
+    src.lib.jac.host ++> src.lib.jmap.access { NULL, at, nil, record }
     src.lib.jac.host ++> "src/lib/import/imap-utils" { NULL, either, nil, rx, rx_sub }
     src.lib.jac.host ++> "src/lib/import/message-hints-utils" { at, record, rx, rx_sub }
     src.lib.jac.host ++> src.lib.import.destination { NULL }
@@ -399,10 +400,9 @@ graph import {
         formatState,
         parseState,
     }
-    src.db.schema.index --> src.lib.jmap.access { folders, mailboxes }
-    src.lib.mailboxes.access --> src.lib.jmap.access { listAccessibleMailboxes }
-    "src/lib/mailboxes/domain-addresses" --> src.lib.jmap.access { getMailboxDomainAddresses }
-    "src/lib/jmap/types.d" --> src.lib.jmap.access { AccessibleMailbox, JmapContext }
+    src.db.schema.index ++> src.lib.jmap.access { folders, mailboxes }
+    src.lib.mailboxes.access ++> src.lib.jmap.access { listAccessibleMailboxes }
+    "src/lib/mailboxes/domain-addresses" ++> src.lib.jmap.access { getMailboxDomainAddresses }
     src.db.index --> "src/lib/mailboxes/domain-addresses" { AppDatabase }
     src.db.schema.index --> "src/lib/mailboxes/domain-addresses" {
         domains,
