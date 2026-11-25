@@ -1,62 +1,32 @@
-"""Compares two strings without stopping at the first difference."""
+# Compares two strings without stopping at the first difference.
 def:priv same_text(a: any, b: any) -> bool {
-    if a.length != b.length {
-        return False;
-    }
-    diff = 0;
-    for i in range(a.length) {
-        diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
-    }
-    return diff == 0;
+    n = a.length;
+    return n == b.length and sum(a.charCodeAt(i) ^ b.charCodeAt(i) for i in range(n)) == 0;
 }
 
-"""Verifies a Svix-signed webhook (what Resend sends).
-
-HMAC-SHA256 over `${id}.${timestamp}.${body}` with the base64 secret after the `whsec_` prefix,
-compared against every `v1,<base64>` entry in the signature header.
-"""
+# Verifies a Svix-signed webhook (what Resend sends): HMAC-SHA256 over `${id}.${timestamp}.${body}`
+# keyed by the base64 secret after `whsec_`, checked against every `v1,<base64>` signature entry.
 async def verifySvixSignature(
-    secret: str, headers: any, body: str, toleranceSeconds: any = None, now: any = None
+    secret: str, headers: any, body: str, tolerance: any = None, now: any = None
 ) -> bool {
-    (mid, timestamp, signature) = (
-        at(headers, "id"),
-        at(headers, "timestamp"),
-        at(headers, "signature"),
-    );
-    if not (mid and timestamp and signature) {
-        return False;
-    }
-    tolerance = 5 * 60 if toleranceSeconds is None else toleranceSeconds;
+    (mid, stamp, signature) = [at(headers, k) for k in ["id", "timestamp", "signature"]];
+    seconds = globalThis.Number(stamp);
     moment = globalThis.Date.now() if now is None else now;
-    seconds = globalThis.Number(timestamp);
-    if not globalThis.Number.isFinite(seconds)
-        or globalThis.Math.abs(moment / 1000 - seconds) > tolerance
-    {
+    late = globalThis.Math.abs(moment / 1000 - seconds) > (300 if tolerance is None else tolerance);
+    if not (mid and stamp and signature) or not globalThis.Number.isFinite(seconds) or late {
         return False;
     }
+    encoded = secret.removeprefix("whsec_");
     try {
-        key_bytes = globalThis.Uint8Array.from(
-            globalThis.atob(secret.removeprefix("whsec_")),
-            lambda (ch: any) -> any { ch.charCodeAt(0) },
-        );
+        raw = new(globalThis.Uint8Array, [ord(c) for c in globalThis.atob(encoded)]);
     } except Exception {
         return False;
     }
-    subtle = globalThis.crypto.subtle;
-    key = await subtle.importKey(
-        "raw", key_bytes, record({"name": "HMAC", "hash": "SHA-256"}), False, ["sign"]
-    );
-    signed = await subtle.sign(
-        "HMAC", key, new(globalThis.TextEncoder).encode(f"{mid}.{timestamp}.{body}")
-    );
-    expected = globalThis.btoa(
-        globalThis.String.fromCharCode.apply(NULL, new(globalThis.Uint8Array, signed))
-    );
-    for item in signature.split(" ") {
-        parts = item.split(",");
-        if len(parts) > 1 and parts[0] == "v1" and parts[1] and same_text(parts[1], expected) {
-            return True;
-        }
-    }
-    return False;
+    hmac = record({"name": "HMAC", "hash": "SHA-256"});
+    key = await globalThis.crypto.subtle.importKey("raw", raw, hmac, False, ["sign"]);
+    data = new(globalThis.TextEncoder).encode(f"{mid}.{stamp}.{body}");
+    signed = new(globalThis.Uint8Array, await globalThis.crypto.subtle.sign("HMAC", key, data));
+    expected = globalThis.btoa(globalThis.String.fromCharCode.apply(NULL, signed));
+    pairs = [item.split(",") + [""] for item in signature.split(" ")];
+    return any(e[0] == "v1" and e[1] and same_text(e[1], expected) for e in pairs);
 }
