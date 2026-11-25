@@ -11,6 +11,7 @@ graph import {
     src.lib.jac.host ++> src.lib.auth.origin { NULL, at, either, nil }
     src.lib.jac.host ++> src.lib.auth.turnstile { either, record }
     src.lib.jac.host ++> "src/lib/agent/schema-utils" { record }
+    src.lib.jac.host ++> "server/runtime/realtime-origin" { either, first, nil, record }
     src.lib.jac.host ++> "src/lib/storage/b2-bucket" {
         NULL, at, either, entries, js_sort, merged, nil, promise, record, rx, rx_sub, whole,
     }
@@ -2419,7 +2420,7 @@ graph import {
     server.runtime.realtime --> server.runtime.env { RealtimeHubRegistry }
     "server/runtime/sqlite-database" --> server.runtime.env { SqliteDatabase, openSqliteDatabase }
     "server/runtime/types.d" --> server.runtime.env { NodeRuntime }
-    src.lib.auth.origin --> "server/runtime/realtime-origin" { hasValidSessionMutationOrigin }
+    src.lib.auth.origin ++> "server/runtime/realtime-origin" { hasValidSessionMutationOrigin }
     "server/runtime/sqlite-database" --> server.runtime.migrate { SqliteDatabase }
     src.lib.backups.runner --> server.runtime.scheduler { runScheduledDatabaseBackup }
     src.lib.agent.maintenance --> server.runtime.scheduler { runAgentMaintenance }
