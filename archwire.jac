@@ -7,6 +7,11 @@ graph spaces {
 }
 
 graph import {
+    include "src/lib/promotions/refile-utils" ++> "src/lib/promotions/subscriptions-utils" { chunk }
+    src.lib.jac.host ++> "src/lib/promotions/refile-utils" { NULL }
+    src.lib.jac.host ++> "src/lib/promotions/mode-utils" { NULL }
+    src.lib.jac.host ++> "src/lib/promotions/subscriptions-utils" { NULL }
+    src.lib.jac.host ++> "src/lib/promotions/backfill-utils" { NULL, record }
     src.lib.jac.host ++> "src/lib/promotions/classify-utils" { NULL, at }
     src.lib.jac.host ++> src.lib.agent.pricing { NULL, entries }
     src.lib.jac.host ++> src.lib.agent.schedule { NULL, rx }
@@ -1541,11 +1546,10 @@ graph import {
     }
     src.db.schema.index --> "src/lib/email/sender-sweep" { messages }
     src.db.sql --> "src/lib/email/sender-sweep" { escapeLike, insensitiveLike }
-    "src/lib/promotions/refile-utils" --> "src/lib/promotions/subscriptions-utils" { chunk }
-    "src/lib/promotions/classify-utils" --> "src/lib/promotions/subscriptions-utils" {
+    "src/lib/promotions/classify-utils" ++> "src/lib/promotions/subscriptions-utils" {
         toSenderAddress,
     }
-    "src/lib/promotions/classify-utils" --> "src/lib/promotions/refile-utils" { toSenderAddress }
+    "src/lib/promotions/classify-utils" ++> "src/lib/promotions/refile-utils" { toSenderAddress }
     src.lib.email.address ++> "src/lib/promotions/classify-utils" { normalizeEmailAddress }
     src.db.index --> src.lib.promotions.backfill { getDb }
     src.db.schema.index --> src.lib.promotions.backfill {
@@ -2195,7 +2199,6 @@ graph import {
     src.lib.ids --> src.lib.agent.approvals.utils { newId }
     "src/lib/auth/types.d" --> src.lib.agent.approvals.utils { SessionUser }
     "src/lib/agent/approvals/types.d" --> src.lib.agent.approvals.utils { AgentSendSnapshot }
-    src.lib.promotions.settings --> "src/lib/promotions/mode-utils" { PromotionMode }
     "src/lib/contacts/types.d" --> "src/lib/email/inbound-notification" { ContactNameSource }
     src.lib.contacts.utils --> "src/lib/email/inbound-notification" { getPartyDisplayName }
     "src/lib/realtime/types.d" --> "src/lib/email/inbound-notification" { NewMessageNotification }
