@@ -3,9 +3,10 @@ glob:priv STEPS: dict[str, int] = {"ArrowRight": 1, "ArrowDown": 1, "ArrowLeft":
 """The radio to select for an arrow, Home or End key, wrapping at both ends; null for any other key."""
 def radioTarget(key: any, index: any, count: any) -> any {
     step = STEPS.get(key);
-    return (index + step + count) % count
-        if step is not None
-        else {"Home": 0, "End": count - 1}.get(key, NULL);
+    if step is None {
+        return {"Home": 0, "End": count - 1}.get(key, NULL);
+    }
+    return (index + step + count) % count if count else globalThis.NaN;  # JavaScript's `% 0` is NaN
 }
 
 """"failed" when nothing worked, "partial" when something failed or the run was stopped or limited, else "success"."""

@@ -14,8 +14,13 @@ def:priv read_loaded -> any {
     (loaded_full, now) = ({}, globalThis.Date.now());
     try {
         for e in globalThis.JSON.parse(globalThis.window.localStorage.getItem(KEY) or "[]") {
-            if isinstance(e[0], str) and e[1] > now {
-                loaded_full[e[0]] = e[1];
+            # JavaScript destructures each entry: anything but an array or string stops the read.
+            if not (globalThis.Array.isArray(e) or isinstance(e, str)) {
+                break;
+            }
+            (src, ex) = (e.at(0), e.at(1));
+            if isinstance(src, str) and globalThis.Number(ex) > now {
+                loaded_full[src] = ex;
             }
         }
     } except Exception {}  # Storage may be unavailable or unreadable: this page's memory still works.
@@ -25,7 +30,7 @@ def:priv read_loaded -> any {
 """Whether the full-size avatar finished loading before and should still be in the browser cache."""
 def wasAvatarLoaded(src: any) -> bool {
     expires = read_loaded().get(src) if at(globalThis, "window") else None;
-    return expires is not None and expires > globalThis.Date.now();
+    return expires is not None and globalThis.Number(expires) > globalThis.Date.now();
 }
 
 def rememberAvatarLoaded(src: any) {
