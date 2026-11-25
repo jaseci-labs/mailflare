@@ -18,10 +18,39 @@ graph import {
     src.lib.jac.host ++> "src/lib/profile/name-client" { record }
     src.lib.jac.host ++> "src/lib/profile/avatar-client" { record }
     src.lib.jac.host ++> src.lib.navigation.prefetch { record }
+    src.lib.jac.host ++> "src/components/accounts/account-settings-nav-utils" { record }
+    src.lib.jac.host ++> "src/components/settings/import-jobs-utils" { NULL }
+    src.lib.jac.host ++> "src/components/messages/spam-score-details-utils" { at, is_object }
+    src.lib.jac.host ++> "src/components/branding-provider-utils" { record }
+    src.lib.jac.host ++> "src/components/messages/message-list-visibility-utils" { at }
+    src.lib.jac.host ++> "src/components/messages/page-offset" { NULL }
+    src.lib.jac.host ++> "src/components/messages/send-view-utils" { NULL, either }
+    src.lib.jac.host ++> "src/components/mailbox-selector-utils" { either }
+    src.lib.jac.host ++> "src/components/settings/takeout-calendar-card-utils" { NULL }
+    src.lib.jac.host ++> "src/components/settings/takeout-contacts-card-utils" { dig }
+    src.lib.jac.host ++> "src/components/messages/scheduled-send-utils" { record }
+    src.lib.jac.host ++> "src/components/admin-page-titles" { record }
+    src.lib.jac.host ++> "src/components/shortcuts/use-hotkeys-utils" { first }
+    src.lib.jac.host ++> "src/components/shortcuts/hotkey-sequence" { NULL }
+    src.lib.jac.host ++> "src/components/shortcuts/command-palette-utils" { nil, at, either }
+    src.lib.jac.host ++> "src/components/compose/schedule-send-utils" { record }
+    src.lib.jac.host ++> "src/components/column-width-preferences" { NULL, at, either }
+    src.lib.jac.host ++> "src/components/sidebar-state-utils" { NULL, at, either }
+    src.lib.jac.host ++> "src/components/messages/promotion-toast-store" { NULL, nil, merged }
+    src.lib.jac.host ++> "src/components/messages/message-detail-navigation-utils" { NULL, nil, either, first }
+    src.lib.jac.host ++> "src/components/message-actions/action-overflow-utils" { at }
+    src.lib.jac.host ++> "src/components/admin-update-card-utils" { either, record }
+    src.lib.jac.host ++> "src/components/reorderable-list-utils" { NULL, either, entries }
+    src.lib.jac.host ++> "src/components/progressive-avatar-image-utils" { NULL, nil, at }
+    src.lib.jac.host ++> "src/components/route-title-utils" { NULL }
+    src.lib.jac.host ++> "src/components/compose/send-notice-utils" { NULL, either, num_or }
+    src.lib.jac.host ++> "src/components/settings/takeout-drive-card-utils" { NULL, dig, either, first, js_sort }
+    src.lib.jac.host ++> "src/components/settings/settings-nav-utils" { record }
+    src.lib.jac.host ++> "src/components/theme-utils" { at, record }
     src.lib.jac.host ++> "src/lib/accounts/deletion-utils" { at }
-    src.lib.jac.host ++> "src/lib/agent/availability-client" { NULL }
-    src.lib.jac.host ++> src.lib.agent.errors { NULL, nil, rx, rx_sub }
-    src.lib.jac.host ++> src.lib.agent.pricing { NULL, entries }
+    src.lib.jac.host ++> "src/lib/agent/availability-client" { NULL, at, nil }
+    src.lib.jac.host ++> src.lib.agent.errors { NULL, nil, rx, sub, dig, first, either, is_object }
+    src.lib.jac.host ++> src.lib.agent.pricing { NULL, entries, is_object, record }
     src.lib.jac.host ++> "src/lib/agent/provider-constants" { record }
     src.lib.jac.host ++> "src/lib/agent/rate-limit" { at, record }
     src.lib.jac.host ++> src.lib.agent.schedule { NULL, rx }
@@ -32,7 +61,7 @@ graph import {
     src.lib.jac.host ++> "src/lib/auth/password-reset-utils" { NULL, at, record }
     src.lib.jac.host ++> "src/lib/auth/rate-limit" { at, either, record }
     "src/lib/auth/client-ip" ++> "src/lib/auth/rate-limit" { getClientIp }
-    src.lib.jac.host ++> "src/lib/auth/setup-utils" { rx }
+    src.lib.jac.host ++> "src/lib/auth/setup-utils" { rx, is_object }
     src.lib.jac.host ++> "src/lib/avatar-images" { NULL, at, record }
     src.lib.jac.host ++> src.lib.aws.client { NULL, at, either, entries, merged, nil, record, rx }
     src.lib.aws.sigv4 ++> src.lib.aws.client { signAwsRequest }
@@ -137,7 +166,7 @@ graph import {
     src.lib.jac.host ++> src.lib.licenses.constants { record }
     src.lib.jac.host ++> src.lib.licenses.paymug { record }
     src.lib.licenses.utils ++> src.lib.licenses.paymug { parsePaymugLicenseResponse }
-    src.lib.jac.host ++> src.lib.licenses.utils { NULL, merged, nil }
+    src.lib.jac.host ++> src.lib.licenses.utils { NULL, merged, is_object }
     src.lib.licenses.constants ++> src.lib.licenses.utils { LICENSE_PRODUCT_IDS }
     src.lib.jac.host ++> src.lib.messages.actions.definitions { NULL, at, is_object }
     src.lib.jac.host ++> "src/lib/messages/change-events" { at, record }
@@ -2591,9 +2620,6 @@ graph import {
     }
     src.components.icons --> "src/components/section-nav-sheet" { ChevronUp }
     "src/components/sidebar-mobile-utils" --> "src/components/section-nav-sheet" { useIsMobile }
-    "src/components/accounts/account-settings-nav-types.d" --> "src/components/accounts/account-settings-nav-utils" {
-        AccountSettingsNavItem,
-    }
     src.components.icons --> "src/app/(admin)/accounts/[id]/mailboxes/page" { Plus, Trash2 }
     "src/components/language-provider" --> "src/app/(admin)/accounts/[id]/mailboxes/page" {
         useLanguage,
@@ -2952,11 +2978,6 @@ graph import {
         UpdateWorkflowResponse,
     }
     src.lib.utils --> src.components.ui.card { cn }
-    "src/components/admin-update-card-types.d" --> "src/components/admin-update-card-utils" {
-        MigrationStatusResponse,
-        UpdateStatusResponse,
-        UpdateWorkflowResponse,
-    }
     src.components.icons --> "src/app/(admin)/agent/page" { Bot }
     "src/components/language-provider" --> "src/app/(admin)/agent/page" { useLanguage }
     src.components.ui.button --> "src/app/(admin)/agent/page" { Button }
@@ -3094,9 +3115,6 @@ graph import {
     "src/components/settings/mcp-agent-instructions-types.d" --> "src/components/settings/mcp-agent-instructions" {
         McpAgentInstructionsProps,
     }
-    "src/components/settings/mcp-agent-instructions-types.d" --> "src/components/settings/mcp-agent-instructions-utils" {
-        McpAgentInstructionsProps,
-    }
     "src/lib/i18n/types.d" --> "src/app/(admin)/api-keys/utils" { TranslationKey }
     "src/lib/api/scopes-types.d" --> "src/app/(admin)/api-keys/utils" { AdminApiKeyScope }
     "src/components/ui/confirm-dialog" --> "src/app/(admin)/backups/page" { confirmDestructive }
@@ -3190,7 +3208,6 @@ graph import {
         DEFAULT_BRANDING,
         fetchBranding,
     }
-    "src/lib/branding/types.d" --> "src/components/branding-provider-utils" { Branding }
     src.lib.auth.client --> "src/app/(admin)/branding/utils" { authFetch }
     "src/app/(admin)/branding/types.d" --> "src/app/(admin)/branding/utils" { BrandingFormResponse }
     "src/components/language-provider" --> "src/app/(admin)/deliverability/DmarcChart" {
@@ -3847,10 +3864,6 @@ graph import {
         TooltipProps,
     }
     "src/components/ui/tooltip-utils" --> src.components.ui.tooltip { getTooltipPosition }
-    "src/components/ui/tooltip-types.d" --> "src/components/ui/tooltip-utils" {
-        TooltipPosition,
-        TooltipProps,
-    }
     src.lib.auth.client --> "src/lib/messages/detail-cache" {
         AUTH_SESSION_CHANGED_EVENT,
         authFetch,
@@ -3900,12 +3913,11 @@ graph import {
         MessageFollowUp,
     }
     "src/lib/i18n/types.d" --> "src/components/follow-ups/follow-up-client-utils" { TranslationKey }
-    src.lib.time.utils --> "src/components/messages/scheduled-send-utils" {
+    src.lib.time.utils ++> "src/components/messages/scheduled-send-utils" {
         formatUserDate,
         getUserTimeZone,
         zonedDateFields,
     }
-    src.lib.i18n.utils --> "src/components/messages/scheduled-send-utils" { Translator }
     src.lib.auth.client --> src.components.compose.utils { authFetch }
     "src/components/compose/types.d" --> src.components.compose.utils {
         ComposeAttachment,
@@ -4074,10 +4086,7 @@ graph import {
         ComposeTemplate,
         TemplateMenuProps,
     }
-    "src/components/compose/schedule-send-types.d" --> "src/components/compose/schedule-send-utils" {
-        ScheduleSendOption,
-    }
-    src.lib.time.utils --> "src/components/compose/schedule-send-utils" {
+    src.lib.time.utils ++> "src/components/compose/schedule-send-utils" {
         dateFromZonedFields,
         formatUserDate,
         formatUserDateTimeLocal,
@@ -4134,9 +4143,6 @@ graph import {
     "src/components/sidebar-state-types.d" --> "src/components/sidebar-state" {
         SidebarProviderProps,
         SidebarState,
-    }
-    "src/components/column-width-preferences-types.d" --> "src/components/column-width-preferences" {
-        ColumnWidthPreference,
     }
     "src/components/mail-search/types.d" --> "src/components/mail-search/mail-search-context" {
         MailSearchContextValue,
@@ -4269,6 +4275,9 @@ graph import {
     "src/lib/push/app-badge" --> src.lib.auth.logout { setAppBadgeCount }
     src.lib.auth.client --> "src/lib/auth/accounts-client" { authFetch, setClientSessionToken }
     "src/components/mailbox-provider" --> "src/components/mailbox-selector-utils" { MailboxOption }
+    "src/lib/mailboxes/avatar-client-types.d" --> "src/lib/mailboxes/avatar-client" {
+        MailboxAvatarChangedDetail,
+    }
     "src/components/language-provider" --> "src/components/license-indicator" { useLanguage }
     src.components.ui.button --> "src/components/license-indicator" { Button }
     "src/lib/licenses/types.d" --> "src/components/license-indicator" { LicenseStatus }
@@ -4338,9 +4347,6 @@ graph import {
         readStorage,
         writeStorage,
     }
-    "src/components/reorderable-list-types.d" --> "src/components/reorderable-list-utils" {
-        ReorderableLayout,
-    }
     "src/components/sidebar-state" --> "src/components/sidebar-footer" { useSidebar }
     src.components.shortcuts.index --> "src/components/sidebar-footer" { useShortcuts }
     src.components.icons --> "src/components/sidebar-footer" { Keyboard }
@@ -4364,14 +4370,8 @@ graph import {
         hasCommandModifier,
         isModifierKey,
     }
-    src.components.shortcuts.types --> "src/components/shortcuts/hotkey-sequence" {
-        ShortcutDefinition,
-    }
-    "src/components/shortcuts/use-hotkeys-utils" --> "src/components/shortcuts/hotkey-sequence" {
+    "src/components/shortcuts/use-hotkeys-utils" ++> "src/components/shortcuts/hotkey-sequence" {
         findSequenceMatch,
-    }
-    src.components.shortcuts.types --> "src/components/shortcuts/use-hotkeys-utils" {
-        ShortcutDefinition,
     }
     "src/components/shortcuts/use-shortcuts-enabled-utils" --> "src/components/shortcuts/use-shortcuts-enabled" {
         loadShortcutsEnabled,
@@ -4432,9 +4432,6 @@ graph import {
     "src/components/use-dialog-focus" --> "src/components/shortcuts/command-palette" {
         useDialogFocus,
     }
-    src.components.shortcuts.types --> "src/components/shortcuts/command-palette-utils" {
-        CommandItem,
-    }
     src.components.shortcuts.types --> "src/components/shortcuts/command-palette-item" {
         CommandItem,
     }
@@ -4463,7 +4460,6 @@ graph import {
     src.lib.utils --> "src/components/sidebar-scaffold" { cn }
     "src/components/branding-provider" --> "src/components/sidebar-scaffold" { useBranding }
     "src/components/sidebar-state" --> "src/components/sidebar-scaffold" { useSidebar }
-    "src/lib/i18n/types.d" --> "src/components/admin-page-titles" { TranslationKey }
     src.components.icons --> "src/components/sidebar-aside" { Menu }
     "src/components/sidebar-state" --> "src/components/sidebar-aside" { useSidebar }
     "src/components/language-provider" --> "src/components/sidebar-aside" { useLanguage }
@@ -4480,12 +4476,8 @@ graph import {
     "src/components/branding-provider" --> "src/components/route-title" { useBranding }
     "src/components/language-provider" --> "src/components/route-title" { useLanguage }
     "src/components/route-title-utils" --> "src/components/route-title" { getRouteTitleKey }
-    "src/components/settings/settings-nav-utils" --> "src/components/route-title-utils" {
+    "src/components/settings/settings-nav-utils" ++> "src/components/route-title-utils" {
         settingsNavSections,
-    }
-    "src/lib/i18n/types.d" --> "src/components/route-title-utils" { TranslationKey }
-    "src/components/settings/settings-nav-types.d" --> "src/components/settings/settings-nav-utils" {
-        SettingsNavSection,
     }
     "src/components/ui/confirm-dialog" --> "src/app/(admin)/licenses/license-activation" {
         confirmDestructive,
@@ -6011,10 +6003,6 @@ graph import {
         senderResultCopy,
         summarizeMoves,
     }
-    "src/lib/promotions/move-utils" --> "src/components/messages/promotion-toast-store" {
-        CopyDescriptor,
-        MoveTarget,
-    }
     src.components.icons --> "src/components/messages/message-source-dialog" {
         CheckCircle2,
         Copy,
@@ -6109,12 +6097,6 @@ graph import {
         InviteCardData,
         InviteResponse,
         InviteView,
-    }
-    "src/app/api/messages/navigation/types.d" --> "src/components/messages/message-detail-navigation-utils" {
-        MessageNavigationEntry,
-    }
-    "src/components/messages/message-detail-navigation-types.d" --> "src/components/messages/message-detail-navigation-utils" {
-        MessageDetailNavigationState,
     }
     src.lib.auth.client --> "src/components/messages/conversation-notes-context" { authFetch }
     "src/lib/notes/types.d" --> "src/components/messages/conversation-notes-context" {
@@ -6390,12 +6372,6 @@ graph import {
         getAttachmentPreviewKind,
     }
     src.components.ui.checkbox --> "src/components/message-attachment-viewer" { Checkbox }
-    "src/app/(dashboard)/inbox/[messageId]/types.d" --> "src/components/message-attachment-viewer-utils" {
-        MessageAttachment,
-    }
-    "src/components/message-attachment-viewer-types.d" --> "src/components/message-attachment-viewer-utils" {
-        AttachmentPreviewKind,
-    }
     src.components.icons --> "src/components/message-attachment-card" { ArrowDownToLine, Play }
     "src/app/(dashboard)/inbox/[messageId]/utils" --> "src/components/message-attachment-card" {
         formatAttachmentSize,
@@ -8506,9 +8482,6 @@ graph import {
         ImportSourceOption,
         ImportSourceSection,
     }
-    "src/lib/import/jobs-types.d" --> "src/components/settings/import-jobs-utils" {
-        ImportJobSummary,
-    }
     src.lib.auth.client --> "src/components/settings/import-messages-utils" { getAuthHeaders }
     "src/components/settings/import-messages-types.d" --> "src/components/settings/import-messages-utils" {
         ImportMessagesResult,
@@ -8607,9 +8580,6 @@ graph import {
         CalendarRunResult,
         TakeoutCalendarCardProps,
     }
-    "src/components/settings/takeout-calendar-card-types.d" --> "src/components/settings/takeout-calendar-card-utils" {
-        CalendarRunResult,
-    }
     src.components.icons --> "src/components/settings/takeout-contacts-card" { Upload }
     "src/components/language-provider" --> "src/components/settings/takeout-contacts-card" {
         useLanguage,
@@ -8679,9 +8649,6 @@ graph import {
         ContactRunSettings,
         ContactRunSummary,
     }
-    "src/components/settings/takeout-contacts-card-types.d" --> "src/components/settings/takeout-contacts-card-utils" {
-        ContactRunResult,
-    }
     "src/app/(drive)/drive-upload" --> "src/components/settings/takeout-drive-card" {
         uploadDriveSource,
     }
@@ -8737,12 +8704,6 @@ graph import {
     "src/lib/import/zip-utils" --> "src/lib/import/takeout-drive-utils" {
         createZipPartReader,
         openZipEntry,
-    }
-    "src/lib/import/takeout-data-types.d" --> "src/components/settings/takeout-drive-card-utils" {
-        DriveRoot,
-    }
-    "src/lib/import/takeout-drive-types.d" --> "src/components/settings/takeout-drive-card-utils" {
-        DriveRunSummary,
     }
     src.components.icons --> "src/components/settings/takeout-import" { Upload }
     "src/components/language-provider" --> "src/components/settings/takeout-import" { useLanguage }
@@ -13886,7 +13847,6 @@ graph import {
     "src/components/messages/spam-score-details-utils" --> "src/components/messages/spam-score-details" {
         parseSpamSignals,
     }
-    "src/lib/spam/types.d" --> "src/components/messages/spam-score-details-utils" { SpamSignal }
     src.components.icons --> "src/components/settings/current-mailbox-form" { Save }
     "src/components/language-provider" --> "src/components/settings/current-mailbox-form" {
         useLanguage,

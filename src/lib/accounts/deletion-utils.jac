@@ -1,5 +1,4 @@
 glob ACCOUNT_RESTORE_DAYS: int = 20;
-
 glob:priv RESTORE_MS: int = ACCOUNT_RESTORE_DAYS * 24 * 60 * 60000;
 
 """Last moment a deleted account can still be restored."""
@@ -13,8 +12,6 @@ def getAccountPurgeCutoff(now: any) -> any {
 }
 
 def getAccountStatus(account: any) -> str {
-    if at(account, "deletedAt") {
-        return "pendingDeletion";
-    }
-    return "disabled" if account["disabled"] else "active";
+    s = "disabled" if account["disabled"] else "active";
+    return "pendingDeletion" if at(account, "deletedAt") else s;
 }
