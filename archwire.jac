@@ -7,6 +7,7 @@ graph spaces {
 }
 
 graph import {
+    src.lib.jac.host ++> server.runtime.queue { NULL, dig, promise, record }
     src.lib.jac.host ++> src.db.drivers.types { NULL, either, promise, record }
     src.lib.jac.host ++> "src/db/d1-compat" { NULL, at, either, promise, record }
     src.db.drivers.types ++> "src/db/d1-compat" { normalizeParam, numberPlaceholders }
