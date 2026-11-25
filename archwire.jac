@@ -159,7 +159,7 @@ graph import {
     "src/lib/avatar-images" ++> src.lib.contacts.gravatar { avatarPreviewKeyFor }
     src.lib.jac.host ++> "src/lib/database-errors" { is_object, rx }
     src.lib.jac.host ++> src.lib.dav.body { NULL, either }
-    src.lib.jac.host ++> "src/lib/dav/xml-writer" { rx, rx_sub }
+    src.lib.jac.host ++> "src/lib/dav/xml-writer" { either, record, rx }
     src.lib.jac.host ++> "src/lib/deliverability/daily-utils" { NULL, at, first, js_sort, merged, nil, owns }
     src.lib.jac.host ++> "src/lib/deliverability/dmarc-record" { either, first, rx, rx_sub }
     src.lib.jac.host ++> src.lib.deliverability.dsn { NULL, nil, either, rx, rx_sub, sub }
