@@ -16,5 +16,6 @@ glob LIMITS: any = record({
 glob KEYWORD_SEEN = "$seen",
      KEYWORD_FLAGGED = "$flagged",
      KEYWORD_DRAFT = "$draft",
-     # Read-only: set while the message is in Promotions. Clients cannot write it; the Inbox mailbox is unchanged in every mode.
+     # Read-only: set while the message is in Promotions; clients cannot write it, and the Inbox
+     # mailbox is unchanged in every mode.
      KEYWORD_PROMOTION = "$promotion";
