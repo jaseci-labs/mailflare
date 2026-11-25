@@ -20,7 +20,7 @@ def organisationalDomain(host: any) -> any {
 
 """The organisational domain of the one address in a `From` header or contact email, or null when there is not exactly one."""
 def addressOrganisation(value: any = None) -> any {
-    addresses = getEmailAddressList(value);
+    addresses = getEmailAddressList(None if nil(value) else value);
     if len(addresses) != 1 or "@" not in addresses[0] {
         return NULL;
     }

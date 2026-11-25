@@ -8,7 +8,8 @@ graph spaces {
 
 graph import {
     src.lib.jac.host ++> src.lib.spam.analyzers.authentication { at, rx }
-    src.lib.jac.host ++> src.lib.spam.analyzers.urls { at, rx, rx_sub }
+    src.lib.email.parse --> src.lib.spam.analyzers.urls { ParsedEmail }
+    "src/lib/spam/types.d" --> src.lib.spam.analyzers.urls { PreparedSpamContent, SpamSignal }
     src.lib.jac.host ++> src.lib.spam.analyzers.structure { at, rx }
     src.lib.jac.host ++> src.lib.spam.analyzers.solicitation { at, rx, rx_sub }
     src.lib.spam.tokenizer ++> src.lib.spam.analyzers.solicitation { getDomain }
@@ -20,7 +21,7 @@ graph import {
     src.lib.jac.host ++> "src/lib/deliverability/dmarc-record" { either, rx, rx_sub }
     src.lib.jac.host ++> src.lib.deliverability.dsn { NULL, nil, either, rx, rx_sub }
     src.lib.jac.host ++> "src/lib/deliverability/mta-sts" { NULL, record, merged, rx, rx_sub }
-    src.lib.jac.host ++> "src/lib/deliverability/org-domain" { NULL, record, rx, rx_sub }
+    src.lib.jac.host ++> "src/lib/deliverability/org-domain" { NULL, nil, record, rx, rx_sub }
     src.lib.jac.host ++> src.lib.spam.weights { record }
     src.lib.jac.host ++> src.lib.spam.analyzers.utils { either, entries }
     src.lib.jac.host ++> "src/lib/spam/lookup-cache" { record }

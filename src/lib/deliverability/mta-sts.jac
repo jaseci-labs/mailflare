@@ -118,7 +118,7 @@ def buildMtaStsPolicy(policy: any) -> str {
     }
     lines = ["version: STSv1", f"mode: {policy['mode']}"]
         + [f"mx: {host}" for host in mx]
-        + [f"max_age: {policy['maxAge']}", ""];
+        + ["max_age: " + globalThis.String(policy["maxAge"]), ""];
     return "\r\n".join(lines);
 }
 
