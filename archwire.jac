@@ -103,7 +103,7 @@ graph import {
     src.lib.jac.host ++> src.lib.aws.xml { NULL, either, first, record, rx, rx_sub }
     src.lib.jac.host ++> "src/lib/booking/confirmation-utils" { NULL, at, either, merged, nil, owns, record, rx }
     src.lib.calendar.utils ++> "src/lib/booking/confirmation-utils" { createCalendarInvitation }
-    src.lib.jac.host ++> src.lib.booking.utils { NULL, either, first, is_object, js_sort, merged, record, rx, sub, whole }
+    src.lib.jac.host ++> src.lib.booking.utils { NULL, either, first, is_object, merged, record, rx, sub, whole }
     src.lib.time.utils ++> src.lib.booking.utils { dateFromZonedFields, isValidTimeZone, zonedDateFields }
     src.lib.calendar.colors ++> src.lib.booking.utils { normalizeCalendarColor }
     src.lib.jac.host ++> src.lib.calendar.colors { either, record }
