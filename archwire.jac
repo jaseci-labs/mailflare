@@ -7,7 +7,6 @@ graph spaces {
 }
 
 graph import {
-    src.lib.jac.host ++> src.lib.messages.actions.token { NULL, at, is_object, nil, record }
     src.lib.jac.host ++> "src/app/(admin)/deliverability/dmarc-utils" { NULL, merged, num_or }
     src.lib.jac.host ++> "src/app/(admin)/deliverability/mta-sts-utils" { NULL, dig, rx, sub }
     src.lib.jac.host ++> "src/app/(admin)/domains/domain-dns-details-utils" { at }
@@ -12529,7 +12528,10 @@ graph import {
         MessageStateSnapshot,
         UndoMessageActionResponse,
     }
-    "src/lib/security/server-secret" ++> src.lib.messages.actions.token { getServerSecret }
+    "src/lib/security/server-secret" --> src.lib.messages.actions.token { getServerSecret }
+    "src/lib/messages/actions/types.d" --> src.lib.messages.actions.token {
+        MessageUndoTokenPayload,
+    }
     src.db.index --> src.app.api.messages.bulk.route { AppDatabase, getDb }
     src.db.schema.index --> src.app.api.messages.bulk.route { folders, messages }
     src.lib.auth.cookies --> src.app.api.messages.bulk.route { getCurrentUser }
