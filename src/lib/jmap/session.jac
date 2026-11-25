@@ -1,4 +1,4 @@
-"""The Session object (RFC 8620 §2). One account per API key: the key's user."""
+# The Session object (RFC 8620 §2). One account per API key: the key's user.
 def buildSession(ctx: any, sessionState: str) -> dict[str, any] {
     base = f"{ctx.origin}/jmap";
     return {
@@ -27,14 +27,7 @@ def buildSession(ctx: any, sessionState: str) -> dict[str, any] {
                         "maxMailboxDepth": 2,
                         "maxSizeMailboxName": 80,
                         "maxSizeAttachmentsPerEmail": LIMITS.maxSizeAttachmentsPerEmail,
-                        "emailQuerySortOptions": [
-                            "receivedAt",
-                            "sentAt",
-                            "subject",
-                            "from",
-                            "size",
-                            "hasKeyword",
-                        ],
+                        "emailQuerySortOptions": "receivedAt sentAt subject from size hasKeyword".split(),
                         "mayCreateTopLevelMailbox": False,
                     },
                     CAPABILITY_SUBMISSION: {"maxDelayedSend": 0, "submissionExtensions": {}},
