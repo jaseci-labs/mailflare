@@ -7,6 +7,10 @@ graph spaces {
 }
 
 graph import {
+    src.lib.jac.host ++> "src/lib/import/takeout-data-utils" {
+        NULL, at, dig, either, first, merged, nil, owns, record, rx, rx_sub, sub,
+    }
+    "src/lib/import/zip-utils" ++> "src/lib/import/takeout-data-utils" { listZipEntries, openZipEntry, readZipEntryBytes }
     src.lib.jac.host ++> src.lib.drive.content { NULL, either, nil, record, rx }
     src.lib.drive.utils ++> src.lib.drive.content { driveContentDisposition, driveObjectKey }
     src.lib.jac.host ++> "src/lib/drive/import-utils" { NULL, owns, record, rx, rx_sub, sub }
@@ -8508,25 +8512,12 @@ graph import {
     "src/components/settings/takeout-drive-card" --> "src/components/settings/takeout-data-import" {
         TakeoutDriveCard,
     }
-    "src/lib/contacts/google-csv" --> "src/lib/import/takeout-data-utils" {
+    "src/lib/contacts/google-csv" ++> "src/lib/import/takeout-data-utils" {
         decodeContactsCsv,
         isGoogleContactsHeader,
         parseCsv,
     }
-    "src/lib/drive/import-utils" --> "src/lib/import/takeout-data-utils" { takeoutDrivePath }
-    "src/lib/import/takeout-data-types.d" --> "src/lib/import/takeout-data-utils" {
-        ContactSource,
-        DriveRoot,
-        TakeoutScan,
-        TakeoutSource,
-    }
-    "src/lib/import/zip-types.d" --> "src/lib/import/takeout-data-utils" { ZipEntry }
-    "src/lib/import/zip-utils" --> "src/lib/import/takeout-data-utils" {
-        listZipEntries,
-        openZipEntry,
-        readStreamChunks,
-        readZipEntryBytes,
-    }
+    "src/lib/drive/import-utils" ++> "src/lib/import/takeout-data-utils" { takeoutDrivePath }
     src.components.icons --> "src/components/settings/takeout-calendar-card" { Upload }
     "src/components/language-provider" --> "src/components/settings/takeout-calendar-card" {
         useLanguage,
