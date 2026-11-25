@@ -7,6 +7,7 @@ graph spaces {
 }
 
 graph import {
+    src.lib.jac.host ++> "src/lib/remote-images/fetch" { NULL, at, either, nil, record, rx }
     src.lib.jac.host ++> server.runtime.realtime { NULL, either, nil, promise, record }
     src.lib.jac.host ++> server.runtime.queue { NULL, dig, promise, record }
     src.lib.jac.host ++> src.db.drivers.types { NULL, either, promise, record }
@@ -522,8 +523,8 @@ graph import {
         isIpLiteral,
         isPublicAddress,
     }
-    "src/lib/dns-query" --> "src/lib/remote-images/fetch" { queryDns }
-    "src/lib/spam/domain-utils" --> "src/lib/remote-images/fetch" { isPublicIpv4 }
+    "src/lib/dns-query" ++> "src/lib/remote-images/fetch" { queryDns }
+    "src/lib/spam/domain-utils" ++> "src/lib/remote-images/fetch" { isPublicIpv4 }
     src.lib.utils --> "src/lib/email/recipient-address" { parseAddress }
     "src/lib/email/recipient-address-types.d" --> "src/lib/email/recipient-address" {
         ParsedRecipientAddress,
