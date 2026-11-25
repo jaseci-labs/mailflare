@@ -79,7 +79,7 @@ const sesRaw = enc.encode([
 const sqls = Array.from({ length: 2000 }, (_, i) => `SELECT * FROM messages WHERE mailbox_id = ? AND id > ? AND subject LIKE ? AND note = '?' LIMIT ${i}`);
 
 async function zipBytes() {
-	const stream = m.createZipStream([0, 1, 2].map((i) => ({ name: `f${i}.bin`, open: async () => new Response(blob.subarray(i * 500_000, (i + 1) * 500_000)).body })));
+	const stream = m.createZipStream([0, 1, 2].map((i) => ({ name: `f${i}.bin`, modified: new Date(2024, 0, 2, 3, 4, 6), open: async () => new Response(blob.subarray(i * 500_000, (i + 1) * 500_000)).body })));
 	const parts = []; for await (const c of stream) parts.push(c);
 	return Buffer.concat(parts);
 }
