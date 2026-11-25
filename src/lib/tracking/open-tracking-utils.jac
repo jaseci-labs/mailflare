@@ -1,7 +1,7 @@
 """Transparent 1x1 GIF."""
 glob TRACKING_PIXEL_GIF: any = globalThis.Uint8Array.from(
          globalThis.atob("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"),
-         lambda (char: any) -> any { char.charCodeAt(0) }
+         lambda (char: any) -> any { char.charCodeAt(0) },
      ),
      TRACKING_PIXEL_HEADERS: any = record({
          "Content-Type": "image/gif",
@@ -9,7 +9,7 @@ glob TRACKING_PIXEL_GIF: any = globalThis.Uint8Array.from(
          "Pragma": "no-cache",
          "Expires": "0",
          "Referrer-Policy": "no-referrer",
-         "X-Content-Type-Options": "nosniff"
+         "X-Content-Type-Options": "nosniff",
      }),
      # Scanners and Apple's prefetch fetch images within seconds of delivery; a person rarely does.
      AUTOMATED_OPEN_WINDOW_MS: int = 10000,
@@ -31,7 +31,7 @@ glob:priv TOKEN_PATTERN: any = rx(r"^[A-Za-z0-9_-]{20,64}$"),
               ("Macintosh|Mac OS X", "Mac"),
               ("Windows", "Windows"),
               ("CrOS", "ChromeOS"),
-              ("Linux", "Linux")
+              ("Linux", "Linux"),
           ],
           CLIENTS: list[tuple[str, str, bool]] = [
               (r"GoogleImageProxy|ggpht\.com", "Gmail", True),
@@ -40,9 +40,9 @@ glob:priv TOKEN_PATTERN: any = rx(r"^[A-Za-z0-9_-]{20,64}$"),
               (
                   "Outlook-iOS|Outlook-Android|Microsoft Outlook|MSOffice|ms-office|Microsoft Office",
                   "Outlook",
-                  False
+                  False,
               ),
-              ("Thunderbird", "Thunderbird", False)
+              ("Thunderbird", "Thunderbird", False),
           ];
 
 def:priv seen(pattern: str, text: str) -> bool {
@@ -55,8 +55,7 @@ def:priv trimmed(text: any) -> any {
 
 def createTrackingToken -> str {
     chars: str = globalThis.String.fromCharCode.apply(
-        NULL,
-        globalThis.crypto.getRandomValues(new(globalThis.Uint8Array, 18))
+        NULL, globalThis.crypto.getRandomValues(new(globalThis.Uint8Array, 18))
     );
     return globalThis.btoa(chars).replace("+", "-").replace("/", "_").rstrip("=");
 }
@@ -100,8 +99,9 @@ def normalizeTrackingHost(given: any, domainHostname: any) -> dict[str, any] {
     }
     domain: str = domainHostname.trim().toLowerCase();
     if not hostname
-    or len(hostname) > 253
-    or not all([HOSTNAME_LABEL.test(label) for label in hostname.split(".")]) {
+        or len(hostname) > 253
+        or not all([HOSTNAME_LABEL.test(label) for label in hostname.split(".")])
+    {
         return {"error": "invalid"};
     }
     if hostname != domain and not hostname.endswith(f".{domain}") {
@@ -134,8 +134,9 @@ def:priv detect_client(agent: str) -> tuple[any, bool] {
         }
     }
     if seen("AppleWebKit", agent)
-    and not seen(r"Chrome|CriOS|Safari\/", agent)
-    and seen("iPhone|iPad|Macintosh", agent) {
+        and not seen(r"Chrome|CriOS|Safari\/", agent)
+        and seen("iPhone|iPad|Macintosh", agent)
+    {
         return ("Apple Mail", False);
     }
     return (NULL, False);
@@ -148,7 +149,13 @@ Proxied fetches (Gmail, Yahoo, Apple) reveal neither device nor location.
 def classifyOpen(info: any) -> dict[str, any] {
     agent: any = at(info, "userAgent", "");
     if at(info, "asn") in APPLE_ASNS or agent.trim() == "Mozilla/5.0" {
-        return {"client": "Apple Mail", "device": NULL, "country": NULL, "city": NULL, "automated": True};
+        return {
+            "client": "Apple Mail",
+            "device": NULL,
+            "country": NULL,
+            "city": NULL,
+            "automated": True,
+        };
     }
     (client, proxied) = detect_client(agent);
     # Cloudflare reports XX for unknown and T1 for Tor.
@@ -159,7 +166,7 @@ def classifyOpen(info: any) -> dict[str, any] {
         "device": NULL if proxied else detect_device(agent),
         "country": country if located and not proxied else NULL,
         "city": NULL if proxied else at(info, "city", NULL),
-        "automated": info.openedAt.getTime() - info.sentAt.getTime() < AUTOMATED_OPEN_WINDOW_MS
+        "automated": info.openedAt.getTime() - info.sentAt.getTime() < AUTOMATED_OPEN_WINDOW_MS,
     };
 }
 

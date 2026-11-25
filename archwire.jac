@@ -7,6 +7,7 @@ graph spaces {
 }
 
 graph import {
+    src.lib.jac.host ++> "src/lib/tracking/open-tracking-utils" { NULL, at, record, rx, rx_sub }
     src.lib.jac.host ++> "src/lib/compose/compose-utils" { NULL }
     src.lib.jac.host ++> "src/lib/follow-ups/follow-up-utils" { NULL }
     src.lib.jac.host ++> src.lib.folders.colors { record }
@@ -813,10 +814,6 @@ graph import {
     }
     "src/lib/tracking/types.d" --> "src/lib/tracking/open-tracking" { MessageTrackingSummary }
     "src/lib/database-errors" --> "src/lib/tracking/open-tracking" { isMissingTableError }
-    "src/lib/tracking/types.d" --> "src/lib/tracking/open-tracking-utils" {
-        OpenClassification,
-        OpenRequestInfo,
-    }
     src.db.index --> "src/lib/follow-ups/service" { getDb }
     src.db.schema.index --> "src/lib/follow-ups/service" { followUps, messages }
     "src/lib/database-errors" --> "src/lib/follow-ups/service" { isMissingTableError }
