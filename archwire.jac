@@ -41,7 +41,7 @@ graph import {
     src.lib.jac.host ++> src.lib.aws.sts { either }
     src.lib.aws.client ++> src.lib.aws.sts { awsQuery }
     src.lib.aws.xml ++> src.lib.aws.sts { xmlTag }
-    src.lib.jac.host ++> src.lib.aws.xml { NULL, rx }
+    src.lib.jac.host ++> src.lib.aws.xml { NULL, either, first, record, rx, rx_sub }
     src.lib.jac.host ++> "src/lib/booking/confirmation-utils" { NULL, at, either, merged, nil, owns, record, rx, rx_sub }
     src.lib.calendar.utils ++> "src/lib/booking/confirmation-utils" { createCalendarInvitation }
     src.lib.jac.host ++> src.lib.booking.utils { NULL, either, nil, record, rx, rx_sub }
@@ -75,7 +75,7 @@ graph import {
     src.lib.jac.host ++> src.lib.contacts.gravatar { NULL, either, nil, record }
     src.lib.contacts.avatar ++> src.lib.contacts.gravatar { contactAvatarKeyFor }
     "src/lib/avatar-images" ++> src.lib.contacts.gravatar { avatarPreviewKeyFor }
-    src.lib.jac.host ++> "src/lib/database-errors" { rx }
+    src.lib.jac.host ++> "src/lib/database-errors" { is_object, rx }
     src.lib.jac.host ++> src.lib.dav.body { NULL, either }
     src.lib.jac.host ++> "src/lib/dav/xml-writer" { rx, rx_sub }
     src.lib.jac.host ++> "src/lib/deliverability/daily-utils" { NULL, at, first, js_sort, merged, nil, owns }
