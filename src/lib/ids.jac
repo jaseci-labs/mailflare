@@ -1,5 +1,4 @@
-# nanoid() without the package: its Node entry imports node:crypto, which breaks the platform-neutral
-# bundles that load every Jac module. Same alphabet, 21 Web Crypto bytes, 6 bits each.
+# nanoid without the package, whose node:crypto import breaks platform-neutral bundles of Jac modules.
 glob:priv URL_ALPHABET = "useandom-26T198340PX75pxJACKVERYMINDBUSHWOLF_GQZbfghjklqvwyzrict";
 
 def newId(prefix: any = None) -> str {
