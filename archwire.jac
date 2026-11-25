@@ -7,6 +7,8 @@ graph spaces {
 }
 
 graph import {
+    src.lib.jac.host ++> "src/lib/cloudflare-api" { NULL, dig, either, merged, nil, promise, record }
+    src.lib.domains.utils ++> "src/lib/cloudflare-api" { getZoneLookupCandidates }
     src.lib.jac.host ++> "src/lib/storage/b2-bucket" {
         NULL, at, either, entries, js_sort, merged, nil, promise, record, rx, rx_sub, whole,
     }
@@ -609,23 +611,14 @@ graph import {
     "src/lib/cloudflare-api.types.d" --> "src/lib/mailboxes/domain-addresses" {
         CfEmailRoutingRuleChange,
     }
-    "src/lib/cloudflare-api.types.d" --> "src/lib/cloudflare-api" {
-        CfDnsRecord,
-        CfEmailRoutingRule,
-        CfEmailRoutingRuleChange,
-        CfResponse,
-        CfResultInfo,
-        CfSendingSubdomain,
-    }
-    "src/lib/cloudflare-api-utils" --> "src/lib/cloudflare-api" {
+    "src/lib/cloudflare-api-utils" ++> "src/lib/cloudflare-api" {
         formatCloudflareError,
         getCloudflareAuth,
         getCloudflareAuthHeaders,
         getCloudflareAuthHint,
         getEmailWorkerName,
     }
-    "src/lib/cloudflare-api-error" --> "src/lib/cloudflare-api" { CloudflareApiError }
-    src.lib.domains.utils --> "src/lib/cloudflare-api" { getZoneLookupCandidates }
+    "src/lib/cloudflare-api-error" ++> "src/lib/cloudflare-api" { CloudflareApiError }
     src.db.schema.index --> src.lib.jmap.blobs { messageAttachments, messages }
     "src/lib/email/draft-access" --> src.lib.jmap.blobs { isOthersDraft }
     src.lib.ids --> src.lib.jmap.blobs { newId }
