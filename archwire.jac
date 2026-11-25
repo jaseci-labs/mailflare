@@ -7,6 +7,10 @@ graph spaces {
 }
 
 graph import {
+    src.lib.jac.host ++> src.lib.aws.client { NULL, at, either, entries, merged, nil, record, rx }
+    src.lib.jac.host ++> src.lib.aws.sts { either }
+    src.lib.jac.host ++> src.lib.aws.sns { either }
+    src.lib.jac.host ++> src.lib.aws.s3 { either, merged }
     src.lib.jac.host ++> src.lib.aws.xml { NULL, rx }
     src.lib.jac.host ++> src.lib.aws.sigv4 { at, either, entries, merged, rx, rx_sub }
     src.lib.security.headers --> "next.config" { getSecurityHeaders }
@@ -285,9 +289,8 @@ graph import {
     src.lib.aws.xml --> "src/lib/storage/b2-bucket" { xmlBlocks, xmlTag }
     "src/lib/aws/aws-types.d" --> "src/lib/storage/b2-bucket" { AwsConfig }
     "src/lib/storage/b2-types.d" --> "src/lib/storage/b2-bucket" { B2Config, B2HttpMetadata }
-    src.lib.aws.sigv4 --> src.lib.aws.client { signAwsRequest }
-    src.lib.aws.xml --> src.lib.aws.client { xmlTag }
-    "src/lib/aws/aws-types.d" --> src.lib.aws.client { AwsConfig }
+    src.lib.aws.sigv4 ++> src.lib.aws.client { signAwsRequest }
+    src.lib.aws.xml ++> src.lib.aws.client { xmlTag }
     "src/lib/email/inbound-limits" --> "src/app/api/messages/[messageId]/attachments/[attachmentId]/utils" {
         truncateUtf8,
     }
@@ -9565,15 +9568,12 @@ graph import {
     src.lib.aws.sns --> src.lib.aws.validate { listTopics }
     src.lib.aws.sts --> src.lib.aws.validate { getCallerIdentity }
     "src/lib/aws/aws-types.d" --> src.lib.aws.validate { AwsCapabilityReport, AwsConfig }
-    src.lib.aws.client --> src.lib.aws.s3 { AwsError, awsRequest }
-    src.lib.aws.sigv4 --> src.lib.aws.s3 { sha256Hex }
-    "src/lib/aws/aws-types.d" --> src.lib.aws.s3 { AwsConfig }
-    src.lib.aws.client --> src.lib.aws.sns { awsQuery }
-    src.lib.aws.xml --> src.lib.aws.sns { xmlBlocks, xmlTag }
-    "src/lib/aws/aws-types.d" --> src.lib.aws.sns { AwsConfig }
-    src.lib.aws.client --> src.lib.aws.sts { awsQuery }
-    src.lib.aws.xml --> src.lib.aws.sts { xmlTag }
-    "src/lib/aws/aws-types.d" --> src.lib.aws.sts { AwsConfig }
+    src.lib.aws.client ++> src.lib.aws.s3 { AwsError, awsRequest }
+    src.lib.aws.sigv4 ++> src.lib.aws.s3 { sha256Hex }
+    src.lib.aws.client ++> src.lib.aws.sns { awsQuery }
+    src.lib.aws.xml ++> src.lib.aws.sns { xmlBlocks, xmlTag }
+    src.lib.aws.client ++> src.lib.aws.sts { awsQuery }
+    src.lib.aws.xml ++> src.lib.aws.sts { xmlTag }
     src.app.api.admin.general.utils --> src.app.api.admin.general.route { GET, PUT }
     src.db.index --> src.app.api.admin.general.utils { getDb }
     src.db.schema.index --> src.app.api.admin.general.utils { appSettings }
