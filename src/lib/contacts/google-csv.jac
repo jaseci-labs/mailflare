@@ -1,221 +1,152 @@
-"""
-Reads the contacts CSV of Google Contacts / Takeout, in the current header style ("First Name", "E-mail 1 - Value")
-and the legacy one ("Name", "Given Name", "E-mail 1 - Type"). One linear pass over the text with caps on columns, rows
-and field length; no regular expression runs on a whole file or a whole field. Pure: the browser reads and previews,
-the server maps the rows it is sent.
-"""
-
-glob MAX_CSV_COLUMNS: int = 200;
-
-glob MAX_CSV_ROWS: int = 50000;
-
-glob MAX_CSV_FIELD: int = 10000;
-
-glob:priv MAX_HEADER_NAME: int = 100,
-          SEPARATOR: str = " ::: ",
-          MAX_VALUES_PER_CELL: int = 20,
+# Google Contacts / Takeout CSV, current ("First Name", "E-mail 1 - Value") and legacy ("Name",
+# "E-mail 1 - Type") headers. One linear pass with caps on columns, rows and field length; no
+# regular expression runs on a whole file or a whole field.
+glob MAX_CSV_COLUMNS: int = 200,
+     MAX_CSV_ROWS: int = 50000,
+     MAX_CSV_FIELD: int = 10000;
+glob:priv STAR: any = rx(r"^\*\s*"),
           EMAIL_COLUMN: any = rx(r"^e-?mail (\d{1,3}) - (value|label|type)$"),
           PHONE_COLUMN: any = rx(r"^phone (\d{1,3}) - (value|label|type)$"),
           ADDRESS_COLUMN: any = rx(r"^address (\d{1,3}) - (formatted|label|type)$");
 
 """UTF-8 (a byte order mark is dropped) or, for old Google exports that start `FF FE`, UTF-16LE."""
 def decodeContactsCsv(data: any) -> str {
-    if data.length >= 2 and data[0] == 0xff and data[1] == 0xfe {
-        return new(globalThis.TextDecoder, "utf-16le").decode(data.subarray(2));
-    }
-    return new(globalThis.TextDecoder, "utf-8").decode(data);
+    utf16 = data.length >= 2 and data[0] == 0xff and data[1] == 0xfe;
+    decoder = new(globalThis.TextDecoder, "utf-16le" if utf16 else "utf-8");
+    return decoder.decode(data.subarray(2) if utf16 else data);
 }
 
-"""
-RFC 4180: quoted fields may hold commas, doubled quotes and line breaks; CRLF, LF and a bare CR end a row; blank
-lines are skipped. A field is cut at MAX_CSV_FIELD characters (the rest is read and dropped), a row at
-MAX_CSV_COLUMNS fields, and reading stops after `maxRows` rows, with `truncated` set when more followed.
-"""
+# RFC 4180: quoted fields may hold commas, doubled quotes and line breaks; CRLF, LF and a bare CR
+# end a row; blank lines are skipped. A field is cut at MAX_CSV_FIELD characters (the rest is read
+# and dropped), a row at MAX_CSV_COLUMNS fields, and reading stops after `maxRows` rows, with
+# `truncated` set when more followed.
 def parseCsv(text: any, limits: any = None) -> dict[str, any] {
-    maxRows = MAX_CSV_ROWS if limits is None else at(limits, "maxRows", MAX_CSV_ROWS);
-    rows: list[list[str]] = [];
-    row: list[str] = [];
-    field: any = "";
+    maxRows: int = MAX_CSV_ROWS if limits is None else either(limits["maxRows"], MAX_CSV_ROWS);
+    # UTF-16 code units, as JavaScript indexes a string, in typed locals that keep the loop fast.
+    chars: list[str] = globalThis.String.prototype.split.call(text, "");
+    (n, i, size, field, rows, row) = (len(chars), 0, 0, "", [], []);
     (quoted, touched, truncated) = (False, False, False);
-    def endField {
+    def end_field {
         if len(row) < MAX_CSV_COLUMNS {
             row.append(field);
         }
         field = "";
+        size = 0;
         touched = False;
     }
-    def endRow {
-        endField();
+    def end_row {
+        end_field();
         if not (len(row) == 1 and row[0] == "") {
             rows.append(row);
         }
         row = [];
     }
-    size: int = text.length;
-    index = 0;
-    while index < size {
+    while i < n {
         if len(rows) >= maxRows {
             # Only blank lines after the last allowed row are not "more".
-            rest = index;
-            while rest < size and not truncated {
-                truncated = text.charAt(rest) not in "\r\n";
-                rest += 1;
-            }
+            truncated = rx(r"[^\r\n]").test(text.slice(i));
             break;
         }
-        ch = text.charAt(index);
-        if quoted {
-            if ch != '"' {
-                if field.length < MAX_CSV_FIELD {
-                    field += ch;
-                }
-            } elif text.charAt(index + 1) == '"' {
-                if field.length < MAX_CSV_FIELD {
-                    field += ch;
-                }
-                index += 1;
-            } else {
-                quoted = False;
-            }
-        } elif ch == '"' and not touched {
+        ch = chars[i];
+        nx = chars[i + 1] if i + 1 < n else "";
+        if quoted and ch == '"' and nx != '"' {
+            quoted = False;
+        } elif not quoted and ch == '"' and not touched {
             (quoted, touched) = (True, True);
-        } elif ch == "," {
-            endField();
-        } elif ch == "\r" {
-            if text.charAt(index + 1) == "\n" {
-                index += 1;
+        } elif not quoted and ch == "," {
+            # end_field inlined: this is the hot path of a long row.
+            if len(row) < MAX_CSV_COLUMNS {
+                row.append(field);
             }
-            endRow();
-        } elif ch == "\n" {
-            endRow();
+            field = "";
+            size = 0;
+            touched = False;
+        } elif not quoted and (ch == "\r" or ch == "\n") {
+            i += 1 if ch == "\r" and nx == "\n" else 0;
+            end_row();
         } else {
+            # A doubled quote inside quotes is one quote character.
+            i += 1 if quoted and ch == '"' else 0;
             touched = True;
-            if field.length < MAX_CSV_FIELD {
+            if size < MAX_CSV_FIELD {
                 field += ch;
+                size += 1;
             }
         }
-        index += 1;
+        i += 1;
     }
     if not truncated and (touched or field != "" or len(row) > 0 or quoted) {
-        endRow();
+        end_row();
     }
     return {"rows": rows, "truncated": truncated};
 }
 
-def:priv keys_of(header: any) -> list[str] {
-    return [
-        name.slice(0, MAX_HEADER_NAME).trim().toLowerCase()
-        for name in header[:MAX_CSV_COLUMNS]
-    ];
+def:priv keys_of(header: any) -> list[any] {
+    return [name.slice(0, 100).trim().toLowerCase() for name in header.slice(0, MAX_CSV_COLUMNS)];
 }
 
 """A CSV whose header has a name column and an e-mail value column, which both Google styles do."""
 def isGoogleContactsHeader(header: any) -> bool {
     names = keys_of(header);
-    value_column = rx(r"^e-?mail \d{1,3} - value$");
-    return ("first name" in names or "given name" in names or "name" in names)
-        and any([value_column.test(name) for name in names]);
+    named = "first name" in names or "given name" in names or "name" in names;
+    return named and any([rx(r"^e-?mail \d{1,3} - value$").test(name) for name in names]);
 }
 
-"""The (value, label) columns of each numbered group (E-mail 1, E-mail 2, ...), in group order."""
-def:priv slots(names: list[str], pattern: any, valueName: str) -> list[list[int]] {
-    found: dict[int, list[int]] = {};
-    for (column, name) in enumerate(names) {
+"""The [value, label] columns of each numbered group (E-mail 1, E-mail 2, ...), in group order."""
+def:priv slots(names: any, pattern: any, valueName: str) -> list[any] {
+    found: dict[any, any] = {};
+    for (col, name) in enumerate(names) {
         hit = pattern.exec(name);
-        if not hit {
-            continue;
+        if hit {
+            slot = found.setdefault(globalThis.Number(hit[1]), [-1, -1]);
+            slot[0 if hit[2] == valueName else 1] = col;
         }
-        slot = found.setdefault(globalThis.Number(hit[1]), [-1, -1]);
-        slot[0 if hit[2] == valueName else 1] = column;
     }
-    return [found[number] for number in sorted(found) if found[number][0] >= 0];
-}
-
-"""The values of a cell that holds several, at most 20, each trimmed."""
-def:priv split(cell: str) -> list[any] {
-    parts: list[any] = cell.split(SEPARATOR)[:MAX_VALUES_PER_CELL];
-    return [part.trim() for part in parts];
+    return [found[k] for k in sorted(found) if found[k][0] >= 0];
 }
 
 """A mapper from one row to a contact for this header; build it once per file or request."""
 def googleCsvMapper(header: any) -> any {
     names = keys_of(header);
-    def column(*wanted: str) -> int {
-        for (index, name) in enumerate(names) {
-            if name in wanted {
-                return index;
-            }
-        }
-        return -1;
-    }
-    full_name = column("name");
-    parted = [
-        [column("first name"), column("middle name"), column("last name")],
-        [column("given name"), column("additional name"), column("family name")],
-    ];
+    column = lambda (*w: str) -> int { ([i for (i, n) in enumerate(names) if n in w] + [-1])[0] };
+    (full, birthday, notes) = (column("name"), column("birthday"), column("notes"));
+    parted = [column(f"{k} name") for k in "first middle last given additional family".split()];
     organization = column("organization name", "organization 1 - name");
     title = column("organization title", "organization 1 - title");
-    birthday = column("birthday");
-    notes = column("notes");
-    emails = slots(names, EMAIL_COLUMN, "value");
-    phones = slots(names, PHONE_COLUMN, "value");
+    (emails, phones) = (slots(names, EMAIL_COLUMN, "value"), slots(names, PHONE_COLUMN, "value"));
     addresses = slots(names, ADDRESS_COLUMN, "formatted");
     def mapped(row: any) -> any {
-        def cell(index: int) -> any {
-            return either(row[index], "") if 0 <= index < row.length else "";
+        cell = lambda (i: int) -> any { either(row[i], "") if 0 <= i < row.length else "" };
+        split = lambda (c: any) -> list[any] { [part.trim() for part in c.split(" ::: ")[:20]] };
+        def assembled(cols: list[int]) -> any {
+            parts = [cleanLine(cell(c), 100) for c in cols];
+            return cleanLine(" ".join([p for p in parts if p]), 100);
         }
-        def assembled(columns: list[int]) -> any {
-            parts = [cleanLine(cell(c), 100) for c in columns];
-            return cleanLine(" ".join([part for part in parts if part]), 100);
-        }
-        """Each value of a group's cells with its own label, or the group's first label when it has none."""
-        def labelled(group: list[list[int]]) -> list[tuple[any, any]] {
-            pairs: list[tuple[any, any]] = [];
-            for slot in group {
-                labels = split(cell(slot[1]));
-                for (position, value) in enumerate(split(cell(slot[0]))) {
-                    pairs.append((value, labels[position if position < len(labels) else 0]));
+        # Each value, its type (its own label, else the group's first) and whether its label starts "*".
+        def labelled(group: list[any]) -> list[any] {
+            out = [];
+            for (v, l) in group {
+                ls = split(cell(l));
+                for (p, x) in enumerate(split(cell(v))) {
+                    mine = p < len(ls);
+                    l = ls[p] if mine else ls[0];
+                    out.append((x, cleanLine(sub(l, STAR, ""), 32), mine and l.startswith("*")));
                 }
             }
-            return pairs;
+            return out;
         }
-        def typed(group: list[list[int]], name: str) -> list[any] {
-            return [
-                record({name: value, "type": cleanLine(rx_sub(label, rx(r"^\*\s*"), ""), 32)})
-                for (value, label) in labelled(group)
-            ];
+        def typed(group: list[any], key: str) -> list[any] {
+            return [record({key: v, "type": l}) for (v, l, _) in labelled(group)];
         }
-        name = cleanLine(cell(full_name), 100)
-            or assembled(parted[0])
-            or assembled(parted[1])
-            or NULL;
+        name = cleanLine(cell(full), 100) or assembled(parted[:3]) or assembled(parted[3:]) or NULL;
         # The legacy export marks the primary address with a leading "* " on its type.
-        starred: list[any] = [];
-        plain: list[any] = [];
-        for slot in emails {
-            labels = split(cell(slot[1]));
-            for (position, value) in enumerate(split(cell(slot[0]))) {
-                if value {
-                    marked = position < len(labels) and labels[position].startsWith("*");
-                    (starred if marked else plain).append(value);
-                }
-            }
-        }
-        details = normalizeContactDetails(
-            record({
-                "phones": typed(phones, "value"),
-                "addresses": typed(addresses, "formatted"),
-                "organization": cell(organization),
-                "title": cell(title),
-                "birthday": cell(birthday),
-                "note": cleanText(cell(notes), 4000),
-            }),
-        );
-        return record({
-            "name": name,
-            "emails": (starred + plain)[:20],
-            "details": record(withoutEmails(details)),
-        });
+        mails = labelled(emails);
+        ordered = [v for (v, _, s) in mails if v and s] + [v for (v, _, s) in mails if v and not s];
+        (o, t, b) = (cell(organization), cell(title), cell(birthday));
+        base = {"phones": typed(phones, "value"), "addresses": typed(addresses, "formatted")};
+        more = {"organization": o, "title": t, "birthday": b, "note": cleanText(cell(notes), 4000)};
+        details = withoutEmails(normalizeContactDetails(merged(base, more)));
+        return record({"name": name, "emails": ordered[:20], "details": record(details)});
     }
     return mapped;
 }

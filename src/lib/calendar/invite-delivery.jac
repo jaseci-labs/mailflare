@@ -1,19 +1,10 @@
-"""Sends one message per attendee and returns the addresses that failed, so a saved event is never reported as a failed request."""
-async def sendToAttendees(attendees: any, send: any) -> list[str] {
-    results = await globalThis.Promise.allSettled(
-        attendees.map(lambda (to: any) -> any { send(to) })
-    );
-    failed: list[str] = [];
-    for (index, result) in enumerate(results) {
-        if result.status != "rejected" {
-            continue;
-        }
-        failed.append(attendees[index]);
-        reason = result.reason;
-        globalThis.console.warn(
-            f"Calendar invitation to {attendees[index]} failed:",
-            reason.message if globalThis.Error.prototype.isPrototypeOf(reason) else reason,
-        );
+# One message per attendee; returns the addresses that failed, so a saved event is never reported as a failed request.
+async def sendToAttendees(people: any, send: any) -> list[str] {
+    results = await globalThis.Promise.allSettled(people.map(lambda (to: any) -> any { send(to) }));
+    failed = [(people[i], r.reason) for (i, r) in enumerate(results) if r.status == "rejected"];
+    for (to, why) in failed {
+        reason = why.message if globalThis.Error.prototype.isPrototypeOf(why) else why;
+        globalThis.console.warn(f"Calendar invitation to {to} failed:", reason);
     }
-    return failed;
+    return [to for (to, _) in failed];
 }

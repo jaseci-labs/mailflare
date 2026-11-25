@@ -12,6 +12,12 @@ graph import {
     src.lib.jac.host ++> src.db.drivers.types { NULL, either, promise, record }
     src.lib.jac.host ++> "src/db/d1-compat" { NULL, at, either, promise, record }
     src.db.drivers.types ++> "src/db/d1-compat" { normalizeParam, numberPlaceholders }
+    src.lib.jac.host ++> "src/hooks/counts-delta-utils" { merged, num_or }
+    src.lib.jac.host ++> "src/lib/auth/error-messages" { record }
+    src.lib.jac.host ++> "src/lib/mailboxes/avatar-client" { record }
+    src.lib.jac.host ++> "src/lib/profile/name-client" { record }
+    src.lib.jac.host ++> "src/lib/profile/avatar-client" { record }
+    src.lib.jac.host ++> src.lib.navigation.prefetch { record }
     src.lib.jac.host ++> "src/lib/accounts/deletion-utils" { at }
     src.lib.jac.host ++> "src/lib/agent/availability-client" { NULL }
     src.lib.jac.host ++> src.lib.agent.errors { NULL, nil, rx, rx_sub }
@@ -48,14 +54,14 @@ graph import {
     src.lib.aws.client ++> src.lib.aws.sts { awsQuery }
     src.lib.aws.xml ++> src.lib.aws.sts { xmlTag }
     src.lib.jac.host ++> src.lib.aws.xml { NULL, rx }
-    src.lib.jac.host ++> "src/lib/booking/confirmation-utils" { NULL, at, either, merged, nil, owns, record, rx, rx_sub }
+    src.lib.jac.host ++> "src/lib/booking/confirmation-utils" { NULL, at, either, is_object, merged, nil, owns, record, rx, sub }
     src.lib.calendar.utils ++> "src/lib/booking/confirmation-utils" { createCalendarInvitation }
-    src.lib.jac.host ++> src.lib.booking.utils { NULL, either, nil, record, rx, rx_sub }
+    src.lib.jac.host ++> src.lib.booking.utils { NULL, either, first, is_object, js_sort, merged, record, rx, sub, whole }
     src.lib.time.utils ++> src.lib.booking.utils { dateFromZonedFields, isValidTimeZone, zonedDateFields }
     src.lib.calendar.colors ++> src.lib.booking.utils { normalizeCalendarColor }
     src.lib.jac.host ++> src.lib.calendar.colors { either, record }
     src.lib.folders.colors ++> src.lib.calendar.colors { DEFAULT_FOLDER_COLOR, FOLDER_COLOR_VALUES }
-    src.lib.jac.host ++> src.lib.calendar.confirmation { NULL, record, rx, rx_sub }
+    src.lib.jac.host ++> src.lib.calendar.confirmation { NULL, record, rx, sub }
     "src/lib/security/server-secret" ++> src.lib.calendar.confirmation { getServerSecret }
     src.lib.jac.host ++> src.lib.calendar.feed { NULL, either, merged, nil, record }
     src.lib.calendar.recurrence ++> src.lib.calendar.feed { parseCalendarRepeatDays, parseExcludedOccurrences }
@@ -63,20 +69,21 @@ graph import {
     src.lib.calendar.ics ++> src.lib.calendar.feed { formatIcsUtc, joinIcsLines }
     src.lib.jac.host ++> src.lib.calendar.ics { rx, rx_sub }
     src.lib.jac.host ++> "src/lib/calendar/invite-attachment" { rx }
-    src.lib.jac.host ++> src.lib.calendar.recurrence { NULL, either }
-    src.lib.jac.host ++> "src/lib/calendar/reminder-utils" { NULL, either, merged, nil, record }
+    src.lib.jac.host ++> src.lib.calendar.recurrence { NULL, either, whole }
+    src.lib.jac.host ++> "src/lib/calendar/reminder-utils" { NULL, either, merged, nil, whole }
     "src/lib/calendar/tool-occurrences" ++> "src/lib/calendar/reminder-utils" { expandToolEvents }
+    src.lib.jac.host ++> "src/lib/calendar/split-announcement" { merged }
     src.lib.calendar.utils ++> "src/lib/calendar/split-announcement" { createCalendarInvitation }
-    src.lib.jac.host ++> "src/lib/calendar/tool-occurrences" { either }
+    src.lib.jac.host ++> "src/lib/calendar/tool-occurrences" { either, js_sort, merged, whole }
     src.lib.calendar.recurrence ++> "src/lib/calendar/tool-occurrences" { parseCalendarRepeatDays, parseExcludedOccurrences }
     src.lib.time.utils ++> "src/lib/calendar/tool-occurrences" { dateFromZonedFields, normalizeTimeZone, zonedDateFields }
-    src.lib.jac.host ++> src.lib.calendar.utils { NULL, at, either, nil }
+    src.lib.jac.host ++> src.lib.calendar.utils { NULL, at, either, nil, whole }
     src.lib.calendar.ics ++> src.lib.calendar.utils { escapeIcsText, formatIcsUtc, isIcsAddress, joinIcsLines }
     src.lib.jac.host ++> "src/lib/cloudflare-api-error" { at }
     src.lib.jac.host ++> "src/lib/compose/compose-utils" { NULL }
     src.lib.jac.host ++> "src/lib/contacts/avatar-client" { record }
-    src.lib.jac.host ++> "src/lib/contacts/details-utils" { NULL, at, either, entries, nil, record, rx, rx_sub }
-    src.lib.jac.host ++> "src/lib/contacts/google-csv" { NULL, at, either, record, rx, rx_sub }
+    src.lib.jac.host ++> "src/lib/contacts/details-utils" { NULL, at, either, entries, is_object, merged, nil, record, rx, sub }
+    src.lib.jac.host ++> "src/lib/contacts/google-csv" { NULL, either, merged, record, rx, sub }
     "src/lib/contacts/details-utils" ++> "src/lib/contacts/google-csv" { cleanLine, cleanText, normalizeContactDetails, withoutEmails }
     src.lib.jac.host ++> src.lib.contacts.gravatar { NULL, either, nil, record }
     src.lib.contacts.avatar ++> src.lib.contacts.gravatar { contactAvatarKeyFor }
@@ -1016,8 +1023,6 @@ graph import {
         AuthSessionResponse,
     }
     src.lib.time.utils --> src.lib.time.client { clearUserTimeZoneCache }
-    "src/lib/profile/types.d" --> "src/lib/profile/name-client" { ProfileNameChangedDetail }
-    "src/lib/profile/types.d" --> "src/lib/profile/avatar-client" { ProfileAvatarChangedDetail }
     "src/lib/i18n/types.d" --> "src/components/accounts/account-settings-nav-types.d" {
         TranslationKey,
     }
@@ -2695,8 +2700,6 @@ graph import {
     src.components.icons --> src.components.ui.dialog { X }
     src.lib.utils --> src.components.ui.dialog { cn }
     "src/components/language-provider" --> src.components.ui.dialog { useLanguage }
-    "src/lib/i18n/types.d" --> "src/lib/auth/error-messages" { TranslationKey }
-    "src/lib/auth/error-codes" --> "src/lib/auth/error-messages" { AuthErrorCode }
     src.lib.auth.client --> "src/components/settings/passkey-settings-utils" { authFetch }
     "src/lib/http/client-error" --> "src/components/settings/passkey-settings-utils" {
         requestError,
@@ -4258,7 +4261,6 @@ graph import {
         MessageFolder,
         MessageListResponse,
     }
-    "src/hooks/types.d" --> "src/hooks/counts-delta-utils" { MessageCounts, MessageCountsDelta }
     src.lib.auth.client --> src.lib.auth.logout {
         authFetch,
         clearClientSessionToken,
@@ -4266,9 +4268,6 @@ graph import {
     }
     "src/lib/push/app-badge" --> src.lib.auth.logout { setAppBadgeCount }
     src.lib.auth.client --> "src/lib/auth/accounts-client" { authFetch, setClientSessionToken }
-    "src/lib/mailboxes/avatar-client-types.d" --> "src/lib/mailboxes/avatar-client" {
-        MailboxAvatarChangedDetail,
-    }
     "src/components/mailbox-provider" --> "src/components/mailbox-selector-utils" { MailboxOption }
     "src/components/language-provider" --> "src/components/license-indicator" { useLanguage }
     src.components.ui.button --> "src/components/license-indicator" { Button }

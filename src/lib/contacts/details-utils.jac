@@ -1,45 +1,24 @@
-glob MAX_NAME: int = 100;
+glob MAX_NAME: int = 100,
+     MAX_EMAIL: int = 254;
 
-glob MAX_EMAIL: int = 254;
-
-glob:priv MAX_EMAILS: int = 20,
-          MAX_PHONES: int = 20,
-          MAX_ADDRESSES: int = 10,
-          MAX_TYPE: int = 32,
-          MAX_PHONE: int = 64,
-          MAX_ADDRESS: int = 500,
-          MAX_ORGANIZATION: int = 200,
-          MAX_NOTE: int = 4000,
-          CONTROLS: any = rx(r"[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]", "g"),
+glob:priv CONTROLS: any = rx(r"[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]", "g"),
           LINE_CONTROLS: any = rx(r"[\u0000-\u001f\u007f]+", "g"),
+          BIRTHDAY: any = rx(r"^(\d{4}|--)-?(\d{2})-?(\d{2})"),
           # A bare address: no display name, no list separators, and a dot in the domain.
-          BARE_ADDRESS: any = rx(r'^[^@\s<>",;]{1,64}@[^@\s<>",;]+\.[^@\s<>",;]+$');
-
-"""`rx_sub` whose result keeps JavaScript's string methods."""
-def:priv sub(s: any, regex: any, to: str) -> any {
-    return rx_sub(s, regex, to);
-}
-
-def:priv is_pair(value: any) -> bool {
-    return not nil(value)
-        and globalThis.Object(value) is value
-        and not globalThis.Array.isArray(value)
-        and not globalThis.Function.prototype.isPrototypeOf(value);
-}
-
-"""`o.k` of a record that may be absent."""
-def:priv field(o: any, k: str) -> any {
-    return NULL if nil(o) else at(o, k);
-}
+          BARE_ADDRESS: any = rx(r'^[^@\s<>",;]{1,64}@[^@\s<>",;]+\.[^@\s<>",;]+$'),
+          isArray: any = globalThis.Array.isArray,
+          is_pair: any = lambda (v: any) -> bool { is_object(v) and not isArray(v) },
+          field: any = lambda (o: any, k: str) -> any { NULL if nil(o) else at(o, k) },
+          phone_key: any = lambda (s: any) -> any { sub(s, rx(r"[\s().-]", "g"), "") },
+          lower: any = lambda (s: any) -> any { s.toLowerCase() };
 
 """One line: controls (and so line breaks) become a space, the ends are trimmed and the length is capped."""
 def cleanLine(value: any, limit: int) -> any {
     if not isinstance(value, str) {
         return "";
     }
-    return sub(
-        sub(value.slice(0, limit * 2), LINE_CONTROLS, " "), rx(" {2,}", "g"), " "
-    ).trim().slice(0, limit).trim();
+    s = sub(sub(value.slice(0, limit * 2), LINE_CONTROLS, " "), rx(" {2,}", "g"), " ");
+    return s.trim().slice(0, limit).trim();
 }
 
 """Text that may span lines: controls other than tab and line breaks are removed, CRLF becomes LF."""
@@ -47,25 +26,21 @@ def cleanText(value: any, limit: int) -> any {
     if not isinstance(value, str) {
         return "";
     }
-    return sub(sub(value.slice(0, limit * 2), rx(r"\r\n?", "g"), "\n"), CONTROLS, "").trim().slice(
-        0, limit
-    ).trim();
+    s = sub(sub(value.slice(0, limit * 2), rx(r"\r\n?", "g"), "\n"), CONTROLS, "");
+    return s.trim().slice(0, limit).trim();
 }
 
 """The valid addresses of a card as stored: lower-cased, de-duplicated, order kept, at most 20."""
 def importedContactEmails(raw: any) -> list[str] {
-    emails: list[str] = [];
+    emails = [];
     for value in raw {
-        if not isinstance(value, str) or value.length > MAX_EMAIL * 2 {
-            continue;
-        }
-        address = cleanLine(value, MAX_EMAIL).toLowerCase();
-        if address.length > MAX_EMAIL or not BARE_ADDRESS.test(address) or address in emails {
-            continue;
-        }
-        emails.append(address);
-        if len(emails) >= MAX_EMAILS {
-            break;
+        fits = isinstance(value, str) and value.length <= MAX_EMAIL * 2;
+        address = cleanLine(value, MAX_EMAIL).toLowerCase() if fits else "";
+        if address.length <= MAX_EMAIL and BARE_ADDRESS.test(address) and address not in emails {
+            emails.append(address);
+            if len(emails) >= 20 {
+                break;
+            }
         }
     }
     return emails;
@@ -73,87 +48,45 @@ def importedContactEmails(raw: any) -> list[str] {
 
 """`YYYY-MM-DD`, or `--MM-DD` without a year; undefined for anything else (including impossible dates)."""
 def normalizeBirthday(value: any = None) -> any {
-    if not isinstance(value, str) {
+    m = BIRTHDAY.exec(value.trim().slice(0, 20)) if isinstance(value, str) else NULL;
+    if not m or not 1 <= globalThis.Number(m[2]) <= 12 or not 1 <= globalThis.Number(m[3]) <= 31 {
         return None;
     }
-    found = rx(r"^(\d{4}|--)-?(\d{2})-?(\d{2})").exec(value.trim().slice(0, 20));
-    if not found {
-        return None;
-    }
-    (month, day) = (globalThis.Number(found[2]), globalThis.Number(found[3]));
-    if month < 1 or month > 12 or day < 1 or day > 31 {
-        return None;
-    }
-    return f"--{found[2]}-{found[3]}" if found[1] == "--" else f"{found[1]}-{found[2]}-{found[3]}";
+    return f"--{m[2]}-{m[3]}" if m[1] == "--" else f"{m[1]}-{m[2]}-{m[3]}";
 }
 
-"""Labelled values of a card (phones, postal addresses): cleaned, counted once per `key_of` its value, capped."""
+# Labelled values (phones, postal addresses): cleaned, counted once per `key_of` their value, capped.
 def:priv labelled(items: any, name: str, width: int, cap: int, key_of: any) -> list[any] {
-    seen: list[str] = [];
-    out: list[any] = [];
-    for item in (items[:cap * 4] if globalThis.Array.isArray(items) else []) {
-        if not is_pair(item) {
-            continue;
-        }
-        value = cleanLine(item[name], width);
+    (seen, out) = ([], []);
+    for item in (items.slice(0, cap * 4) if isArray(items) else []) {
+        value = cleanLine(item[name], width) if is_pair(item) else "";
         key = key_of(value);
-        if not key or key in seen {
-            continue;
-        }
-        seen.append(key);
-        out.append({"type": cleanLine(item["type"], MAX_TYPE), name: value});
-        if len(out) >= cap {
-            break;
+        if key and key not in seen {
+            seen.append(key);
+            out.append({"type": cleanLine(item["type"], 32), name: value});
+            if len(out) >= cap {
+                break;
+            }
         }
     }
     return out;
 }
 
-"""
-The only way details enter or leave the table: unknown keys are dropped, text is cleaned, lengths and counts are
-capped and empty values are removed. Applied to imported data before it is written and to stored JSON before it is
-served.
-
-A future CSV export of contacts must neutralize cells that start with = + - or @ (see csvSafeCell).
-"""
+# The only way details enter or leave the table: unknown keys dropped, text cleaned, lengths and counts
+# capped, empty values removed. A future CSV export must neutralize formula cells (see csvSafeCell).
 def normalizeContactDetails(input: any = None) -> dict[str, any] {
     if not is_pair(input) {
         return {};
     }
-    emails = input["emails"];
-    found: list[tuple[str, any]] = [
-        (
-            "emails",
-            importedContactEmails(emails[:MAX_EMAILS * 4])
-                if globalThis.Array.isArray(emails)
-                else [],
-        ),
-        (
-            "phones",
-            labelled(
-                input["phones"],
-                "value",
-                MAX_PHONE,
-                MAX_PHONES,
-                lambda (v: any) -> str { sub(v, rx(r"[\s().-]", "g"), "") },
-            ),
-        ),
-        (
-            "addresses",
-            labelled(
-                input["addresses"],
-                "formatted",
-                MAX_ADDRESS,
-                MAX_ADDRESSES,
-                lambda (v: any) -> str { v.toLowerCase() },
-            ),
-        ),
-        ("organization", cleanLine(input["organization"], MAX_ORGANIZATION)),
-        ("title", cleanLine(input["title"], MAX_ORGANIZATION)),
-        ("birthday", normalizeBirthday(input["birthday"])),
-        ("note", cleanText(input["note"], MAX_NOTE)),
-    ];
-    return {k: v for (k, v) in found if v};
+    (v, mails) = (input, input["emails"]);
+    line = lambda (k: str) -> any { cleanLine(input[k], 200) };
+    e = importedContactEmails(mails.slice(0, 80)) if isArray(mails) else [];
+    p = labelled(v["phones"], "value", 64, 20, phone_key);
+    a = labelled(v["addresses"], "formatted", 500, 10, lower);
+    found = {"emails": e, "phones": p, "addresses": a, "organization": line("organization")};
+    (found["title"], found["birthday"]) = (line("title"), normalizeBirthday(v["birthday"]));
+    found["note"] = cleanText(v["note"], 4000);
+    return {k: x for (k, x) in found.items() if x};
 }
 
 """The details of one card: its addresses are kept apart, as the contact's own rows."""
@@ -173,66 +106,41 @@ def parseStoredDetails(json: any = None) -> dict[str, any] {
     }
 }
 
-"""
-What the import writes to an existing (or new) contact's name and source. A name you set yourself (source `manual`) is
-kept, and a manual contact stays manual. Any other name is replaced by the imported one and the contact becomes
-`import`, so a later import may update that name again but never one you edited (editing makes it `manual`); an
-`outbound` contact keeps that source (the name rules still apply) so an import never downgrades it. Without an
-imported name the name stays, but an inbound contact on an imported card still becomes `import`.
-`import` is treated like `manual` everywhere a contact counts as known or its name is shown (spam score, agent send
-review, display name). `blocked` and `remoteContentAllowed` are never part of this decision.
-"""
+# An import keeps a `manual` name (and source); any other name is replaced and the source becomes
+# `import`, except that `outbound` stays. Without an imported name the stored one stays, null included.
 def mergeImportedContact(existing: any, importedName: any = None) -> dict[str, any] {
-    name = cleanLine(importedName, MAX_NAME) or NULL;
-    # The stored name is passed on as it is, null included.
+    (name, source) = (cleanLine(importedName, MAX_NAME) or NULL, field(existing, "source"));
     kept = NULL if nil(existing) else existing["displayName"];
-    source = field(existing, "source");
-    if source == "manual" {
-        return {
-            "displayName": kept if kept and kept.trim() else either(name, kept),
-            "source": "manual",
-        };
-    }
-    return {
-        "displayName": either(either(name, kept), NULL),
-        "source": "outbound" if source == "outbound" else "import",
-    };
+    manual = source == "manual";
+    shown = kept if manual and kept and kept.trim() else either(name, kept);
+    shown = shown if manual else either(shown, NULL);
+    kind = source if source in ["manual", "outbound"] else "import";
+    return {"displayName": shown, "source": kind};
 }
 
-"""
-The stored details with one more card's details folded in, for a re-import: addresses, phones and postal addresses
-are united (same normalized value counts once, the stored label wins); organization, title, birthday and note come
-from the card when it has them and stay as stored when it lacks them.
-"""
-def mergeContactDetails(existing: any, incoming: any) -> dict[str, any] {
-    united: dict[str, any] = {
-        k: list(either(field(existing, k), [])) + list(either(field(incoming, k), []))
-        for k in ["emails", "phones", "addresses"]
-    };
+# Re-import: emails, phones and addresses are united (the stored label wins); the other fields come
+# from the card when it has them.
+def mergeContactDetails(old: any, cur: any) -> dict[str, any] {
+    ls = lambda (o: any, k: str) -> any { list(either(field(o, k), [])) };
+    united = {k: ls(old, k) + ls(cur, k) for k in ["emails", "phones", "addresses"]};
     for k in ["organization", "title", "birthday", "note"] {
-        united[k] = either(field(incoming, k), field(existing, k));
+        united[k] = either(field(cur, k), field(old, k));
     }
     return normalizeContactDetails(record(united));
 }
 
 """A stored birthday for display in `locale`: "May 1, 1980", or "May 1" when the year is unknown."""
 def formatBirthday(value: str, locale: any = None) -> str {
-    found = rx(r"^(?:(\d{4})-|--)(\d{2})-(\d{2})$").exec(value);
-    if not found {
+    m = rx(r"^(?:(\d{4})-|--)(\d{2})-(\d{2})$").exec(value);
+    if not m {
         return value;
     }
-    date = new(globalThis.Date, 0);
-    date.setUTCFullYear(
-        globalThis.Number(found[1]) if found[1] else 2000,
-        globalThis.Number(found[2]) - 1,
-        globalThis.Number(found[3]),
-    );
-    options = {"timeZone": "UTC", "month": "long", "day": "numeric"};
-    if found[1] {
-        options["year"] = "numeric";
-    }
+    (date, n) = (new(globalThis.Date, 0), [globalThis.Number(x) for x in m]);
+    date.setUTCFullYear(n[1] if m[1] else 2000, n[2] - 1, n[3]);
+    year = {"year": "numeric"} if m[1] else {};
+    options = merged({"timeZone": "UTC", "month": "long", "day": "numeric"}, year);
     try {
-        return new(globalThis.Intl.DateTimeFormat, locale, record(options)).format(date);
+        return new(globalThis.Intl.DateTimeFormat, locale, options).format(date);
     } except Exception {
         return value;
     }
