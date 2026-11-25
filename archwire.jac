@@ -7,6 +7,8 @@ graph spaces {
 }
 
 graph import {
+    src.lib.jac.host ++> src.lib.drive.content { NULL, either, nil, record, rx }
+    src.lib.drive.utils ++> src.lib.drive.content { driveContentDisposition, driveObjectKey }
     src.lib.jac.host ++> "src/lib/drive/import-utils" { NULL, owns, record, rx, rx_sub, sub }
     src.lib.drive.utils ++> "src/lib/drive/import-utils" { DRIVE_MAX_DEPTH, DRIVE_MAX_NAME_LENGTH, normalizeDriveName }
     src.lib.jac.host ++> "src/lib/domains/cloudflare-cleanup" { either }
@@ -11396,9 +11398,7 @@ graph import {
     src.lib.cloudflare --> src.lib.drive.auth { getEnv }
     src.lib.api.auth --> src.lib.drive.auth { requireSessionUser }
     src.lib.auth.origin --> src.lib.drive.auth { hasValidSessionMutationOrigin }
-    "src/lib/http/content-type" --> src.lib.drive.content { getInlineContentType }
-    src.lib.drive.utils --> src.lib.drive.content { driveContentDisposition, driveObjectKey }
-    "src/lib/drive/types.d" --> src.lib.drive.content { DriveRow }
+    "src/lib/http/content-type" ++> src.lib.drive.content { getInlineContentType }
     src.db.index --> src.app.api.drive.attachments.route { getDb }
     src.db.schema.index --> src.app.api.drive.attachments.route { messageAttachments, messages }
     src.lib.drive.auth --> src.app.api.drive.attachments.route { authorizeDrive }
