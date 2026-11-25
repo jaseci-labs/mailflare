@@ -1,8 +1,8 @@
 # Rows move between Inbox and Promotions only where Promotions is on, for managers, received mail only.
 def canMoveCategory(g: any) -> bool {
+    want = ("full_access", "inbound", "received");
     return g["mode"] in ["show", "separate"]
-        and (g["permission"], g["direction"], g["status"])
-            == ("full_access", "inbound", "received");
+        and (g["permission"], g["direction"], g["status"]) == want;
 }
 
 # Only Inbox and Promotions offer a move, as their list rows do.
@@ -28,21 +28,17 @@ def moveLeavesFolder(folder: str, target: str, mode: any = None) -> bool {
     return folder == "inbox" and target == "promotions" and mode == "separate";
 }
 
-# At most `limit` in flight; results keep input order, a failure never stops the rest, and
-# what JavaScript threw is kept as thrown.
+# At most `limit` in flight, input order kept; a failure, kept as thrown, never stops the rest.
 async def runLimited(items: any, limit: any, worker: any) -> any {
     results: any = new(globalThis.Array, len(items));
     queue = list(range(len(items)));
+    good = lambda (v: any) -> any { record({"ok": True, "value": v}) };
+    bad = lambda (e: any) -> any { record({"ok": False, "error": e}) };
     async def lane {
         while queue {
             i = queue.pop(0);
-            try {
-                v = await globalThis.Promise.resolve(worker(items[i]));
-                results[i] = record({"ok": True, "value": v});
-            } except Exception as e {
-                err: any = e;
-                results[i] = record({"ok": False, "error": getattr(err, "js", err)});
-            }
+            call = new(globalThis.Promise, lambda (ok: any) -> any { ok(worker(items[i])) });
+            results[i] = await call.then(good, bad);
         }
     }
     lanes = record({"length": globalThis.Math.min(limit, len(items))});
@@ -57,21 +53,18 @@ def summarizeMoves(results: any) -> dict[str, any] {
     return {"total": n, "moved": moved, "failed": n - moved, "changed": sum(done)};
 }
 
+# A translation key and its variables, if any.
+def:priv copy(key: str, vars: any = None) -> dict[str, any] {
+    d: dict[str, any] = {"key": f"promotions.{key}"};
+    return d if vars is None else {**d, "vars": vars};
+}
+
 def moveToastCopy(target: str, s: any) -> dict[str, any] {
-    place = "Inbox" if target == "inbox" else "Promotions";
-    if s["moved"] == 0 {
-        return {"key": "promotions.move.failed"};
+    (place, moved, n) = ("Inbox" if target == "inbox" else "Promotions", s["moved"], s["total"]);
+    if moved == 0 or s["failed"] > 0 {
+        return copy("move.partial", {"moved": moved, "total": n}) if moved else copy("move.failed");
     }
-    if s["failed"] > 0 {
-        return {
-            "key": "promotions.move.partial",
-            "vars": {"moved": s["moved"], "total": s["total"]},
-        };
-    }
-    if s["total"] == 1 {
-        return {"key": f"promotions.move.done{place}"};
-    }
-    return {"key": f"promotions.move.doneMany{place}", "vars": {"count": s["total"]}};
+    return copy(f"move.done{place}") if n == 1 else copy(f"move.doneMany{place}", {"count": n});
 }
 
 def canOfferAlways(s: any, senderAddress: any = None) -> bool {
@@ -82,15 +75,9 @@ def canOfferAlways(s: any, senderAddress: any = None) -> bool {
 def senderResultCopy(r: any) -> dict[str, any] {
     (changed, older) = (r["changed"], r["remainingOlder"]);
     if older > 0 {
-        return {
-            "key": "promotions.always.resultOlder",
-            "vars": {"changed": changed, "remaining": older},
-        };
+        return copy("always.resultOlder", {"changed": changed, "remaining": older});
     }
-    if changed > 0 {
-        return {"key": "promotions.always.result", "vars": {"changed": changed}};
-    }
-    return {"key": "promotions.always.nothing"};
+    return copy("always.result", {"changed": changed}) if changed > 0 else copy("always.nothing");
 }
 
 # WCAG 2.2.1: hovering or focusing the toast stops its countdown.
