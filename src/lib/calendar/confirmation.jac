@@ -1,26 +1,22 @@
 # Calendar tools that change or remove existing events; an assistant may only propose these.
 glob CONFIRMED_CALENDAR_TOOLS: any = new(globalThis.Set, ["update_events", "delete_events"]);
-glob:priv ENC: any = new(globalThis.TextEncoder),
-          CHARS: any = globalThis.String.fromCharCode,
-          HMAC: any = record({"name": "HMAC", "hash": "SHA-256"});
+glob:priv ENC: any = new(globalThis.TextEncoder);
 
-# Base64url of the text's UTF-8, built in slices: spreading a large array into one call overflows the stack.
+# Base64url of the UTF-8 of `text` (also of the signature, whose bytes become characters first).
 def:priv encode(text: any) -> any {
-    d = ENC.encode(text);
-    bin = "".join([CHARS.apply(NULL, d.subarray(i, i + 8192)) for i in range(0, d.length, 8192)]);
-    b64 = sub(globalThis.btoa(bin), rx(r"\+", "g"), "-");
-    return sub(sub(b64, rx("/", "g"), "_"), rx("=+$"), "");
+    b64: any = globalThis.btoa("".join([chr(b) for b in ENC.encode(text)]));
+    return sub(b64.replaceAll("+", "-").replaceAll("/", "_"), rx("=+$"), "");
 }
 
-# The signature's bytes as characters, then encoded like the payload.
 async def:priv mac(env: any, payload: str) -> any {
+    (subtle, hmac) = (globalThis.crypto.subtle, record({"name": "HMAC", "hash": "SHA-256"}));
     secret = ENC.encode(f"calendar-confirmation\n{await getServerSecret(env)}");
-    key = await globalThis.crypto.subtle.importKey("raw", secret, HMAC, False, ["sign"]);
-    signed = await globalThis.crypto.subtle.sign("HMAC", key, ENC.encode(payload));
-    return encode(CHARS.apply(NULL, new(globalThis.Uint8Array, signed)));
+    key = await subtle.importKey("raw", secret, hmac, False, ["sign"]);
+    signed = await subtle.sign("HMAC", key, ENC.encode(payload));
+    return encode("".join([chr(b) for b in new(globalThis.Uint8Array, signed)]));
 }
 
-# A token the signed-in user opens in the app to approve exactly this change; the model cannot redeem it.
+# A token the user opens in the app to approve exactly this change; the model cannot redeem it.
 async def createCalendarConfirmation(env: any, uid: any, tool: any, x: any, t: any = None) -> any {
     expiresAt = (globalThis.Date.now() if t is None else t) + 15 * 60000;
     claim = record({"userId": uid, "name": tool, "input": x, "expiresAt": expiresAt});
@@ -28,20 +24,21 @@ async def createCalendarConfirmation(env: any, uid: any, tool: any, x: any, t: a
     return f"{payload}.{await mac(env, payload)}";
 }
 
-async def readCalendarConfirmation(env: any, token: str, userId: str, now: any = None) -> any {
-    cur = globalThis.Date.now() if now is None else now;
-    (payload, signature) = (token.split(".") + [""])[:2];
-    sig = globalThis.String(signature);
-    expected: any = await mac(env, payload) if payload and signature else "";
+async def readCalendarConfirmation(env: any, token: any, userId: str, now: any = None) -> any {
+    (payload, sig) = (token.split(".") + [""])[:2];
+    x: any = await mac(env, payload) if payload and sig else "";
+    bad = not x or x.length != sig.length;
     # Constant time: every character is compared whether or not an earlier one differed.
-    codes = [expected.charCodeAt(i) ^ sig.charCodeAt(i) for i in range(expected.length)];
-    same = expected and expected.length == sig.length and sum(codes) == 0;
+    if bad or sum([x.charCodeAt(i) ^ sig.charCodeAt(i) for i in range(x.length)]) != 0 {
+        return NULL;
+    }
     try {
-        bin = globalThis.atob(sub(sub(payload, rx("-", "g"), "+"), rx("_", "g"), "/"));
-        raw = globalThis.Uint8Array.from(bin, lambda (c: any) -> int { c.charCodeAt(0) });
-        p = globalThis.JSON.parse(new(globalThis.TextDecoder).decode(raw)) if same else NULL;
-        ok = p["userId"] == userId and not p["expiresAt"] < cur;
-        return p if ok and CONFIRMED_CALENDAR_TOOLS.has(p["name"]) else NULL;
+        b = globalThis.atob(payload.replaceAll("-", "+").replaceAll("_", "/"));
+        raw = new(globalThis.Uint8Array, [ord(c) for c in b]);
+        p = globalThis.JSON.parse(new(globalThis.TextDecoder).decode(raw));
+        late = globalThis.Number(p["expiresAt"]) < (globalThis.Date.now() if now is None else now);
+        ok = p["userId"] == userId and not late and CONFIRMED_CALENDAR_TOOLS.has(p["name"]);
+        return p if ok else NULL;
     } except Exception {
         return NULL;
     }
