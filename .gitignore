@@ -66,3 +66,6 @@ mailflare-landing
 skills-lock.json
 /dist/
 /tests/.tmp-*
+/package.json
+/package-lock.json
+/node_modules/
