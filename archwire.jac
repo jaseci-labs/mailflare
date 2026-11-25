@@ -7,10 +7,15 @@ graph spaces {
 }
 
 graph import {
+    "src/lib/import/gmail-takeout-utils" --> "src/lib/import/message-hints-utils" {
+        mapGmailLabels,
+        parseGmailLabels,
+    }
+    "src/lib/import/destination-types.d" --> "src/lib/import/message-hints-utils" {
+        ImportDestination,
+    }
     src.lib.jac.host ++> src.lib.jmap.blobs { NULL, at, either, merged, nil, record, rx }
     src.lib.jac.host ++> src.lib.jmap.access { NULL, at, nil, record }
-    src.lib.jac.host ++> "src/lib/import/imap-utils" { NULL, either, nil, rx, rx_sub }
-    src.lib.jac.host ++> "src/lib/import/message-hints-utils" { at, record, rx, rx_sub }
     src.lib.jac.host ++> src.lib.import.destination { NULL }
     src.lib.jac.host ++> src.lib.import.mbox { rx, rx_sub }
     src.lib.jac.host ++> src.lib.import.staging { owns, record }
@@ -1181,10 +1186,6 @@ graph import {
     "src/lib/import/message-hints-utils" --> "tests/import-message-hints.test" {
         applyImportHints,
         getImportMessageHints,
-    }
-    "src/lib/import/gmail-takeout-utils" ++> "src/lib/import/message-hints-utils" {
-        mapGmailLabels,
-        parseGmailLabels,
     }
     "tests/helpers/real-db" --> "tests/import-reauthorization.test" { loadApp, sharedMailboxSeed }
     "tests/helpers/real-db" --> "tests/jmap-folder-scope.test" { loadApp, sharedMailboxSeed }
