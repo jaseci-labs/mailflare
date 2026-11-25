@@ -7,6 +7,9 @@ graph spaces {
 }
 
 graph import {
+    src.lib.jac.host ++> src.lib.utils { NULL, record, rx, rx_sub }
+    src.lib.jac.host ++> "src/lib/database-errors" { rx }
+    src.lib.jac.host ++> "src/lib/avatar-images" { NULL, at, record }
     src.lib.security.headers --> "next.config" { getSecurityHeaders }
     server.runtime.mailer --> "server/runtime/types.d" { Mailer }
     server.runtime.queue --> "server/runtime/types.d" { InProcessQueue }
