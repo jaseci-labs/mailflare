@@ -7,6 +7,11 @@ graph spaces {
 }
 
 graph import {
+    src.lib.jac.host ++> "src/components/mailbox-selector-utils" { either }
+    src.lib.jac.host ++> "src/components/settings/takeout-calendar-card-utils" { NULL }
+    src.lib.jac.host ++> "src/components/settings/takeout-contacts-card-utils" { dig }
+    src.lib.jac.host ++> "src/components/messages/scheduled-send-utils" { record }
+    src.lib.jac.host ++> "src/components/admin-page-titles" { record }
     src.lib.jac.host ++> "src/components/shortcuts/use-hotkeys-utils" { first }
     src.lib.jac.host ++> "src/components/shortcuts/hotkey-sequence" { NULL }
     src.lib.jac.host ++> "src/components/shortcuts/command-palette-utils" { nil, at, either }
@@ -3904,12 +3909,11 @@ graph import {
         MessageFollowUp,
     }
     "src/lib/i18n/types.d" --> "src/components/follow-ups/follow-up-client-utils" { TranslationKey }
-    src.lib.time.utils --> "src/components/messages/scheduled-send-utils" {
+    src.lib.time.utils ++> "src/components/messages/scheduled-send-utils" {
         formatUserDate,
         getUserTimeZone,
         zonedDateFields,
     }
-    src.lib.i18n.utils --> "src/components/messages/scheduled-send-utils" { Translator }
     src.lib.auth.client --> src.components.compose.utils { authFetch }
     "src/components/compose/types.d" --> src.components.compose.utils {
         ComposeAttachment,
@@ -4270,7 +4274,6 @@ graph import {
     "src/lib/mailboxes/avatar-client-types.d" --> "src/lib/mailboxes/avatar-client" {
         MailboxAvatarChangedDetail,
     }
-    "src/components/mailbox-provider" --> "src/components/mailbox-selector-utils" { MailboxOption }
     "src/components/language-provider" --> "src/components/license-indicator" { useLanguage }
     src.components.ui.button --> "src/components/license-indicator" { Button }
     "src/lib/licenses/types.d" --> "src/components/license-indicator" { LicenseStatus }
@@ -4453,7 +4456,6 @@ graph import {
     src.lib.utils --> "src/components/sidebar-scaffold" { cn }
     "src/components/branding-provider" --> "src/components/sidebar-scaffold" { useBranding }
     "src/components/sidebar-state" --> "src/components/sidebar-scaffold" { useSidebar }
-    "src/lib/i18n/types.d" --> "src/components/admin-page-titles" { TranslationKey }
     src.components.icons --> "src/components/sidebar-aside" { Menu }
     "src/components/sidebar-state" --> "src/components/sidebar-aside" { useSidebar }
     "src/components/language-provider" --> "src/components/sidebar-aside" { useLanguage }
@@ -6366,12 +6368,6 @@ graph import {
         getAttachmentPreviewKind,
     }
     src.components.ui.checkbox --> "src/components/message-attachment-viewer" { Checkbox }
-    "src/app/(dashboard)/inbox/[messageId]/types.d" --> "src/components/message-attachment-viewer-utils" {
-        MessageAttachment,
-    }
-    "src/components/message-attachment-viewer-types.d" --> "src/components/message-attachment-viewer-utils" {
-        AttachmentPreviewKind,
-    }
     src.components.icons --> "src/components/message-attachment-card" { ArrowDownToLine, Play }
     "src/app/(dashboard)/inbox/[messageId]/utils" --> "src/components/message-attachment-card" {
         formatAttachmentSize,
@@ -8583,9 +8579,6 @@ graph import {
         CalendarRunResult,
         TakeoutCalendarCardProps,
     }
-    "src/components/settings/takeout-calendar-card-types.d" --> "src/components/settings/takeout-calendar-card-utils" {
-        CalendarRunResult,
-    }
     src.components.icons --> "src/components/settings/takeout-contacts-card" { Upload }
     "src/components/language-provider" --> "src/components/settings/takeout-contacts-card" {
         useLanguage,
@@ -8654,9 +8647,6 @@ graph import {
         ContactRunOptions,
         ContactRunSettings,
         ContactRunSummary,
-    }
-    "src/components/settings/takeout-contacts-card-types.d" --> "src/components/settings/takeout-contacts-card-utils" {
-        ContactRunResult,
     }
     "src/app/(drive)/drive-upload" --> "src/components/settings/takeout-drive-card" {
         uploadDriveSource,
