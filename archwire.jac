@@ -7,6 +7,7 @@ graph spaces {
 }
 
 graph import {
+    src.lib.jac.host ++> "src/lib/messages/field-store" { at, either, merged, nil }
     src.lib.jac.host ++> "src/lib/search/query-utils" { NULL, at, either, rx, rx_sub }
     src.lib.jac.host ++> "src/lib/tracking/open-tracking-utils" { NULL, at, record, rx, rx_sub }
     src.lib.jac.host ++> "src/lib/compose/compose-utils" { NULL }
