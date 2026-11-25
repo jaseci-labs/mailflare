@@ -1,22 +1,15 @@
-glob:priv BRACKETS: any = rx(r"^<|>$", "g");
-
-# One mailbox parameter plus two variants per ID: at most 81 of D1's 100 parameters.
-glob:priv MAX_THREAD_LOOKUP_IDS: int = 40;
-
-"""RFC 5322 Message-IDs are compared without their angle brackets or surrounding space."""
+# RFC 5322 Message-IDs are compared without their angle brackets or surrounding space.
 def normalizeMessageId(value: any = None) -> any {
-    text: any = either(value, "");
-    bare: any = rx_sub(text.trim(), BRACKETS, "");
+    bare: any = rx_sub(either(value, "").trim(), rx(r"^<|>$", "g"), "");
     return bare.trim() or NULL;
 }
 
-"""Keep the parent, thread root, and newest ancestors within D1's 100 parameter limit."""
+# Parent, thread root and newest ancestors, at most 40: 1 + 2 variants each fits D1's 100 params.
 def selectThreadLookupIds(inReplyTo: any, references: any) -> list[str] {
     ids: list[str] = [];
     newest_first = [references[i] for i in range(len(references) - 1, 0, -1)];
-    root_id = references[0] if len(references) else None;
-    for (n, value) in enumerate([inReplyTo, root_id] + newest_first) {
-        if n >= 2 and len(ids) >= MAX_THREAD_LOOKUP_IDS {
+    for (n, value) in enumerate([inReplyTo, first(references)] + newest_first) {
+        if n >= 2 and len(ids) >= 40 {
             break;
         }
         found = normalizeMessageId(value);
