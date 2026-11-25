@@ -7,6 +7,7 @@ graph spaces {
 }
 
 graph import {
+    src.lib.jac.host ++> src.lib.http.response { NULL, is_object }
     src.lib.jac.host ++> "src/lib/accounts/deletion-utils" { at }
     src.lib.jac.host ++> "src/lib/agent/availability-client" { NULL }
     src.lib.jac.host ++> src.lib.agent.errors { NULL, nil, rx, rx_sub }
@@ -148,7 +149,7 @@ graph import {
     src.lib.jac.host ++> src.lib.spam.analyzers.authentication { at, rx }
     src.lib.spam.weights ++> src.lib.spam.analyzers.authentication { SPAM_WEIGHTS }
     src.lib.spam.analyzers.utils ++> src.lib.spam.analyzers.authentication { findHeader }
-    src.lib.jac.host ++> src.lib.spam.analyzers.utils { either, entries }
+    src.lib.jac.host ++> src.lib.spam.analyzers.utils { either, entries, first }
     src.lib.jac.host ++> "src/lib/spam/domain-utils" { NULL, rx, rx_sub, whole }
     src.lib.spam.analyzers.utils ++> "src/lib/spam/domain-utils" { findHeader }
     src.lib.jac.host ++> "src/lib/spam/lookup-cache" { record }
