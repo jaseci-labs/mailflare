@@ -11,14 +11,14 @@ def formatEmailAddress(address: str, name: str | None = None) -> str {
 }
 
 """`"Maya \"MJ\" Chen" <maya@example.com>` into its name and address; the name is optional."""
-def parseEmailAddressParts(value: str) -> dict[str, any] {
+def parseEmailAddressParts(value: str) -> any {
     trimmed = value.strip();
     found = HEADER.exec(trimmed);
     if not found {
-        return {"name": NULL, "address": trimmed};
+        return record({"name": NULL, "address": trimmed});
     }
     name: str = rx_sub(found[1], UNESCAPE, "$1") if found[1] else (found[2] or "");
-    return {"name": name.strip() or NULL, "address": found[3].strip()};
+    return record({"name": name.strip() or NULL, "address": found[3].strip()});
 }
 
 def getEmailAddress(value: str) -> str {
