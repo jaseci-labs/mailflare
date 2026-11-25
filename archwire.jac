@@ -7,6 +7,13 @@ graph spaces {
 }
 
 graph import {
+    src.lib.jac.host ++> src.lib.messages.actions.token { NULL, at, is_object, nil, record }
+    src.lib.jac.host ++> "src/app/(admin)/deliverability/dmarc-utils" { NULL, merged, num_or }
+    src.lib.jac.host ++> "src/app/(admin)/deliverability/mta-sts-utils" { NULL, dig, rx, sub }
+    src.lib.jac.host ++> "src/app/(admin)/domains/domain-dns-details-utils" { at }
+    src.lib.jac.host ++> "src/app/(calendar)/booking/default-events" { merged, record }
+    src.lib.jac.host ++> "src/app/(dashboard)/inbox/[messageId]/cloud-attachment-utils" { merged, rx, rx_sub, sub }
+    src.lib.jac.host ++> "src/app/(dashboard)/inbox/[messageId]/quote-collapse-utils" { NULL, either, rx }
     src.lib.jac.host ++> "src/lib/accounts/deletion-utils" { at }
     src.lib.jac.host ++> "src/lib/agent/availability-client" { NULL }
     src.lib.jac.host ++> src.lib.agent.errors { NULL, nil, rx, rx_sub }
@@ -3200,10 +3207,6 @@ graph import {
         dayTotal,
         segmentPercents,
     }
-    "src/lib/i18n/types.d" --> "src/app/(admin)/deliverability/dmarc-utils" { TranslationKey }
-    "src/app/(admin)/deliverability/types.d" --> "src/app/(admin)/deliverability/dmarc-utils" {
-        DmarcSeriesDay,
-    }
     "src/components/language-provider" --> "src/app/(admin)/deliverability/DmarcRecordPreviewDialog" {
         useLanguage,
     }
@@ -3323,7 +3326,6 @@ graph import {
         postMtaStsVerified,
         putMtaSts,
     }
-    "src/lib/i18n/types.d" --> "src/app/(admin)/deliverability/mta-sts-utils" { TranslationKey }
     "src/components/language-provider" --> "src/app/(admin)/deliverability/SettingsPanel" {
         useLanguage,
     }
@@ -3614,9 +3616,6 @@ graph import {
     }
     "src/app/(admin)/domains/types.d" --> "src/app/(admin)/domains/DomainItemCard" {
         DomainItemCardProps,
-    }
-    "src/app/(admin)/domains/types.d" --> "src/app/(admin)/domains/domain-dns-details-utils" {
-        DnsRecord,
     }
     "src/components/page-header-utils" --> "src/app/(admin)/domains/page" {
         mobilePrimaryActionClass,
@@ -5196,10 +5195,7 @@ graph import {
     "src/components/language-provider" --> "src/app/(calendar)/booking/booking-list-skeleton" {
         useLanguage,
     }
-    src.lib.folders.colors --> "src/app/(calendar)/booking/default-events" { DEFAULT_FOLDER_COLOR }
-    "src/app/(calendar)/booking/types.d" --> "src/app/(calendar)/booking/default-events" {
-        BookingEvent,
-    }
+    src.lib.folders.colors ++> "src/app/(calendar)/booking/default-events" { DEFAULT_FOLDER_COLOR }
     "src/components/ui/confirm-dialog" --> "src/app/(calendar)/booking/page" { confirmDestructive }
     "src/components/page-header-utils" --> "src/app/(calendar)/booking/page" {
         mobilePrimaryActionClass,
@@ -6905,10 +6901,6 @@ graph import {
     }
     src.lib.auth.client --> "src/components/messages/use-show-full-recipient-addresses-utils" {
         authFetch,
-    }
-    "src/app/(dashboard)/inbox/[messageId]/cloud-attachment-types.d" --> "src/app/(dashboard)/inbox/[messageId]/cloud-attachment-utils" {
-        CloudAttachment,
-        CloudAttachmentExtraction,
     }
     src.lib.auth.client --> "src/components/messages/use-send-view-status" { authFetch }
     "src/lib/messages/detail-cache" --> "src/components/messages/use-send-view-status" {
@@ -12537,10 +12529,7 @@ graph import {
         MessageStateSnapshot,
         UndoMessageActionResponse,
     }
-    "src/lib/security/server-secret" --> src.lib.messages.actions.token { getServerSecret }
-    "src/lib/messages/actions/types.d" --> src.lib.messages.actions.token {
-        MessageUndoTokenPayload,
-    }
+    "src/lib/security/server-secret" ++> src.lib.messages.actions.token { getServerSecret }
     src.db.index --> src.app.api.messages.bulk.route { AppDatabase, getDb }
     src.db.schema.index --> src.app.api.messages.bulk.route { folders, messages }
     src.lib.auth.cookies --> src.app.api.messages.bulk.route { getCurrentUser }
