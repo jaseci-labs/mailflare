@@ -457,7 +457,7 @@ graph import {
         timingSafeEqualText,
         verifyApiKey,
     }
-    src.lib.ids --> "src/lib/api-keys" { newId }
+    src.lib.ids ++> "src/lib/api-keys" { newId }
     src.db.index --> "src/lib/api/key-auth" { getDb }
     src.db.schema.index --> "src/lib/api/key-auth" { apiKeys, mcpKeyMailboxes, users }
     "src/lib/api-keys" --> "src/lib/api/key-auth" { parseScopes }
