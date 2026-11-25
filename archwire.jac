@@ -121,9 +121,8 @@ graph import {
     src.lib.jac.host ++> src.lib.aws.sts { either }
     src.lib.aws.client ++> src.lib.aws.sts { awsQuery }
     src.lib.aws.xml ++> src.lib.aws.sts { xmlTag }
-    src.lib.jac.host ++> src.lib.aws.xml { NULL, rx }
     src.lib.jac.host ++> "src/lib/booking/confirmation-utils" { NULL, at, either, is_object, merged, nil, owns, record, rx, sub }
-    src.lib.jac.host ++> src.lib.aws.xml { NULL, either, first, record, rx, rx_sub }
+    src.lib.jac.host ++> src.lib.aws.xml { NULL, rx }
     src.lib.jac.host ++> "src/lib/booking/confirmation-utils" { NULL, at, either, merged, nil, owns, record, rx }
     src.lib.calendar.utils ++> "src/lib/booking/confirmation-utils" { createCalendarInvitation }
     src.lib.jac.host ++> src.lib.booking.utils { NULL, either, first, is_object, merged, record, rx, sub, whole }
