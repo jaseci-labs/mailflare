@@ -7,6 +7,11 @@ graph spaces {
 }
 
 graph import {
+    src.lib.jac.host ++> "src/lib/compose/compose-utils" { NULL }
+    src.lib.jac.host ++> "src/lib/follow-ups/follow-up-utils" { NULL }
+    src.lib.jac.host ++> src.lib.folders.colors { record }
+    src.lib.jac.host ++> "src/lib/folders/color-keys" { record }
+    src.lib.jac.host ++> "src/lib/messages/drag-utils" { NULL, at }
     src.lib.security.headers --> "next.config" { getSecurityHeaders }
     server.runtime.mailer --> "server/runtime/types.d" { Mailer }
     server.runtime.queue --> "server/runtime/types.d" { InProcessQueue }
@@ -334,7 +339,6 @@ graph import {
     "src/lib/email/recipient-address-types.d" --> "src/lib/email/recipient-address" {
         ParsedRecipientAddress,
     }
-    "src/lib/folders/types.d" --> src.lib.folders.colors { FolderColorOption }
     src.lib.validators --> "src/app/api/settings/password/types.d" { changePasswordSchema }
     src.lib.validators --> "src/app/api/settings/profile/types.d" { updateProfileSchema }
     src.lib.validators --> "src/app/api/settings/recipient-addresses/types.d" {
@@ -4304,7 +4308,6 @@ graph import {
     src.lib.navigation.prefetch --> "src/components/components-nav" { FULL_ROUTE_PREFETCH }
     "src/components/components-nav-utils" --> "src/components/components-nav" { preloadMailboxPage }
     "src/components/components-nav-types.d" --> "src/components/components-nav" { NavLink }
-    "src/lib/messages/drag-types.d" --> "src/lib/messages/drag-utils" { MessageDragPayload }
     src.hooks.utils --> "src/components/components-nav-utils" {
         fetchMessageList,
         getMessageQueryParams,
@@ -5147,8 +5150,6 @@ graph import {
         isIcsAddress,
         joinIcsLines,
     }
-    "src/lib/i18n/types.d" --> "src/lib/folders/color-keys" { TranslationKey }
-    "src/lib/folders/types.d" --> "src/lib/folders/color-keys" { FolderColor }
     src.lib.time.utils --> src.lib.booking.utils {
         dateFromZonedFields,
         isValidTimeZone,
