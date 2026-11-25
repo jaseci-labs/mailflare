@@ -1,29 +1,12 @@
-"""
-Gmail-style search grammar shared by the search box and the API:
-
-  from:maya to:"sam okoro" subject:invoice has:attachment is:unread
-  is:starred after:2026-09-01 before:2026-09-30 "exact phrase" -excluded word
-
-The older `title:` and bare `:unread` / `:read` forms keep working.
-"""
+# Gmail-style search grammar shared by the search box and the API: `from:maya to:"sam okoro"
+# subject:invoice has:attachment is:unread is:starred after:2026-09-01 before:2026-09-30
+# "exact phrase" -excluded word`. The older `title:` and bare `:unread` / `:read` forms keep working.
 glob:priv OPERATOR: any = rx(
               r'(?:^|\s)(from|to|subject|title|has|is|after|before|newer|older|category):(?:"([^"]*)"|(\S+))',
               "gi",
           ),
-          TEXT_FIELDS: dict[str, str] = {
-              "from": "from",
-              "to": "to",
-              "subject": "subject",
-              "title": "subject",
-          },
-          DATE_FIELDS: dict[str, str] = {
-              "after": "after",
-              "newer": "after",
-              "before": "before",
-              "older": "before",
-          },
           # operator -> (value pattern, field, what the field becomes); the first match wins
-          FLAGS: dict[str, list[tuple[str, str, any]]] = {
+          FLAGS: dict[str, list[any]] = {
               "has": [("attachments?", "hasAttachment", True)],
               "is": [
                   ("unread", "read", "unread"),
@@ -35,6 +18,7 @@ glob:priv OPERATOR: any = rx(
                   ("primary|inbox", "category", "primary"),
               ],
           },
+          COLUMNS: any = {"subject": "subject", "from": "from_addr", "to": "{to_addr cc_addr}"},
           DATE: any = rx(r"^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$"),
           TOKEN: str = r'(-?)"([^"]+)"|(-?)(\S+)',
           SPACES: any = rx(r"\s+", "g"),
@@ -49,15 +33,11 @@ def:priv parse_date(value: str, timeZone: any) -> any {
     if not found {
         return None;
     }
-    (year, month, day) = (
-        globalThis.Number(found[1]),
-        globalThis.Number(found[2]) - 1,
-        globalThis.Number(found[3]),
-    );
+    (year, month, day) = [globalThis.Number(found[i]) for i in [1, 2, 3]];
     date = new(globalThis.Date, 0);
-    date.setUTCFullYear(year, month, day);
+    date.setUTCFullYear(year, month - 1, day);
     # 2026-02-31 rolls over into March: not a date.
-    if date.getUTCFullYear() != year or date.getUTCMonth() != month or date.getUTCDate() != day {
+    if [date.getUTCFullYear(), date.getUTCMonth() + 1, date.getUTCDate()] != [year, month, day] {
         return None;
     }
     return dateFromZonedFields(date, normalizeTimeZone(timeZone));
@@ -70,13 +50,11 @@ def parseSearchQuery(raw: any, timeZone: any = None) -> dict[str, any] {
     def operator(found: str, key: str, quoted: any = None, bare: any = None, *more: any) -> str {
         value: str = either(quoted, either(bare, "")).trim();
         name = key.lower();
-        if name in TEXT_FIELDS {
-            parsed[TEXT_FIELDS[name]] = value;
-        } elif name in DATE_FIELDS {
-            date = parse_date(value, zone);
-            if date {
-                parsed[DATE_FIELDS[name]] = date;
-            }
+        field = {"title": "subject", "newer": "after", "older": "before"}.get(name, name);
+        if field in ["after", "before"] {
+            parsed[field] = either(parse_date(value, zone), parsed.get(field));
+        } elif field in ["from", "to", "subject"] {
+            parsed[field] = value;
         } else {
             for (pattern, field, becomes) in FLAGS[name] {
                 if rx(f"^(?:{pattern})$", "i").test(value) {
@@ -105,29 +83,23 @@ def parseSearchQuery(raw: any, timeZone: any = None) -> dict[str, any] {
     return parsed;
 }
 
-"""Split free text into phrases ("..."), negations (-word) and plain terms."""
+# Split free text into phrases ("..."), negations (-word) and plain terms.
 def tokenizeSearchText(text: any) -> list[dict[str, any]] {
     tokens: list[dict[str, any]] = [];
     for found in globalThis.Array.from(globalThis.String(text).matchAll(rx(TOKEN, "g"))) {
         phrase = found[2] is not None;
         term: str = found[2].trim() if phrase else found[4].lstrip("-").trim();
         if term {
-            tokens.append({
-                "term": term,
-                "negate": found[1 if phrase else 3] == "-",
-                "phrase": phrase,
-            });
+            negate = found[1 if phrase else 3] == "-";
+            tokens.append({"term": term, "negate": negate, "phrase": phrase});
         }
     }
     return tokens;
 }
 
-"""
-One term, as an FTS5 string literal: double quotes doubled, so user input can never alter the
-query grammar. Phrases match whole words; plain terms match by prefix so "inv" finds "invoice".
-Punctuation FTS5 treats as separators is normalised to spaces first, so "maya@acme.test"
-becomes the phrase "maya acme test".
-"""
+# One term as an FTS5 string literal (quotes doubled, so input never alters the grammar). Phrases
+# match whole words, plain terms by prefix ("inv" finds "invoice"); punctuation FTS5 splits on
+# becomes spaces first, so "maya@acme.test" is the phrase "maya acme test".
 def:priv fts_term(token: dict[str, any]) -> str {
     cleaned = squeezed(rx_sub(token["term"], FTS_SEPARATORS, " "));
     if not cleaned {
@@ -139,27 +111,17 @@ def:priv fts_term(token: dict[str, any]) -> str {
     return literal if token["phrase"] or " " in cleaned else f"{literal}*";
 }
 
-"""
-Build the FTS5 expressions for a search. Column filters restrict a term to one column; free
-text is ANDed across the whole row. `match` holds the positive terms (with any negations folded
-in as FTS5's binary NOT) and `exclude` holds negations when there is no positive term, because
-FTS5 has no unary NOT and a MATCH made only of negations is a syntax error: callers select
-every row except those matching `exclude`. Both are null when there is nothing to match, so
-callers skip the index entirely.
-"""
+# FTS5 expressions for a search: column filters restrict a term to one column, free text is ANDed
+# across the row. `match` holds the positive terms (negations folded in as binary NOT); `exclude`
+# holds negations when no term is positive, since FTS5 has no unary NOT: callers select every row
+# except those matching it. Both are null when there is nothing to match.
 def buildFtsMatch(parsed: any) -> dict[str, any] {
     terms = [(token["negate"], fts_term(token)) for token in tokenizeSearchText(parsed["text"])];
     positives = [expr for (negate, expr) in terms if expr and not negate];
     negatives = [expr for (negate, expr) in terms if expr and negate];
-    for (column, field) in [
-        ("subject", "subject"),
-        ("from_addr", "from"),
-        ("{to_addr cc_addr}", "to"),
-    ] {
-        value = at(parsed, field);
-        within = [expr for token in tokenizeSearchText(value) if (expr := fts_term(token))]
-            if value
-            else [];
+    for (field, column) in COLUMNS.items() {
+        value = at(parsed, field) or "";
+        within = [expr for token in tokenizeSearchText(value) if (expr := fts_term(token))];
         if within {
             positives.append(f"{column} : ({' AND '.join(within)})");
         }
