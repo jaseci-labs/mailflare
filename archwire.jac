@@ -41,6 +41,25 @@ graph import {
     src.lib.jac.host ++> "src/lib/jmap/changes-utils" { NULL }
     src.lib.jac.host ++> src.lib.jmap.ids { NULL }
     src.lib.jac.host ++> "src/lib/jmap/email-import-utils" { NULL, entries }
+    src.lib.jac.host ++> src.lib.spam.analyzers.authentication { at, rx }
+    src.lib.email.parse --> src.lib.spam.analyzers.urls { ParsedEmail }
+    "src/lib/spam/types.d" --> src.lib.spam.analyzers.urls { PreparedSpamContent, SpamSignal }
+    src.lib.jac.host ++> src.lib.spam.analyzers.structure { at, rx }
+    src.lib.jac.host ++> src.lib.spam.analyzers.solicitation { at, rx, rx_sub }
+    src.lib.spam.tokenizer ++> src.lib.spam.analyzers.solicitation { getDomain }
+    src.lib.jac.host ++> src.lib.spam.tokenizer { at, either, rx, rx_sub }
+    src.lib.jac.host ++> src.lib.spam.analyzers.reputation { at }
+    src.lib.jac.host ++> src.lib.spam.analyzers.impersonation { either, rx, rx_sub }
+    src.lib.spam.tokenizer ++> src.lib.spam.analyzers.impersonation { getDomain }
+    src.lib.jac.host ++> "src/lib/deliverability/daily-utils" { NULL, nil, owns, record, merged }
+    src.lib.jac.host ++> "src/lib/deliverability/dmarc-record" { either, rx, rx_sub }
+    src.lib.jac.host ++> src.lib.deliverability.dsn { NULL, nil, either, rx, rx_sub }
+    src.lib.jac.host ++> "src/lib/deliverability/mta-sts" { NULL, record, merged, rx, rx_sub }
+    src.lib.jac.host ++> "src/lib/deliverability/org-domain" { NULL, nil, record, rx, rx_sub }
+    src.lib.jac.host ++> src.lib.spam.weights { record }
+    src.lib.jac.host ++> src.lib.spam.analyzers.utils { either, entries }
+    src.lib.jac.host ++> "src/lib/spam/lookup-cache" { record }
+    src.lib.jac.host ++> "src/lib/spam/domain-utils" { NULL, rx, rx_sub }
     src.lib.security.headers --> "next.config" { getSecurityHeaders }
     server.runtime.mailer --> "server/runtime/types.d" { Mailer }
     server.runtime.queue --> "server/runtime/types.d" { InProcessQueue }
@@ -358,7 +377,7 @@ graph import {
     }
     "src/lib/dns-query" --> "src/lib/remote-images/fetch" { queryDns }
     "src/lib/spam/domain-utils" --> "src/lib/remote-images/fetch" { isPublicIpv4 }
-    src.lib.spam.analyzers.utils --> "src/lib/spam/domain-utils" { findHeader }
+    src.lib.spam.analyzers.utils ++> "src/lib/spam/domain-utils" { findHeader }
     src.lib.utils --> "src/lib/email/recipient-address" { parseAddress }
     "src/lib/email/recipient-address-types.d" --> "src/lib/email/recipient-address" {
         ParsedRecipientAddress,
@@ -1179,8 +1198,6 @@ graph import {
     src.lib.email.unsubscribe --> "tests/html-scan-bounds.test" { extractUnsubscribeLinkFromBody }
     src.lib.spam.analyzers.urls --> "tests/html-scan-bounds.test" { analyzeUrls }
     "src/lib/email/unsubscribe-types.d" --> src.lib.email.unsubscribe { UnsubscribeUrl }
-    src.lib.email.parse --> src.lib.spam.analyzers.urls { ParsedEmail }
-    "src/lib/spam/types.d" --> src.lib.spam.analyzers.urls { PreparedSpamContent, SpamSignal }
     "src/lib/import/imap-utils" --> "tests/imap-chunk-size.test" {
         getImapChunkSize,
         growImapChunkSize,
@@ -1621,7 +1638,7 @@ graph import {
         rowKey,
         tlsRowKey,
     }
-    src.lib.email.address --> "src/lib/deliverability/org-domain" { getEmailAddressList }
+    src.lib.email.address ++> "src/lib/deliverability/org-domain" { getEmailAddressList }
     "src/lib/dns-query" --> "src/lib/deliverability/report-parse" { reverseName }
     "src/lib/import/zip-utils" --> "src/lib/deliverability/report-parse" {
         listZipEntries,
@@ -1912,12 +1929,8 @@ graph import {
     "src/lib/email/inbound-notification" --> src.lib.email.inbound { buildNewMessageNotification }
     "src/lib/email/provider-trace" --> src.lib.email.inbound { readHeaderMap }
     src.lib.promotions.classify --> src.lib.email.inbound { classifyInboundCategory }
-    "src/lib/spam/types.d" --> src.lib.spam.analyzers.authentication {
-        ProviderVerdicts,
-        SpamSignal,
-    }
-    src.lib.spam.weights --> src.lib.spam.analyzers.authentication { SPAM_WEIGHTS }
-    src.lib.spam.analyzers.utils --> src.lib.spam.analyzers.authentication { findHeader }
+    src.lib.spam.weights ++> src.lib.spam.analyzers.authentication { SPAM_WEIGHTS }
+    src.lib.spam.analyzers.utils ++> src.lib.spam.analyzers.authentication { findHeader }
     src.db.index --> src.lib.email.routing { AppDatabase }
     src.db.schema.index --> src.lib.email.routing {
         domains,
@@ -1985,42 +1998,26 @@ graph import {
         SPAM_WEIGHTS,
     }
     src.lib.spam.providers.local --> src.lib.spam.engine { LocalSpamIntelligenceProvider }
-    src.lib.email.address --> src.lib.spam.analyzers.impersonation {
-        getEmailAddress,
-        parseEmailAddressParts,
-    }
-    "src/lib/spam/domain-utils" --> src.lib.spam.analyzers.impersonation {
+    src.lib.email.address ++> src.lib.spam.analyzers.impersonation { parseEmailAddressParts }
+    "src/lib/spam/domain-utils" ++> src.lib.spam.analyzers.impersonation {
         domainOwnerLabel,
         isLookalikeDomain,
         registrableDomain,
     }
-    "src/lib/spam/types.d" --> src.lib.spam.analyzers.impersonation { SpamBrand, SpamSignal }
-    src.lib.spam.weights --> src.lib.spam.analyzers.impersonation { SPAM_WEIGHTS }
-    src.lib.email.address --> src.lib.spam.analyzers.reputation { getEmailAddress }
-    src.lib.email.parse --> src.lib.spam.analyzers.reputation { ParsedEmail }
-    src.lib.spam.tokenizer --> src.lib.spam.analyzers.reputation { getDomain }
-    src.lib.email.address --> src.lib.spam.tokenizer { getEmailAddress }
-    "src/lib/email/reply-content-utils" --> src.lib.spam.tokenizer { htmlToReadableText }
-    src.lib.email.parse --> src.lib.spam.tokenizer { ParsedEmail }
-    "src/lib/spam/types.d" --> src.lib.spam.tokenizer { PreparedSpamContent }
-    src.lib.spam.weights --> src.lib.spam.tokenizer { MAX_CANDIDATE_TOKENS }
-    src.lib.email.address --> src.lib.spam.analyzers.solicitation { getEmailAddress }
-    src.lib.email.parse --> src.lib.spam.analyzers.solicitation { ParsedEmail }
-    "src/lib/spam/domain-utils" --> src.lib.spam.analyzers.solicitation { registrableDomain }
-    "src/lib/spam/types.d" --> src.lib.spam.analyzers.solicitation {
-        PreparedSpamContent,
-        SpamSignal,
-    }
-    src.lib.spam.weights --> src.lib.spam.analyzers.solicitation { SPAM_WEIGHTS }
-    src.lib.email.parse --> src.lib.spam.analyzers.structure { ParsedEmail }
-    "src/lib/spam/types.d" --> src.lib.spam.analyzers.structure { PreparedSpamContent, SpamSignal }
-    src.lib.spam.tokenizer --> src.lib.spam.analyzers.structure { getDomain }
-    src.lib.spam.analyzers.utils --> src.lib.spam.analyzers.structure { findHeader }
+    src.lib.spam.weights ++> src.lib.spam.analyzers.impersonation { SPAM_WEIGHTS }
+    src.lib.email.address ++> src.lib.spam.analyzers.reputation { getEmailAddress }
+    src.lib.spam.tokenizer ++> src.lib.spam.analyzers.reputation { getDomain }
+    src.lib.email.address ++> src.lib.spam.tokenizer { getEmailAddress }
+    "src/lib/email/reply-content-utils" ++> src.lib.spam.tokenizer { htmlToReadableText }
+    src.lib.spam.weights ++> src.lib.spam.tokenizer { MAX_CANDIDATE_TOKENS }
+    "src/lib/spam/domain-utils" ++> src.lib.spam.analyzers.solicitation { registrableDomain }
+    src.lib.spam.weights ++> src.lib.spam.analyzers.solicitation { SPAM_WEIGHTS }
+    src.lib.spam.tokenizer ++> src.lib.spam.analyzers.structure { getDomain }
+    src.lib.spam.analyzers.utils ++> src.lib.spam.analyzers.structure { findHeader }
     src.db.index --> src.lib.spam.classifier { AppDatabase }
     src.db.schema.index --> src.lib.spam.classifier { spamFeedback, spamTokenStats }
     "src/lib/spam/types.d" --> src.lib.spam.classifier { BayesianResult }
     src.lib.spam.weights --> src.lib.spam.classifier { MAX_BAYESIAN_TOKENS, SPAM_WEIGHTS }
-    "src/lib/spam/types.d" --> src.lib.spam.providers.local { SpamIntelligenceProvider, SpamSignal }
     "src/lib/dns-query" --> src.lib.spam.providers.external { queryDns }
     "src/lib/security/public-url" --> src.lib.spam.providers.external { isPublicHttpsUrl }
     "src/lib/spam/domain-utils" --> src.lib.spam.providers.external { registrableDomain }
