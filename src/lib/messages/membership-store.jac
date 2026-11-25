@@ -20,9 +20,23 @@ glob:priv TOMBSTONE_TTL_MS: int = 2 * 60000,
           # removed rows: {key, row, removedIds, index, offset, expiresAt}
           tombstones: list[dict[str, any]] = [];
 
-# `o.k` of a JavaScript object or a Jac dict.
+# `o.k` of a JavaScript object: every record here comes from JavaScript callers.
 def:priv get(o: any, k: str) -> any {
-    return o.get(k) if isinstance(o, dict) else globalThis.Reflect.get(o, k);
+    return globalThis.Reflect.get(o, k);
+}
+
+# JavaScript's `!x`, without handing `x` to JavaScript (which would copy an array).
+def:priv falsy(x: any) -> bool {
+    if nil(x) or x is False {
+        return True;
+    }
+    if isinstance(x, str) {
+        return x == "";
+    }
+    if isinstance(x, int) or isinstance(x, float) {
+        return x == 0 or x != x;
+    }
+    return False;
 }
 
 # JavaScript's `xs?.length` of an array or nothing.
@@ -131,7 +145,7 @@ def:priv cap_insertion_ordered(known: any, limit: int) {
 }
 
 # List and thread ingress keep the fields an optimistic target needs.
-def rememberMembershipRows(rows: any) {
+def:priv remember_rows(rows: any) {
     for row in rows {
         compact = compact_row(row);
         id = get(row, "id");
@@ -464,10 +478,8 @@ def:priv matches(row: any, patch: dict[str, any], context: any, now: any) -> boo
     return bool(messageMatchesFolder(state, folder, get(context, "folderId"), now));
 }
 
+# (`context` is a list's; a list without one keeps its rows.)
 def:priv filter_pending_row(row: any, context: any, now: any) -> any {
-    if not context {
-        return row;
-    }
     members = get(row, "threadMessageIds");
     if size(members) == 0 {
         patch = getVisibleMembership(get(row, "id"));
@@ -495,22 +507,23 @@ def:priv filter_pending_row(row: any, context: any, now: any) -> any {
 # The membership-adjusted view of a raw list response. The cache keeps the server totals, so
 # repeated ingress is idempotent: hidden rows are counted from the rows present, and restored
 # rows are only added when missing.
-def applyMembershipToList(response: any, key: any, now: any = None) -> any {
+def:priv apply_membership(response: any, key: any, now: any = None) -> any {
     source = get(response, "messages");
-    if not globalThis.Boolean(source) {
+    if falsy(source) {
         return response;
     }
     time = globalThis.Date.now() if now is None else now;
     context = getListMembershipContext(key);
+    filtering = not falsy(context);
     messages: list[any] = [];
     hidden = 0;
     changed = False;
     for row in source {
-        filtered = filter_pending_row(row, context, time);
+        filtered = filter_pending_row(row, context, time) if filtering else row;
         if filtered is not row {
             changed = True;
         }
-        if filtered {
+        if not falsy(filtered) {
             messages.append(filtered);
         } else {
             hidden += 1;
@@ -595,3 +608,8 @@ def clearMembershipForTests {
     clearMembershipState();
     listeners.clear();
 }
+
+# The entry points of every list render, as function values: JavaScript calls them as they are,
+# without a `def`'s conversion of each argument and result at the boundary.
+glob applyMembershipToList: any = lambda (response: any, key: any, now: any = None) -> any { apply_membership(response, key, now) },
+     rememberMembershipRows: any = lambda (rows: any) -> any { remember_rows(rows) };

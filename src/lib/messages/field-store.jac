@@ -20,9 +20,9 @@ glob:priv listeners: any = new(globalThis.Set),
           layer_messages: dict[any, dict[any, dict[str, any]]] = {},
           layer_threads: dict[any, dict[any, any]] = {};
 
-# `o.k` of a JavaScript object or a Jac dict.
+# `o.k` of a JavaScript object: every record here comes from JavaScript callers.
 def:priv get(o: any, k: str) -> any {
-    return o.get(k) if isinstance(o, dict) else globalThis.Reflect.get(o, k);
+    return globalThis.Reflect.get(o, k);
 }
 
 # JavaScript's `xs?.length` of an array or nothing.
@@ -109,7 +109,7 @@ def forgetMessageFields(messageIds: any, fields: any) {
     }
 }
 
-def rememberMessageRows(rows: any) {
+def:priv remember_rows(rows: any) {
     for row in rows {
         id = get(row, "id");
         members = get(row, "threadMessageIds");
@@ -294,14 +294,18 @@ def getKnownThreadUnread(rowId: any) -> any {
 
 # Applies every active owner's overlay; later owners win field by field. A row no overlay changed
 # comes back as itself.
-def applyPendingToMessage(message: any) -> any {
+def:priv apply_pending(message: any) -> any {
+    if len(layer_messages) == 0 {
+        if nil(message) {
+            # Reading a property of a missing message throws, as it does in JavaScript.
+            get(message, "read");
+        }
+        return message;
+    }
     id = get(message, "id");
     read0 = get(message, "read");
     starred0 = get(message, "starred");
     unread0 = get(message, "threadUnread");
-    if len(layer_messages) == 0 {
-        return message;
-    }
     read = read0;
     starred = starred0;
     threadUnread = unread0;
@@ -353,11 +357,11 @@ def applyPendingToMessage(message: any) -> any {
     return out;
 }
 
-def applyPendingToMessages(messages: any) -> any {
+def:priv apply_pending_rows(messages: any) -> any {
     changed = False;
     out: list[any] = [];
     for message in messages {
-        applied = applyPendingToMessage(message);
+        applied = apply_pending(message);
         if applied is not message {
             changed = True;
         }
@@ -366,12 +370,12 @@ def applyPendingToMessages(messages: any) -> any {
     return out if changed else messages;
 }
 
-def applyPendingToMessageList(response: any) -> any {
+def:priv apply_pending_list(response: any) -> any {
     rows = get(response, "messages");
     if size(rows) == 0 {
         return response;
     }
-    messages = applyPendingToMessages(rows);
+    messages = apply_pending_rows(rows);
     if messages is rows {
         return response;
     }
@@ -519,3 +523,10 @@ def clearKnownMessageFieldsForTests {
     layer_messages.clear();
     layer_threads.clear();
 }
+
+# The entry points of every list render, as function values: JavaScript calls them as they are,
+# without a `def`'s conversion of each argument and result at the boundary.
+glob applyPendingToMessage: any = lambda (message: any) -> any { apply_pending(message) },
+     applyPendingToMessages: any = lambda (messages: any) -> any { apply_pending_rows(messages) },
+     applyPendingToMessageList: any = lambda (response: any) -> any { apply_pending_list(response) },
+     rememberMessageRows: any = lambda (rows: any) -> any { remember_rows(rows) };

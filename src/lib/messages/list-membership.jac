@@ -55,8 +55,12 @@ def messageMatchesFolder(state: any, folder: str, folderId: any = None, now: any
     return status == folder;
 }
 
-# `search.get(k)` with the `get` read once, as JavaScript calls it on whatever `search` is.
+# `search.get(k)`: URLSearchParams' own `get` for the parameters made here from a string, else
+# the `get` read once from whatever `search` is, as JavaScript calls it.
 def:priv param(read: any, search: any, k: str) -> any {
+    if read is None {
+        return globalThis.URLSearchParams.prototype.get.call(search, k);
+    }
     return globalThis.Function.prototype.call.call(read, search, k);
 }
 
@@ -69,8 +73,13 @@ def:priv folder_of(folder: str) -> any {
 # Reads the list identity back from the request key, so cache ingress can apply membership
 # without the hook passing folder/folderId through every call.
 def getListMembershipContext(params: any) -> any {
-    search: any = new(globalThis.URLSearchParams, params) if isinstance(params, str) else params;
-    read: any = globalThis.Reflect.get(search, "get");
+    search: any = params;
+    read: any = None;
+    if isinstance(params, str) {
+        search = new(globalThis.URLSearchParams, params);
+    } else {
+        read = globalThis.Reflect.get(search, "get");
+    }
     folderId = param(read, search, "folderId");
     if folderId {
         out: any = folder_of("inbox");
