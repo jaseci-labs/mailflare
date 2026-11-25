@@ -102,7 +102,7 @@ graph import {
     src.lib.jac.host ++> "src/lib/folders/color-keys" { record }
     src.lib.jac.host ++> src.lib.folders.colors { record }
     src.lib.jac.host ++> "src/lib/follow-ups/follow-up-utils" { NULL }
-    src.lib.jac.host ++> src.lib.http.request { NULL, at, either, record }
+    src.lib.jac.host ++> src.lib.http.request { NULL, at, either, is_object, record }
     src.lib.http.errors ++> src.lib.http.request { RequestBodyTooLargeError }
     src.lib.jac.host ++> src.lib.import.destination { NULL }
     src.lib.jac.host ++> src.lib.import.mbox { rx, rx_sub }
