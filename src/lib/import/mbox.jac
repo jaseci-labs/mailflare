@@ -37,12 +37,25 @@ def splitMboxBytes(buffer: any) -> list[any] {
     for index in range(0, data.length, 0x2000) {
         content += globalThis.String.fromCharCode.apply(None, data.subarray(index, index + 0x2000));
     }
-    def packed(message: any) -> any {
-        out = new(globalThis.Uint8Array, message.length);
-        for index in range(message.length) {
-            out[index] = message.charCodeAt(index);
-        }
-        return out.buffer;
+    return [latin1_bytes(message) for message in splitMboxMessages(content)];
+}
+
+glob:priv EIGHT_BIT: any = rx(r"[\u0080-\u00ff]"),
+          ENCODER: any = new(globalThis.TextEncoder);
+
+"""A Latin-1 string's bytes, one per char. Without 8-bit chars they are its UTF-8, which the
+encoder writes in one call; otherwise char by char."""
+def:priv latin1_bytes(message: any) -> any {
+    if not EIGHT_BIT.test(message) {
+        encoded = ENCODER.encode(message);
+        return encoded.buffer if encoded.byteLength == encoded.buffer.byteLength else encoded.slice().buffer;
     }
-    return [packed(message) for message in splitMboxMessages(content)];
+    size: int = message.length;
+    out = new(globalThis.Uint8Array, size);
+    index = 0;
+    while index < size {
+        globalThis.Reflect.set(out, index, globalThis.String.prototype.charCodeAt.call(message, index));
+        index += 1;
+    }
+    return out.buffer;
 }
