@@ -103,6 +103,12 @@ graph import {
     src.lib.jac.host ++> "src/lib/jmap/changes-utils" { NULL }
     src.lib.jac.host ++> src.lib.jmap.ids { NULL }
     src.lib.jac.host ++> "src/lib/jmap/email-import-utils" { NULL, entries }
+    src.lib.jac.host ++> src.lib.spam.settings { NULL, at, either, rx }
+    src.lib.jac.host ++> src.lib.spam.classifier { at }
+    src.lib.jac.host ++> "src/lib/deliverability/tls-stats" { NULL, at }
+    src.lib.jac.host ++> "src/lib/deliverability/dmarc-stats" { NULL, at }
+    src.lib.jac.host ++> "src/lib/deliverability/suppression-admin" { NULL, at, either }
+    src.lib.jac.host ++> src.lib.deliverability.suppression { NULL, at, either, merged, nil, rx }
     src.lib.jac.host ++> "src/lib/deliverability/report-address" { NULL }
     src.lib.jac.host ++> "src/lib/deliverability/report-parse" { NULL, at, either, record, rx, rx_sub }
     src.lib.jac.host ++> "src/lib/deliverability/suppression-utils" { NULL, at, either, nil, rx }
@@ -1013,28 +1019,18 @@ graph import {
         parseUndoSendSeconds,
     }
     "src/lib/compose/types.d" --> src.lib.compose.preferences { ComposePreferences }
-    src.db.index --> src.lib.deliverability.suppression { getDb }
-    src.db.schema.index --> src.lib.deliverability.suppression {
+    src.db.index ++> src.lib.deliverability.suppression { getDb }
+    src.db.schema.index ++> src.lib.deliverability.suppression {
         appSettings,
         domains,
         emailSuppressions,
         messages,
     }
-    src.lib.email.address --> src.lib.deliverability.suppression { getEmailAddressList }
-    src.lib.ids --> src.lib.deliverability.suppression { newId }
-    src.lib.email.sender --> src.lib.deliverability.suppression { getAuthorizedSenderAddress }
-    src.lib.deliverability.dsn --> src.lib.deliverability.suppression { parseDeliveryStatus }
-    "src/lib/deliverability/suppression-utils" --> src.lib.deliverability.suppression {
-        MAX_SUPPRESSION_DETAIL,
-        SuppressedRecipientError,
-        SuppressionEntry,
-        SuppressionMode,
-        SuppressionReason,
-        SuppressionSource,
-        addressDomain,
-        cleanAddress,
-        filterSuppressed,
-    }
+    src.lib.email.address ++> src.lib.deliverability.suppression { getEmailAddressList }
+    src.lib.ids ++> src.lib.deliverability.suppression { newId }
+    src.lib.email.sender ++> src.lib.deliverability.suppression { getAuthorizedSenderAddress }
+    src.lib.deliverability.dsn ++> src.lib.deliverability.suppression { parseDeliveryStatus }
+    "src/lib/deliverability/suppression-utils" ++> src.lib.deliverability.suppression { MAX_SUPPRESSION_DETAIL, SuppressedRecipientError, addressDomain, cleanAddress, filterSuppressed }
     src.lib.email.address ++> "src/lib/deliverability/suppression-utils" {
         getEmailAddress,
         normalizeEmailAddress,
@@ -1648,9 +1644,8 @@ graph import {
         DatabaseBackupTable,
     }
     src.db.introspect --> "src/lib/search/index-admin" { dialectOf }
-    src.db.index --> src.lib.spam.repository { getDb }
-    src.db.schema.index --> src.lib.spam.repository { spamReputation }
-    "src/lib/spam/types.d" --> src.lib.spam.repository { ReputationKey }
+    src.db.index ++> src.lib.spam.repository { getDb }
+    src.db.schema.index ++> src.lib.spam.repository { spamReputation }
     src.db.index --> src.lib.promotions.subscriptions { getDb }
     src.db.schema.index --> src.lib.promotions.subscriptions { mailboxSenderPreferences, messages }
     src.lib.ids --> src.lib.promotions.subscriptions { newId }
@@ -1840,19 +1835,15 @@ graph import {
         sendThroughProvider,
     }
     "src/lib/email/system-mail-types.d" --> "src/lib/email/system-mail" { SystemMailInput }
-    src.db.index --> "src/lib/deliverability/dmarc-stats" { getDb }
-    src.db.schema.index --> "src/lib/deliverability/dmarc-stats" {
+    src.db.index ++> "src/lib/deliverability/dmarc-stats" { getDb }
+    src.db.schema.index ++> "src/lib/deliverability/dmarc-stats" {
         deliverabilityReports,
         dmarcDailyStats,
     }
-    src.db.index --> "src/lib/deliverability/tls-stats" { getDb }
-    src.db.schema.index --> "src/lib/deliverability/tls-stats" {
+    src.db.index ++> "src/lib/deliverability/tls-stats" { getDb }
+    src.db.schema.index ++> "src/lib/deliverability/tls-stats" {
         deliverabilityReports,
         tlsDailyStats,
-    }
-    "src/lib/deliverability/dmarc-stats" --> "src/lib/deliverability/tls-stats" {
-        DmarcDays,
-        DmarcRecentReport,
     }
     src.db.index --> "src/lib/deliverability/mta-sts-guard" { getDb }
     src.db.schema.index --> "src/lib/deliverability/mta-sts-guard" { domainDeliverability, domains }
@@ -2111,10 +2102,8 @@ graph import {
     src.lib.spam.weights ++> src.lib.spam.analyzers.solicitation { SPAM_WEIGHTS }
     src.lib.spam.tokenizer ++> src.lib.spam.analyzers.structure { getDomain }
     src.lib.spam.analyzers.utils ++> src.lib.spam.analyzers.structure { findHeader }
-    src.db.index --> src.lib.spam.classifier { AppDatabase }
-    src.db.schema.index --> src.lib.spam.classifier { spamFeedback, spamTokenStats }
-    "src/lib/spam/types.d" --> src.lib.spam.classifier { BayesianResult }
-    src.lib.spam.weights --> src.lib.spam.classifier { MAX_BAYESIAN_TOKENS, SPAM_WEIGHTS }
+    src.db.schema.index ++> src.lib.spam.classifier { spamFeedback, spamTokenStats }
+    src.lib.spam.weights ++> src.lib.spam.classifier { MAX_BAYESIAN_TOKENS, SPAM_WEIGHTS }
     "src/lib/dns-query" --> src.lib.spam.providers.external { queryDns }
     "src/lib/security/public-url" --> src.lib.spam.providers.external { isPublicHttpsUrl }
     "src/lib/spam/domain-utils" --> src.lib.spam.providers.external { registrableDomain }
@@ -2126,14 +2115,9 @@ graph import {
         SpamSignal,
     }
     src.lib.spam.weights --> src.lib.spam.providers.external { SPAM_WEIGHTS }
-    src.db.index --> src.lib.spam.settings { getDb }
-    src.db.schema.index --> src.lib.spam.settings { appSettings }
-    "src/lib/dns-query" --> src.lib.spam.settings { queryDns }
-    "src/lib/spam/types.d" --> src.lib.spam.settings {
-        SpamBrand,
-        SpamIntelligenceConfig,
-        SpamIntelligenceStatus,
-    }
+    src.db.index ++> src.lib.spam.settings { getDb }
+    src.db.schema.index ++> src.lib.spam.settings { appSettings }
+    "src/lib/dns-query" ++> src.lib.spam.settings { queryDns }
     src.db.index --> src.lib.agent.jobs.utils { getDb }
     src.db.dialect --> src.lib.agent.jobs.utils { schemaDialect }
     src.db.schema.index --> src.lib.agent.jobs.utils {
@@ -10852,13 +10836,9 @@ graph import {
         confirmSuppression,
         removeSuppression,
     }
-    src.db.index --> "src/lib/deliverability/suppression-admin" { getDb }
-    src.db.schema.index --> "src/lib/deliverability/suppression-admin" { emailSuppressions }
-    src.db.sql --> "src/lib/deliverability/suppression-admin" { containsLike }
-    "src/lib/deliverability/suppression-utils" --> "src/lib/deliverability/suppression-admin" {
-        SuppressionReason,
-        SuppressionSource,
-    }
+    src.db.index ++> "src/lib/deliverability/suppression-admin" { getDb }
+    src.db.schema.index ++> "src/lib/deliverability/suppression-admin" { emailSuppressions }
+    src.db.sql ++> "src/lib/deliverability/suppression-admin" { containsLike }
     src.lib.cloudflare --> "src/app/api/deliverability/[domainId]/suppressions/route" { getEnv }
     "src/lib/database-errors" --> "src/app/api/deliverability/[domainId]/suppressions/route" {
         isMissingTableError,
