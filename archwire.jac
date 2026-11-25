@@ -7,6 +7,7 @@ graph spaces {
 }
 
 graph import {
+    src.lib.jac.host ++> src.lib.agent.provider { NULL, at, either, record, rx, rx_sub }
     src.db.index --> src.lib.promotions.settings { getDb }
     src.db.schema.index --> src.lib.promotions.settings { mailboxPromotionSettings, messages }
     src.db.sql --> src.lib.promotions.settings { matchNothing }
@@ -2070,20 +2071,15 @@ graph import {
     src.lib.agent.provider --> src.lib.agent.model { getAgentProviderConfig }
     "src/lib/agent/provider-constants" --> src.lib.agent.model { PROVIDER_BASE_URLS }
     src.lib.agent.time --> src.lib.agent.model { agentTimeContext }
-    src.db.index --> src.lib.agent.provider { getDb }
-    src.db.schema.index --> src.lib.agent.provider { appSettings }
-    "src/lib/agent/provider-types.d" --> src.lib.agent.provider {
-        AgentProviderConfig,
-        AgentProviderPreset,
-        AgentProviderPublicConfig,
-    }
-    "src/lib/agent/provider-constants" --> src.lib.agent.provider {
+    src.db.index ++> src.lib.agent.provider { getDb }
+    src.db.schema.index ++> src.lib.agent.provider { appSettings }
+    "src/lib/agent/provider-constants" ++> src.lib.agent.provider {
         AGENT_SETTINGS_ID,
         DEFAULT_CLOUDFLARE_MODEL,
         PROVIDER_BASE_URLS,
     }
-    "src/lib/agent/model-ids" --> src.lib.agent.provider { parseAgentModelIds }
-    src.lib.agent.pricing --> src.lib.agent.provider { parseAgentModelRates }
+    "src/lib/agent/model-ids" ++> src.lib.agent.provider { parseAgentModelIds }
+    src.lib.agent.pricing ++> src.lib.agent.provider { parseAgentModelRates }
     src.db.index --> src.lib.ai.usage { getDb }
     src.db.schema.index --> src.lib.ai.usage { aiUsage }
     src.lib.ids --> src.lib.ai.usage { newId }
