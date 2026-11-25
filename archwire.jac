@@ -228,10 +228,10 @@ graph import {
     src.lib.jac.host ++> "src/lib/search/query-utils" { NULL, at, either, rx, rx_sub }
     src.lib.time.utils ++> "src/lib/search/query-utils" { dateFromZonedFields, normalizeTimeZone }
     src.lib.jac.host ++> "src/lib/security/server-secret" { at }
-    src.lib.jac.host ++> src.lib.spam.analyzers.authentication { at, rx }
+    src.lib.jac.host ++> src.lib.spam.analyzers.authentication { NULL, rx }
     src.lib.spam.weights ++> src.lib.spam.analyzers.authentication { SPAM_WEIGHTS }
     src.lib.spam.analyzers.utils ++> src.lib.spam.analyzers.authentication { findHeader }
-    src.lib.jac.host ++> src.lib.spam.analyzers.utils { either, entries, first }
+    src.lib.jac.host ++> src.lib.spam.analyzers.utils { nil }
     src.lib.jac.host ++> "src/lib/spam/domain-utils" { NULL, rx, whole }
     src.lib.spam.analyzers.utils ++> "src/lib/spam/domain-utils" { findHeader }
     src.lib.jac.host ++> "src/lib/spam/lookup-cache" { record }
