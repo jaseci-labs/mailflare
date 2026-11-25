@@ -6,9 +6,8 @@ def:priv origin_of(url: any) -> any {
     }
 }
 
-"""The origin browsers use to reach this app. On Workers `request.url` is the public URL; the Node
-server builds it from the bind address, so there it is APP_URL when set, otherwise the Host header,
-https only when a trusted proxy (TRUST_PROXY) says so, as the realtime upgrade check does."""
+"""The origin browsers use to reach this app: `request.url` on Workers; on Node (a bind address there) APP_URL,
+else the Host header, https only when a trusted proxy (TRUST_PROXY) says so, as realtime-origin does."""
 def expectedRequestOrigin(request: any) -> any {
     (env, url) = (getNodeEnv(), new(globalThis.URL, request.url));
     if nil(env) or at(env, "MAILFLARE_RUNTIME") != "node" {
@@ -19,19 +18,16 @@ def expectedRequestOrigin(request: any) -> any {
     if app {
         return app;
     }
-    (h, trust) = (
-        request.headers,
-        at(env, "TRUST_PROXY", "").toLowerCase() in ["1", "true", "yes"],
-    );
+    h: any = request.headers;
+    trust = at(env, "TRUST_PROXY", "").toLowerCase() in ["1", "true", "yes"];
     host = either(h.get("host"), "").trim();
     https = trust and either(h.get("x-forwarded-proto"), "").split(",")[0].trim() == "https";
-    return (origin_of(f"{'https:' if https else url.protocol}//{host}") if host else None)
-        or url.origin;
+    # An empty Host makes an invalid URL, so it falls back too.
+    return origin_of(f"{'https:' if https else url.protocol}//{host}") or url.origin;
 }
 
-"""Strict same-origin test for a state-changing request that authenticates by cookie:
-`Sec-Fetch-Site: same-origin`, or an `Origin` equal to the expected origin. A missing Origin is not
-enough (a sibling subdomain's form post or an old client may omit it), and `same-site` never is."""
+"""Strict same-origin test for a cookie-authenticated mutation: `Sec-Fetch-Site: same-origin` or an equal
+`Origin`. A missing Origin is not enough (sibling subdomains, old clients), and `same-site` never is."""
 def isSameOriginRequest(request: any, expectedOrigin: any = None) -> bool {
     expected = expectedRequestOrigin(request) if expectedOrigin is None else expectedOrigin;
     (site, origin) = (request.headers.get("Sec-Fetch-Site"), request.headers.get("Origin"));
