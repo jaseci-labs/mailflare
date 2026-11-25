@@ -7,6 +7,13 @@ graph spaces {
 }
 
 graph import {
+    src.lib.jac.host ++> "src/components/accounts/account-settings-nav-utils" { record }
+    src.lib.jac.host ++> "src/components/settings/import-jobs-utils" { NULL }
+    src.lib.jac.host ++> "src/components/messages/spam-score-details-utils" { at, is_object }
+    src.lib.jac.host ++> "src/components/branding-provider-utils" { record }
+    src.lib.jac.host ++> "src/components/messages/message-list-visibility-utils" { at }
+    src.lib.jac.host ++> "src/components/messages/page-offset" { NULL }
+    src.lib.jac.host ++> "src/components/messages/send-view-utils" { NULL, either }
     src.lib.jac.host ++> "src/components/mailbox-selector-utils" { either }
     src.lib.jac.host ++> "src/components/settings/takeout-calendar-card-utils" { NULL }
     src.lib.jac.host ++> "src/components/settings/takeout-contacts-card-utils" { dig }
@@ -2607,9 +2614,6 @@ graph import {
     }
     src.components.icons --> "src/components/section-nav-sheet" { ChevronUp }
     "src/components/sidebar-mobile-utils" --> "src/components/section-nav-sheet" { useIsMobile }
-    "src/components/accounts/account-settings-nav-types.d" --> "src/components/accounts/account-settings-nav-utils" {
-        AccountSettingsNavItem,
-    }
     src.components.icons --> "src/app/(admin)/accounts/[id]/mailboxes/page" { Plus, Trash2 }
     "src/components/language-provider" --> "src/app/(admin)/accounts/[id]/mailboxes/page" {
         useLanguage,
@@ -3107,9 +3111,6 @@ graph import {
     "src/components/settings/mcp-agent-instructions-types.d" --> "src/components/settings/mcp-agent-instructions" {
         McpAgentInstructionsProps,
     }
-    "src/components/settings/mcp-agent-instructions-types.d" --> "src/components/settings/mcp-agent-instructions-utils" {
-        McpAgentInstructionsProps,
-    }
     "src/lib/i18n/types.d" --> "src/app/(admin)/api-keys/utils" { TranslationKey }
     "src/lib/api/scopes-types.d" --> "src/app/(admin)/api-keys/utils" { AdminApiKeyScope }
     "src/components/ui/confirm-dialog" --> "src/app/(admin)/backups/page" { confirmDestructive }
@@ -3203,7 +3204,6 @@ graph import {
         DEFAULT_BRANDING,
         fetchBranding,
     }
-    "src/lib/branding/types.d" --> "src/components/branding-provider-utils" { Branding }
     src.lib.auth.client --> "src/app/(admin)/branding/utils" { authFetch }
     "src/app/(admin)/branding/types.d" --> "src/app/(admin)/branding/utils" { BrandingFormResponse }
     "src/components/language-provider" --> "src/app/(admin)/deliverability/DmarcChart" {
@@ -8477,9 +8477,6 @@ graph import {
         ImportSourceItem,
         ImportSourceOption,
         ImportSourceSection,
-    }
-    "src/lib/import/jobs-types.d" --> "src/components/settings/import-jobs-utils" {
-        ImportJobSummary,
     }
     src.lib.auth.client --> "src/components/settings/import-messages-utils" { getAuthHeaders }
     "src/components/settings/import-messages-types.d" --> "src/components/settings/import-messages-utils" {
@@ -13846,7 +13843,6 @@ graph import {
     "src/components/messages/spam-score-details-utils" --> "src/components/messages/spam-score-details" {
         parseSpamSignals,
     }
-    "src/lib/spam/types.d" --> "src/components/messages/spam-score-details-utils" { SpamSignal }
     src.components.icons --> "src/components/settings/current-mailbox-form" { Save }
     "src/components/language-provider" --> "src/components/settings/current-mailbox-form" {
         useLanguage,
