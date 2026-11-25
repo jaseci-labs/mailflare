@@ -1,22 +1,14 @@
-glob:priv STORAGE_KEY = "mailflare-assistant-enabled";
+glob:priv K: str = "mailflare-assistant-enabled";
 
 def readInitialAssistantAvailability -> any {
-    if getattr(globalThis, "window", None) is None {
-        return NULL;
-    }
     try {
-        stored = globalThis.localStorage.getItem(STORAGE_KEY);
-        return NULL if stored is NULL else stored == "true";
-    } except Exception {
-        return NULL;
-    }
+        s = at(globalThis, "window") and globalThis.localStorage.getItem(K);
+    } except Exception {}
+    return NULL if nil(s) else s == "true";
 }
 
 def saveAssistantAvailability(enabled: any) {
     try {
-        globalThis.localStorage.setItem(STORAGE_KEY, globalThis.String(enabled));
-    } except Exception {
-        # Storage is optional.
-        return;
-    }
+        globalThis.localStorage.setItem(K, globalThis.String(enabled));
+    } except Exception {}
 }
