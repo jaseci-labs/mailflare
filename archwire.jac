@@ -463,7 +463,7 @@ graph import {
         timingSafeEqualText,
         verifyApiKey,
     }
-    src.lib.ids ++> "src/lib/api-keys" { newId }
+    src.lib.ids --> "src/lib/api-keys" { newId }
     src.db.index --> "src/lib/api/key-auth" { getDb }
     src.db.schema.index --> "src/lib/api/key-auth" { apiKeys, mcpKeyMailboxes, users }
     "src/lib/api-keys" --> "src/lib/api/key-auth" { parseScopes }
@@ -472,7 +472,7 @@ graph import {
     src.lib.api.scopes --> "src/lib/api/key-auth" { ADMIN_API_KEY_SCOPES }
     "src/lib/auth/client-ip" --> "src/lib/api/key-auth" { getClientIp }
     src.db.schema.index --> "src/lib/api/key-auth-types.d" { users }
-    "src/lib/api-keys" ++> "src/lib/auth/app-password-utils" { parseScopes }
+    "src/lib/api-keys" --> "src/lib/auth/app-password-utils" { parseScopes }
     src.db.index --> src.lib.dav.settings { getDb }
     src.db.schema.index --> src.lib.dav.settings { appSettings }
     "src/lib/database-errors" --> src.lib.dav.settings { isMissingColumnError }
