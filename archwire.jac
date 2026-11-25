@@ -7,6 +7,11 @@ graph spaces {
 }
 
 graph import {
+    src.lib.jac.host ++> "src/lib/storage/b2-config" { NULL, at, first, nil, rx, rx_sub, sub }
+    src.lib.jac.host ++> "src/lib/remote-images/rate-limit" { record }
+    src.lib.jac.host ++> "src/lib/dns-status" { either, record }
+    src.lib.jac.host ++> "src/lib/domains/dns-audit" { at, either, first, rx }
+    src.lib.jac.host ++> "src/lib/cloudflare-api-utils" { at, either, rx }
     src.lib.jac.host ++> "src/lib/http/content-type" { NULL, nil, rx }
     src.lib.jac.host ++> "src/lib/domains/manual-dns" { at, dig }
     src.lib.jac.host ++> "src/lib/domains/sending-status" { NULL, either, first }
@@ -426,7 +431,6 @@ graph import {
     src.db.external --> "src/db/with-database" { ExternalDatabase, openExternalDatabase }
     "src/lib/storage/b2-config" --> src.lib.storage.index { getObjectStorageConfig }
     "src/lib/storage/b2-bucket" --> src.lib.storage.index { openB2Bucket }
-    "src/lib/storage/b2-types.d" --> "src/lib/storage/b2-config" { B2Config, StorageStatus }
     src.lib.aws.client --> "src/lib/storage/b2-bucket" { AwsError, awsRequest }
     src.lib.aws.xml --> "src/lib/storage/b2-bucket" { xmlBlocks, xmlTag }
     "src/lib/aws/aws-types.d" --> "src/lib/storage/b2-bucket" { AwsConfig }
@@ -572,7 +576,6 @@ graph import {
     }
     "src/lib/cloudflare-api-error" --> "src/lib/cloudflare-api" { CloudflareApiError }
     src.lib.domains.utils --> "src/lib/cloudflare-api" { getZoneLookupCandidates }
-    "src/lib/cloudflare-api.types.d" --> "src/lib/cloudflare-api-utils" { CfApiError, CfAuth }
     src.db.schema.index --> src.lib.jmap.blobs { messageAttachments, messages }
     "src/lib/email/draft-access" --> src.lib.jmap.blobs { isOthersDraft }
     src.lib.ids --> src.lib.jmap.blobs { newId }
@@ -11018,14 +11021,7 @@ graph import {
     "src/lib/domains/dns-audit" --> "src/lib/domains/dns-view" { DomainDnsAudit, auditDomainDns }
     src.lib.domains.service --> "src/lib/domains/dns-view" { DomainDnsView, getDomainDns }
     "src/lib/domains/types.d" --> "src/lib/domains/dns-view" { DomainRow }
-    "src/lib/cloudflare-api" --> "src/lib/dns-status" { CfDnsRecord }
-    "src/lib/domains/dns-audit" --> "src/lib/dns-status" {
-        DnsAuthRecord,
-        DnsAuthStatus,
-        DomainDnsAudit,
-    }
-    "src/lib/cloudflare-api.types.d" --> "src/lib/domains/dns-audit" { CfDnsRecord }
-    "src/lib/dns-query" --> "src/lib/domains/dns-audit" { DnsQueryType, queryDns }
+    "src/lib/dns-query" ++> "src/lib/domains/dns-audit" { queryDns }
     src.lib.cloudflare --> "src/app/api/domains/[id]/dns/setup/route" { getEnv }
     src.db.index --> "src/app/api/domains/[id]/dns/setup/route" { getDb }
     src.db.schema.index --> "src/app/api/domains/[id]/dns/setup/route" { domains }
