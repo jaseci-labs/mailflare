@@ -2,40 +2,63 @@ type MembershipPatch = any;
 type KnownMembershipRow = any;
 type RestoredRow = any;
 
-glob:priv M: any = globalThis.Math,
-          PATCH_FIELDS: list[str] = "status folderId snoozedUntil starred".split(),
-          # The compact fields an optimistic move target is derived from.
-          COMPACT: list[str] = "id mailboxId direction status read starred folderId snoozedUntil threadId".split();
+# Every message-list render runs through here, so the paths make no tuples, closures or
+# comprehensions; rows are JavaScript objects, read with `get` (a direct JavaScript call) and
+# copied with `spread`.
 
 glob:priv TOMBSTONE_TTL_MS: int = 2 * 60000,
           TOMBSTONE_LIMIT: int = 200,
           KNOWN_ROW_LIMIT: int = 5000,
           GROUPED_MEMBER_LIMIT: int = 10000,
           listeners: any = new(globalThis.Set),
-          grouped_members: dict[str, bool] = {},
+          grouped_members: dict[any, bool] = {},
           restored_ids: set[any] = set(),
           # message id -> its compact row (a grouped member shares its representative's)
-          known_rows: dict[str, any] = {},
+          known_rows: dict[any, any] = {},
           # owner -> (message id -> membership patch), oldest operation first
-          pending_layers: dict[str, dict[str, dict[str, any]]] = {},
+          pending_layers: dict[any, dict[any, dict[str, any]]] = {},
           # removed rows: {key, row, removedIds, index, offset, expiresAt}
           tombstones: list[dict[str, any]] = [];
 
-# A property that may be missing: undefined when missing, null kept as null.
-def:priv opt(o: any, k: str) -> any {
-    return o.get(k) if isinstance(o, dict) else getattr(o, k, None);
+# `o.k` of a JavaScript object or a Jac dict.
+def:priv get(o: any, k: str) -> any {
+    return o.get(k) if isinstance(o, dict) else globalThis.Reflect.get(o, k);
 }
 
-def:priv field(row: any, k: str) -> any {
-    return at(row, k, NULL) if k in ["folderId", "snoozedUntil"] else opt(row, k);
+# JavaScript's `xs?.length` of an array or nothing.
+def:priv size(xs: any) -> int {
+    return 0 if nil(xs) else len(xs);
 }
 
-def:priv members(row: any) -> list[any] {
-    return either(opt(row, "threadMessageIds"), []);
+# `{...a, ...b}` of JavaScript objects (a Jac dict `b` gives its entries).
+def:priv spread(a: any, b: any) -> any {
+    return globalThis.Object.assign(globalThis.Object(), a, b);
 }
 
-def:priv unique(items: list[any]) -> list[any] {
-    return list({item: True for item in items}.keys());
+# JavaScript's `xs?.includes(x)` of an array of ids.
+def:priv includes(xs: any, x: any) -> bool {
+    if nil(xs) {
+        return False;
+    }
+    for y in xs {
+        if y is x {
+            return True;
+        }
+    }
+    return False;
+}
+
+# `[...new Set(items)]`.
+def:priv unique(items: any) -> list[any] {
+    seen: dict[any, bool] = {};
+    out: list[any] = [];
+    for item in items {
+        if item not in seen {
+            seen[item] = True;
+            out.append(item);
+        }
+    }
+    return out;
 }
 
 def:priv notify {
@@ -45,29 +68,65 @@ def:priv notify {
 }
 
 def:priv fields_of(row: any) -> dict[str, any] {
-    return {k: field(row, k) for k in PATCH_FIELDS};
+    return {
+        "status": get(row, "status"),
+        "folderId": either(get(row, "folderId"), NULL),
+        "snoozedUntil": either(get(row, "snoozedUntil"), NULL),
+        "starred": get(row, "starred"),
+    };
 }
 
 def:priv compact_row(row: any) -> any {
-    ids = opt(row, "threadMessageIds");
-    ids = None if nil(ids) else list(ids);
-    return merged({k: field(row, k) for k in COMPACT}, {"threadMessageIds": ids});
+    members = get(row, "threadMessageIds");
+    copy: any = None;
+    if not nil(members) {
+        copy = [];
+        for id in members {
+            copy.append(id);
+        }
+    }
+    return globalThis.Object({
+        "id": get(row, "id"),
+        "mailboxId": get(row, "mailboxId"),
+        "direction": get(row, "direction"),
+        "status": get(row, "status"),
+        "read": get(row, "read"),
+        "starred": get(row, "starred"),
+        "folderId": either(get(row, "folderId"), NULL),
+        "snoozedUntil": either(get(row, "snoozedUntil"), NULL),
+        "threadId": get(row, "threadId"),
+        "threadMessageIds": copy,
+    });
 }
 
 # Only a grouped row identifies the whole conversation: an ungrouped list can hold several
 # messages of one thread, each with its own row.
 def:priv row_identity(row: any) -> str {
-    thread = opt(row, "threadId");
-    return f"thread:{thread}" if members(row) and thread else f"id:{row['id']}";
+    thread = get(row, "threadId");
+    if size(get(row, "threadMessageIds")) > 0 and globalThis.Boolean(thread) {
+        return globalThis.String.prototype.concat.call("thread:", thread);
+    }
+    return globalThis.String.prototype.concat.call("id:", get(row, "id"));
 }
 
-def:priv holds(row: any, id: str) -> bool {
-    return row["id"] is id or id in members(row);
+def:priv holds(row: any, id: any) -> bool {
+    return get(row, "id") is id or includes(get(row, "threadMessageIds"), id);
 }
 
 def:priv cap_insertion_ordered(known: any, limit: int) {
-    while len(known) > limit {
-        known.pop(next(iter(known)));
+    excess = len(known) - limit;
+    if excess <= 0 {
+        return;
+    }
+    oldest: list[any] = [];
+    for k in known {
+        if len(oldest) >= excess {
+            break;
+        }
+        oldest.append(k);
+    }
+    for k in oldest {
+        known.pop(k);
     }
 }
 
@@ -75,37 +134,61 @@ def:priv cap_insertion_ordered(known: any, limit: int) {
 def rememberMembershipRows(rows: any) {
     for row in rows {
         compact = compact_row(row);
-        known_rows.pop(row["id"], None);
-        known_rows[row["id"]] = compact;
-        for id in ([row["id"]] + members(row) if members(row) else []) {
-            known_rows.setdefault(id, compact);
+        id = get(row, "id");
+        known_rows.pop(id, None);
+        known_rows[id] = compact;
+        members = get(row, "threadMessageIds");
+        if size(members) > 0 {
             grouped_members[id] = True;
+            for member in members {
+                if member not in known_rows {
+                    known_rows[member] = compact;
+                }
+                grouped_members[member] = True;
+            }
         }
     }
     cap_insertion_ordered(known_rows, KNOWN_ROW_LIMIT);
     cap_insertion_ordered(grouped_members, GROUPED_MEMBER_LIMIT);
 }
 
-def getKnownMembershipRow(id: str) -> any {
+def getKnownMembershipRow(id: any) -> any {
     return known_rows.get(id);
 }
 
 # A grouped member only exposes its representative's direction.
-def isGroupedMember(id: str) -> bool {
+def isGroupedMember(id: any) -> bool {
     return id in grouped_members;
 }
 
-def setMembershipOverlay(owner: str, entries: any) {
+def setMembershipOverlay(owner: any, entries: any) {
     if not owner {
         return;
     }
-    layer: dict[str, dict[str, any]] = {};
+    layer: dict[any, dict[str, any]] = {};
     for item in entries {
-        if (patch := {k: opt(item, k) for k in PATCH_FIELDS if opt(item, k) is not None}) {
-            layer[item["id"]] = patch;
+        patch: dict[str, any] = {};
+        status = get(item, "status");
+        if status is not None {
+            patch["status"] = status;
+        }
+        folderId = get(item, "folderId");
+        if folderId is not None {
+            patch["folderId"] = folderId;
+        }
+        snoozedUntil = get(item, "snoozedUntil");
+        if snoozedUntil is not None {
+            patch["snoozedUntil"] = snoozedUntil;
+        }
+        starred = get(item, "starred");
+        if starred is not None {
+            patch["starred"] = starred;
+        }
+        if len(patch) > 0 {
+            layer[get(item, "id")] = patch;
         }
     }
-    if not layer {
+    if len(layer) == 0 {
         clearMembershipOverlay(owner);
         return;
     }
@@ -114,7 +197,7 @@ def setMembershipOverlay(owner: str, entries: any) {
     notify();
 }
 
-def clearMembershipOverlay(owner: str) -> bool {
+def clearMembershipOverlay(owner: any) -> bool {
     if owner not in pending_layers {
         return False;
     }
@@ -133,194 +216,369 @@ def subscribeMembership(listener: any) -> any {
 }
 
 # Latest membership patch for an id across every active operation.
-def getVisibleMembership(id: str) -> dict[str, any] {
+def getVisibleMembership(id: any) -> dict[str, any] {
     patch: dict[str, any] = {};
     for layer in pending_layers.values() {
-        patch.update(layer.get(id, {}));
+        item = layer.get(id);
+        if item is not None {
+            patch.update(item);
+        }
     }
     return patch;
 }
 
-def:priv visible_membership_of(ids: any) -> dict[str, any] {
-    captured: dict[str, any] = {};
-    for id in ids {
-        known = first([t["row"] for t in tombstones if holds(t["row"], id)]) or known_rows.get(id);
-        if known {
-            captured[id] = merged(fields_of(known), getVisibleMembership(id));
+def:priv visible_membership_pairs(ids: any) -> list[any] {
+    pairs: list[any] = [];
+    for id in unique(ids) {
+        known: any = None;
+        for t in tombstones {
+            if holds(t["row"], id) {
+                known = t["row"];
+                break;
+            }
         }
+        if known is None {
+            known = known_rows.get(id);
+        }
+        if not known {
+            continue;
+        }
+        fields = fields_of(known);
+        fields.update(getVisibleMembership(id));
+        pairs.append([id, fields]);
     }
-    return captured;
+    return pairs;
 }
 
 # The state on screen before an undo starts; a tombstone wins, as the committed apply updates it
 # with the server's state. A function value: a `def` would hand JavaScript a plain object, not a Map.
 glob captureVisibleMembership: any = lambda (ids: any) -> any {
-    new(globalThis.Map, [[k, v] for (k, v) in visible_membership_of(ids).items()])
+    new(globalThis.Map, visible_membership_pairs(ids))
 };
 
 def rememberRemovedRow(
-    key: str, row: any, removedIds: any, index: any, offset: any, now: any = None
+    key: any, row: any, removedIds: any, index: any, offset: any, now: any = None
 ) {
     if not key or len(removedIds) == 0 {
         return;
     }
     time = globalThis.Date.now() if now is None else now;
     prune_tombstones(time);
-    ident = row_identity(row);
-    found = first([t for t in tombstones if t["key"] == key and row_identity(t["row"]) == ident]);
+    identity = row_identity(row);
+    existing: any = None;
+    for t in tombstones {
+        if t["key"] is key and row_identity(t["row"]) is identity {
+            existing = t;
+            break;
+        }
+    }
     expires = time + TOMBSTONE_TTL_MS;
-    if found is None {
-        stone = {"key": key, "row": row, "removedIds": unique(removedIds), "index": index};
-        tombstones.append({**stone, "offset": offset, "expiresAt": expires});
-        tombstones = tombstones[-TOMBSTONE_LIMIT:];
+    if existing is None {
+        tombstones.append({
+            "key": key,
+            "row": row,
+            "removedIds": unique(removedIds),
+            "index": index,
+            "offset": offset,
+            "expiresAt": expires,
+        });
+        if len(tombstones) > TOMBSTONE_LIMIT {
+            tombstones = tombstones[-TOMBSTONE_LIMIT:];
+        }
         return;
     }
     # A conversation loses one member at a time: keep every captured member so undoing the first
     # removal still finds it after the second.
-    ids = unique(members(found["row"]) + members(row));
-    count = M.max(at(found["row"], "threadCount", 0), at(row, "threadCount", 0), len(ids));
-    found["row"] = merged(row, {"threadMessageIds": ids, "threadCount": count}) if ids else row;
-    found["removedIds"] = unique(found["removedIds"] + list(removedIds));
-    found["index"] = M.min(found["index"], index);
-    (found["offset"], found["expiresAt"]) = (offset, expires);
+    previous = existing["row"];
+    previousMembers = get(previous, "threadMessageIds");
+    nextMembers = get(row, "threadMessageIds");
+    if size(previousMembers) > 0 or size(nextMembers) > 0 {
+        members: list[any] = unique(either(previousMembers, []));
+        for id in either(nextMembers, []) {
+            if id not in members {
+                members.append(id);
+            }
+        }
+        count = globalThis.Math.max(
+            either(get(previous, "threadCount"), 0),
+            either(get(row, "threadCount"), 0),
+            len(members),
+        );
+        existing["row"] = spread(row, {"threadMessageIds": members, "threadCount": count});
+    } else {
+        existing["row"] = row;
+    }
+    removed = unique(existing["removedIds"]);
+    for id in removedIds {
+        if id not in removed {
+            removed.append(id);
+        }
+    }
+    existing["removedIds"] = removed;
+    existing["index"] = globalThis.Math.min(existing["index"], index);
+    existing["offset"] = offset;
+    existing["expiresAt"] = expires;
 }
 
 # Committed states replace the optimistic target stored with a tombstone.
 def updateRemovedRows(states: any) {
     for state in states {
-        (id, fields) = (state["id"], {k: opt(state, k) for k in PATCH_FIELDS});
-        for t in [t for t in tombstones if holds(t["row"], id)] {
-            t["row"] = merged(t["row"], fields);
+        id = get(state, "id");
+        fields = globalThis.Object({
+            "status": get(state, "status"),
+            "folderId": get(state, "folderId"),
+            "snoozedUntil": get(state, "snoozedUntil"),
+            "starred": get(state, "starred"),
+        });
+        for t in tombstones {
+            if holds(t["row"], id) {
+                t["row"] = spread(t["row"], fields);
+            }
         }
-        if known_rows.get(id) {
-            known_rows[id] = merged(known_rows[id], fields);
+        known = known_rows.get(id);
+        if known {
+            known_rows[id] = spread(known, fields);
         }
     }
 }
 
 def markRemovedRowsRestored(ids: any) {
-    restored_ids.update(set(ids));
+    for id in ids {
+        restored_ids.add(id);
+    }
 }
 
 # Whether an id has a tombstone that an optimistic restore could bring back.
-def hasRemovedRow(id: str) -> bool {
-    return any([holds(t["row"], id) for t in tombstones]);
+def hasRemovedRow(id: any) -> bool {
+    for t in tombstones {
+        if holds(t["row"], id) {
+            return True;
+        }
+    }
+    return False;
 }
 
 def clearRestoredRows(ids: any) {
-    restored_ids.difference_update(set(ids));
+    for id in ids {
+        restored_ids.discard(id);
+    }
 }
 
 def forgetRemovedRows(ids: any) {
-    clearRestoredRows(ids);
-    for t in tombstones {
-        t["removedIds"] = [id for id in t["removedIds"] if id not in ids];
+    settled: dict[any, bool] = {};
+    for id in ids {
+        settled[id] = True;
+        restored_ids.discard(id);
     }
-    tombstones = [t for t in tombstones if t["removedIds"]];
+    kept: list[dict[str, any]] = [];
+    for t in tombstones {
+        removed: list[any] = [];
+        for id in t["removedIds"] {
+            if id not in settled {
+                removed.append(id);
+            }
+        }
+        if len(removed) > 0 {
+            t["removedIds"] = removed;
+            kept.append(t);
+        }
+    }
+    tombstones = kept;
+}
+
+# JavaScript's `left.index - right.index`, the restored rows' order.
+def:priv by_index(left: any, right: any) -> float {
+    a: float = globalThis.Number(get(left, "index"));
+    b: float = globalThis.Number(get(right, "index"));
+    return a - b;
 }
 
 # Rows whose undo is in flight, ready to merge into any list view.
-def getRestoredRowsForList(key: str, now: any = None, offset: any = None) -> list[dict[str, any]] {
+def getRestoredRowsForList(key: any, now: any = None, offset: any = None) -> list[any] {
     prune_tombstones(globalThis.Date.now() if now is None else now);
-    result: list[dict[str, any]] = [];
+    result: list[any] = [];
     for t in tombstones {
         # A row belongs to the page it was removed from: on another it would paint at the wrong
         # place until the refetch.
-        if t["key"] != key or (offset is not None and t["offset"] is not offset) {
+        if t["key"] is not key or (offset is not None and t["offset"] is not offset) {
             continue;
         }
-        (removed, row) = (t["removedIds"], t["row"]);
-        eligible = [id for id in removed if id in restored_ids];
-        keep = [id for id in members(row) if id not in removed or id in restored_ids];
-        if not eligible or not (keep if members(row) else row["id"] in restored_ids) {
+        removed: list[any] = t["removedIds"];
+        eligible: list[any] = [];
+        for id in removed {
+            if id in restored_ids {
+                eligible.append(id);
+            }
+        }
+        if len(eligible) == 0 {
             continue;
         }
-        if keep {
-            row = merged(row, {"threadMessageIds": keep, "threadCount": len(keep)});
+        row = t["row"];
+        members = get(row, "threadMessageIds");
+        if size(members) > 0 {
+            keep: list[any] = [];
+            for id in members {
+                if id not in removed or id in restored_ids {
+                    keep.append(id);
+                }
+            }
+            if len(keep) == 0 {
+                continue;
+            }
+            row = spread(row, {"threadMessageIds": keep, "threadCount": len(keep)});
+            members = keep;
+        } elif get(row, "id") not in restored_ids {
+            continue;
         }
         # The tombstone carries the committed state; the undo overlay of the row, else of its first
         # member that has one, restores only the fields that action changed.
-        patch = first([p for id in [row["id"]] + keep if (p := getVisibleMembership(id))]);
-        row = merged(row, patch) if patch else row;
-        result.append({
+        patch = getVisibleMembership(get(row, "id"));
+        if not nil(members) {
+            for id in members {
+                if len(patch) > 0 {
+                    break;
+                }
+                patch = getVisibleMembership(id);
+            }
+        }
+        if len(patch) > 0 {
+            row = spread(row, patch);
+        }
+        result.append(globalThis.Object({
             "row": row,
             "index": t["index"],
             "offset": t["offset"],
             "eligible": eligible,
-        });
+        }));
     }
-    return sorted(result, key=lambda (r: dict[str, any]) -> any { r["index"] });
+    if len(result) < 2 {
+        return result;
+    }
+    return globalThis.Array.prototype.sort.call(result, by_index);
+}
+
+def:priv matches(row: any, patch: dict[str, any], context: any, now: any) -> bool {
+    state = fields_of(row);
+    state.update(patch);
+    folder = get(context, "folder");
+    return bool(messageMatchesFolder(state, folder, get(context, "folderId"), now));
 }
 
 def:priv filter_pending_row(row: any, context: any, now: any) -> any {
     if not context {
         return row;
     }
-    (folder, folderId, base) = (at(context, "folder"), at(context, "folderId"), fields_of(row));
-    def stays(id: str) -> bool {
-        p = getVisibleMembership(id);
-        return not p or messageMatchesFolder({**base, **p}, folder, folderId, now);
+    members = get(row, "threadMessageIds");
+    if size(members) == 0 {
+        patch = getVisibleMembership(get(row, "id"));
+        if len(patch) == 0 {
+            return row;
+        }
+        return row if matches(row, patch, context, now) else NULL;
     }
-    ids = members(row);
-    if not ids {
-        return row if stays(row["id"]) else NULL;
+    remaining: list[any] = [];
+    for id in members {
+        patch = getVisibleMembership(id);
+        if len(patch) == 0 or matches(row, patch, context, now) {
+            remaining.append(id);
+        }
     }
-    kept = [id for id in ids if stays(id)];
-    if len(kept) == len(ids) {
+    if len(remaining) == len(members) {
         return row;
     }
-    return merged(row, {"threadMessageIds": kept}) if kept else NULL;
-}
-
-# Puts restored rows back into `messages`; gives how many rows and thread members it added.
-def:priv merge_restored_rows(
-    messages: list[any], restored: list[dict[str, any]]
-) -> tuple[int, int] {
-    (added, members_added) = (0, 0);
-    for r in restored {
-        ident = row_identity(r["row"]);
-        same = [i for i in range(len(messages)) if row_identity(messages[i]) == ident];
-        if not same {
-            messages.insert(min(max(0, r["index"]), len(messages)), r["row"]);
-            added += 1;
-            continue;
-        }
-        (cur, have) = (messages[same[0]], members(messages[same[0]]));
-        missing = [id for id in r["eligible"] if id not in have] if have else [];
-        if missing {
-            n = at(cur, "threadCount", len(have)) + len(missing);
-            messages[same[0]] = merged(cur, {"threadMessageIds": have + missing, "threadCount": n});
-            members_added += len(missing);
-        }
+    if len(remaining) == 0 {
+        return NULL;
     }
-    return (added, members_added);
+    return spread(row, {"threadMessageIds": remaining});
 }
 
 # The membership-adjusted view of a raw list response. The cache keeps the server totals, so
 # repeated ingress is idempotent: hidden rows are counted from the rows present, and restored
 # rows are only added when missing.
-def applyMembershipToList(response: any, key: str, now: any = None) -> any {
-    source = opt(response, "messages");
-    if nil(source) {
+def applyMembershipToList(response: any, key: any, now: any = None) -> any {
+    source = get(response, "messages");
+    if not globalThis.Boolean(source) {
         return response;
     }
     time = globalThis.Date.now() if now is None else now;
     context = getListMembershipContext(key);
-    filtered = [filter_pending_row(row, context, time) for row in source];
-    messages = [row for row in filtered if row];
-    hidden = len(source) - len(messages);
-    changed = any([f is not s for (f, s) in zip(filtered, source)]);
-    restored = getRestoredRowsForList(getListMembershipKey(key), time, at(response, "offset", 0));
-    (added, members_added) = merge_restored_rows(messages, restored);
-    if not changed and added == 0 and members_added == 0 {
+    messages: list[any] = [];
+    hidden = 0;
+    changed = False;
+    for row in source {
+        filtered = filter_pending_row(row, context, time);
+        if filtered is not row {
+            changed = True;
+        }
+        if filtered {
+            messages.append(filtered);
+        } else {
+            hidden += 1;
+        }
+    }
+    offset = either(get(response, "offset"), 0);
+    restored = getRestoredRowsForList(getListMembershipKey(key), time, offset);
+    added = 0;
+    membersAdded = 0;
+    for r in restored {
+        restoredRow = get(r, "row");
+        identity = row_identity(restoredRow);
+        at = -1;
+        for i in range(len(messages)) {
+            if row_identity(messages[i]) is identity {
+                at = i;
+                break;
+            }
+        }
+        if at < 0 {
+            spot: float = globalThis.Math.min(
+                globalThis.Math.max(0, get(r, "index")), len(messages)
+            );
+            messages.insert(0 if globalThis.Number.isNaN(spot) else int(spot), restoredRow);
+            added += 1;
+            continue;
+        }
+        current = messages[at];
+        have = get(current, "threadMessageIds");
+        if size(have) == 0 {
+            continue;
+        }
+        missing: list[any] = [];
+        for id in get(r, "eligible") {
+            if not includes(have, id) {
+                missing.append(id);
+            }
+        }
+        if len(missing) == 0 {
+            continue;
+        }
+        joined: list[any] = [];
+        for id in have {
+            joined.append(id);
+        }
+        joined.extend(missing);
+        count = either(get(current, "threadCount"), len(have)) + len(missing);
+        messages[at] = spread(current, {"threadMessageIds": joined, "threadCount": count});
+        membersAdded += len(missing);
+    }
+    if hidden == 0 and added == 0 and membersAdded == 0 and not changed {
         return response;
     }
-    total = M.max(0, at(response, "total", len(source)) - hidden + added);
-    return merged(response, {"messages": messages, "total": total});
+    total: float = globalThis.Number(either(get(response, "total"), len(source)));
+    return spread(
+        response,
+        {"messages": messages, "total": globalThis.Math.max(0, total - hidden + added)},
+    );
 }
 
 def:priv prune_tombstones(now: any) {
-    tombstones = [t for t in tombstones if t["expiresAt"] > now];
+    live: list[dict[str, any]] = [];
+    for t in tombstones {
+        if t["expiresAt"] > now {
+            live.append(t);
+        }
+    }
+    tombstones = live;
 }
 
 # Test and session reset.
