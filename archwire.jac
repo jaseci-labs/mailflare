@@ -33,6 +33,28 @@ graph import {
     src.lib.jac.host ++> src.lib.aws.s3 { either, merged }
     src.lib.jac.host ++> src.lib.aws.xml { NULL, rx }
     src.lib.jac.host ++> src.lib.aws.sigv4 { at, either, entries, merged, rx, rx_sub }
+    src.lib.jac.host ++> src.lib.contacts.gravatar { NULL, either, nil, record }
+    src.lib.jac.host ++> "src/lib/contacts/google-csv" { NULL, at, either, record, rx, rx_sub }
+    "src/lib/contacts/details-utils" ++> "src/lib/contacts/google-csv" { cleanLine, cleanText, normalizeContactDetails, withoutEmails }
+    src.lib.jac.host ++> "src/lib/booking/confirmation-utils" { NULL, at, either, merged, nil, owns, record, rx, rx_sub }
+    src.lib.jac.host ++> src.lib.dav.xml { record }
+    src.lib.jac.host ++> src.lib.booking.utils { NULL, either, nil, record, rx, rx_sub }
+    src.lib.time.utils ++> src.lib.booking.utils { dateFromZonedFields, isValidTimeZone, zonedDateFields }
+    src.lib.jac.host ++> "src/lib/contacts/details-utils" { NULL, at, either, entries, nil, record, rx, rx_sub }
+    src.lib.jac.host ++> src.lib.contacts.utils { NULL, at, either }
+    src.lib.email.address ++> src.lib.contacts.utils { getEmailDisplayName, normalizeEmailAddress, parseEmailAddressParts }
+    src.lib.jac.host ++> "src/lib/calendar/reminder-utils" { NULL, either, merged, nil, record }
+    src.lib.jac.host ++> "src/lib/calendar/tool-occurrences" { either }
+    src.lib.calendar.recurrence ++> "src/lib/calendar/tool-occurrences" { parseCalendarRepeatDays, parseExcludedOccurrences }
+    src.lib.time.utils ++> "src/lib/calendar/tool-occurrences" { dateFromZonedFields, normalizeTimeZone, zonedDateFields }
+    src.lib.jac.host ++> src.lib.calendar.utils { NULL, at, either, nil }
+    src.lib.calendar.ics ++> src.lib.calendar.utils { escapeIcsText, formatIcsUtc, isIcsAddress, joinIcsLines }
+    src.lib.jac.host ++> src.lib.calendar.feed { NULL, either, merged, nil, record }
+    src.lib.calendar.recurrence ++> src.lib.calendar.feed { parseCalendarRepeatDays, parseExcludedOccurrences }
+    include src.lib.calendar.ics ++> src.lib.calendar.feed { escapeIcsText, foldIcsLine }
+    src.lib.calendar.ics ++> src.lib.calendar.feed { formatIcsUtc, joinIcsLines }
+    src.lib.jac.host ++> src.lib.calendar.confirmation { NULL, record, rx, rx_sub }
+    src.lib.jac.host ++> src.lib.calendar.colors { either, record }
     src.lib.jac.host ++> src.lib.calendar.ics { rx, rx_sub }
     src.lib.jac.host ++> "src/lib/calendar/invite-attachment" { rx }
     src.lib.jac.host ++> src.lib.dav.body { NULL, either }
@@ -792,14 +814,8 @@ graph import {
     src.lib.contacts.gravatar --> src.lib.contacts.service { importGravatarAvatar }
     src.db.schema.index --> "src/lib/contacts/types.d" { contacts }
     "src/lib/email/address-types.d" --> "src/lib/contacts/types.d" { ContactSource }
-    "src/lib/contacts/types.d" --> src.lib.contacts.utils { ContactNameSource }
-    src.lib.email.address --> src.lib.contacts.utils {
-        getEmailDisplayName,
-        normalizeEmailAddress,
-        parseEmailAddressParts,
-    }
-    src.lib.contacts.avatar --> src.lib.contacts.gravatar { contactAvatarKeyFor }
-    "src/lib/avatar-images" --> src.lib.contacts.gravatar { avatarPreviewKeyFor }
+    src.lib.contacts.avatar ++> src.lib.contacts.gravatar { contactAvatarKeyFor }
+    "src/lib/avatar-images" ++> src.lib.contacts.gravatar { avatarPreviewKeyFor }
     src.db.index --> src.lib.mailboxes.audit { getDb }
     src.db.schema.index --> src.lib.mailboxes.audit { auditLogs }
     src.lib.ids --> src.lib.mailboxes.audit { newId }
@@ -1060,18 +1076,7 @@ graph import {
         joinIcsLines,
     }
     "src/lib/calendar/reminder-utils" --> src.lib.calendar.invite { normalizeReminderMinutes }
-    "src/lib/calendar/tool-occurrences" --> "src/lib/calendar/reminder-utils" { expandToolEvents }
-    src.db.schema.index --> "src/lib/calendar/reminder-utils" { calendarEvents }
-    src.lib.time.utils --> "src/lib/calendar/tool-occurrences" {
-        dateFromZonedFields,
-        normalizeTimeZone,
-        zonedDateFields,
-    }
-    src.lib.calendar.recurrence --> "src/lib/calendar/tool-occurrences" {
-        parseCalendarRepeatDays,
-        parseExcludedOccurrences,
-    }
-    src.db.schema.index --> "src/lib/calendar/tool-occurrences" { calendarEvents }
+    "src/lib/calendar/tool-occurrences" ++> "src/lib/calendar/reminder-utils" { expandToolEvents }
     "src/lib/import/takeout-data-types.d" --> "src/components/settings/takeout-contacts-card-types.d" {
         ContactSource,
     }
@@ -1492,8 +1497,6 @@ graph import {
     "src/lib/mailboxes/domain-addresses" --> src.lib.profile.sync { getMailboxDomainAddresses }
     "src/lib/profile/identity-utils" --> src.lib.profile.sync { tracksAccountIdentity }
     "src/lib/profile/sync-types.d" --> src.lib.profile.sync { PersonalIdentity }
-    "src/lib/contacts/types.d" --> "src/lib/contacts/details-utils" { ContactNameSource }
-    "src/lib/contacts/details-types.d" --> "src/lib/contacts/details-utils" { ContactDetailsData }
     src.lib.http.errors --> "src/lib/contacts/import-store-utils" { RequestBodyTooLargeError }
     "src/lib/contacts/details-utils" --> "src/lib/contacts/import-store-utils" {
         importedContactEmails,
@@ -1515,13 +1518,6 @@ graph import {
     }
     src.lib.contacts.utils --> "src/lib/contacts/import-store-utils" { getContactId }
     src.lib.contacts.vcard --> "src/lib/contacts/import-store-utils" { MAX_CARD_CHARS, parseVcard }
-    "src/lib/contacts/details-utils" --> "src/lib/contacts/google-csv" {
-        cleanLine,
-        cleanText,
-        normalizeContactDetails,
-        withoutEmails,
-    }
-    "src/lib/contacts/vcard-types.d" --> "src/lib/contacts/google-csv" { ImportedContact }
     "src/lib/calendar/ics-import" --> src.lib.contacts.vcard { iterIcsLines }
     "src/lib/contacts/details-utils" --> src.lib.contacts.vcard {
         cleanLine,
@@ -5171,6 +5167,11 @@ graph import {
     src.lib.calendar.colors --> src.lib.booking.utils { normalizeCalendarColor }
     src.lib.folders.colors --> src.lib.calendar.colors { DEFAULT_FOLDER_COLOR, FOLDER_COLOR_VALUES }
     "src/lib/folders/types.d" --> src.lib.calendar.colors { FolderColor }
+    src.lib.calendar.utils ++> "src/lib/booking/confirmation-utils" { createCalendarInvitation }
+    "src/lib/i18n/types.d" --> "src/lib/folders/color-keys" { TranslationKey }
+    "src/lib/folders/types.d" --> "src/lib/folders/color-keys" { FolderColor }
+    src.lib.calendar.colors ++> src.lib.booking.utils { normalizeCalendarColor }
+    src.lib.folders.colors ++> src.lib.calendar.colors { DEFAULT_FOLDER_COLOR, FOLDER_COLOR_VALUES }
     "src/lib/i18n/types.d" --> "src/app/(calendar)/booking/utils" { TranslationKey }
     src.lib.i18n.utils --> "src/app/(calendar)/booking/utils" { Translator, defaultTranslator }
     "src/app/(calendar)/booking/types.d" --> "src/app/(calendar)/booking/utils" {
@@ -9734,8 +9735,7 @@ graph import {
     "src/lib/api/key-auth" --> "src/lib/calendar/api-auth" { authenticateApiRequest, hasScope }
     "src/lib/api/key-auth-types.d" --> "src/lib/calendar/api-auth" { ApiAuthResult }
     "src/lib/calendar/api-auth-types.d" --> "src/lib/calendar/api-auth" { CalendarAuthorization }
-    "src/lib/security/server-secret" --> src.lib.calendar.confirmation { getServerSecret }
-    "src/lib/calendar/tool-types.d" --> src.lib.calendar.confirmation { CalendarToolName }
+    "src/lib/security/server-secret" ++> src.lib.calendar.confirmation { getServerSecret }
     src.db.index --> src.lib.calendar.tools { getDb }
     src.db.schema.index --> src.lib.calendar.tools { calendarEventOverrides, calendarEvents }
     "src/lib/agent/schema-utils" --> src.lib.calendar.tools { toolEmailSchema }
@@ -10635,8 +10635,7 @@ graph import {
         buildSplitAnnouncement,
     }
     src.lib.http.request --> "src/app/api/calendar/events/[eventId]/route" { readJsonObject }
-    "src/lib/calendar/types.d" --> "src/lib/calendar/split-announcement" { CalendarRepeat }
-    src.lib.calendar.utils --> "src/lib/calendar/split-announcement" { createCalendarInvitation }
+    src.lib.calendar.utils ++> "src/lib/calendar/split-announcement" { createCalendarInvitation }
     src.db.index --> src.app.api.calendar.events.route { getDb }
     src.db.schema.index --> src.app.api.calendar.events.route {
         calendarEventOverrides,
@@ -10692,16 +10691,6 @@ graph import {
         buildCalendarFeed,
     }
     src.lib.calendar.chunks --> src.app.api.calendar.feed.route { chunkIds }
-    src.lib.calendar.ics --> src.lib.calendar.feed {
-        escapeIcsText,
-        foldIcsLine,
-        formatIcsUtc,
-        joinIcsLines,
-    }
-    src.lib.calendar.recurrence --> src.lib.calendar.feed {
-        parseCalendarRepeatDays,
-        parseExcludedOccurrences,
-    }
     src.db.index --> src.app.api.contacts.avatar.route { getDb }
     src.db.schema.index --> src.app.api.contacts.avatar.route { contacts }
     src.lib.auth.cookies --> src.app.api.contacts.avatar.route { requireUser }
