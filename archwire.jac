@@ -13,6 +13,18 @@ graph import {
     src.lib.jac.host ++> "src/lib/agent/schema-utils" { record }
     src.lib.jac.host ++> src.lib.storage.health { NULL, record }
     src.lib.jac.host ++> "server/runtime/realtime-origin" { either, first, nil, record }
+    src.lib.jac.host ++> "src/lib/import/takeout-data-utils" {
+        NULL, at, dig, either, first, merged, nil, owns, record, rx, rx_sub, sub,
+    }
+    "src/lib/import/zip-utils" ++> "src/lib/import/takeout-data-utils" { listZipEntries, openZipEntry, readZipEntryBytes }
+    src.lib.jac.host ++> src.lib.drive.content { NULL, either, nil, record, rx }
+    src.lib.drive.utils ++> src.lib.drive.content { driveContentDisposition, driveObjectKey }
+    src.lib.jac.host ++> "src/lib/drive/import-utils" { NULL, owns, record, rx, rx_sub, sub }
+    src.lib.drive.utils ++> "src/lib/drive/import-utils" { DRIVE_MAX_DEPTH, DRIVE_MAX_NAME_LENGTH, normalizeDriveName }
+    src.lib.jac.host ++> "src/lib/domains/cloudflare-cleanup" { either }
+    src.lib.jac.host ++> "src/lib/cloudflare-dns" { record }
+    src.lib.jac.host ++> "src/lib/cloudflare-api" { NULL, dig, either, merged, nil, promise, record }
+    src.lib.domains.utils ++> "src/lib/cloudflare-api" { getZoneLookupCandidates }
     src.lib.jac.host ++> "src/lib/storage/b2-bucket" {
         NULL, at, either, entries, js_sort, merged, nil, promise, record, rx, rx_sub, whole,
     }
@@ -614,23 +626,14 @@ graph import {
     "src/lib/cloudflare-api.types.d" --> "src/lib/mailboxes/domain-addresses" {
         CfEmailRoutingRuleChange,
     }
-    "src/lib/cloudflare-api.types.d" --> "src/lib/cloudflare-api" {
-        CfDnsRecord,
-        CfEmailRoutingRule,
-        CfEmailRoutingRuleChange,
-        CfResponse,
-        CfResultInfo,
-        CfSendingSubdomain,
-    }
-    "src/lib/cloudflare-api-utils" --> "src/lib/cloudflare-api" {
+    "src/lib/cloudflare-api-utils" ++> "src/lib/cloudflare-api" {
         formatCloudflareError,
         getCloudflareAuth,
         getCloudflareAuthHeaders,
         getCloudflareAuthHint,
         getEmailWorkerName,
     }
-    "src/lib/cloudflare-api-error" --> "src/lib/cloudflare-api" { CloudflareApiError }
-    src.lib.domains.utils --> "src/lib/cloudflare-api" { getZoneLookupCandidates }
+    "src/lib/cloudflare-api-error" ++> "src/lib/cloudflare-api" { CloudflareApiError }
     src.db.schema.index --> src.lib.jmap.blobs { messageAttachments, messages }
     "src/lib/email/draft-access" --> src.lib.jmap.blobs { isOthersDraft }
     src.lib.ids --> src.lib.jmap.blobs { newId }
@@ -1802,9 +1805,7 @@ graph import {
         reportsDeps,
         unquote,
     }
-    "src/lib/cloudflare-api" --> "src/lib/cloudflare-dns" { cfRequest }
-    "src/lib/cloudflare-api.types.d" --> "src/lib/cloudflare-dns" { CfDnsRecord }
-    "src/lib/cloudflare-dns.types.d" --> "src/lib/cloudflare-dns" { CloudflareDnsRecordCreate }
+    "src/lib/cloudflare-api" ++> "src/lib/cloudflare-dns" { cfRequest }
     src.db.index --> "src/lib/deliverability/reports-admin" { getDb }
     src.db.schema.index --> "src/lib/deliverability/reports-admin" {
         domainDeliverability,
@@ -8516,36 +8517,12 @@ graph import {
     "src/components/settings/takeout-drive-card" --> "src/components/settings/takeout-data-import" {
         TakeoutDriveCard,
     }
-    "src/lib/contacts/google-csv" --> "src/lib/import/takeout-data-utils" {
+    "src/lib/contacts/google-csv" ++> "src/lib/import/takeout-data-utils" {
         decodeContactsCsv,
         isGoogleContactsHeader,
         parseCsv,
     }
-    "src/lib/drive/import-utils" --> "src/lib/import/takeout-data-utils" { takeoutDrivePath }
-    "src/lib/import/takeout-data-types.d" --> "src/lib/import/takeout-data-utils" {
-        ContactSource,
-        DriveRoot,
-        TakeoutScan,
-        TakeoutSource,
-    }
-    "src/lib/import/zip-types.d" --> "src/lib/import/takeout-data-utils" { ZipEntry }
-    "src/lib/import/zip-utils" --> "src/lib/import/takeout-data-utils" {
-        listZipEntries,
-        openZipEntry,
-        readStreamChunks,
-        readZipEntryBytes,
-    }
-    src.lib.drive.utils --> "src/lib/drive/import-utils" {
-        DRIVE_MAX_DEPTH,
-        DRIVE_MAX_NAME_LENGTH,
-        normalizeDriveName,
-    }
-    "src/lib/drive/import-types.d" --> "src/lib/drive/import-utils" {
-        ImportFilePlan,
-        ImportFileRequest,
-        KnownDriveItem,
-        TakeoutDrivePath,
-    }
+    "src/lib/drive/import-utils" ++> "src/lib/import/takeout-data-utils" { takeoutDrivePath }
     src.components.icons --> "src/components/settings/takeout-calendar-card" { Upload }
     "src/components/language-provider" --> "src/components/settings/takeout-calendar-card" {
         useLanguage,
@@ -10281,7 +10258,7 @@ graph import {
         forceCleanupMtaSts,
         republishMtaStsAfterMxChange,
     }
-    "src/lib/cloudflare-api" --> "src/lib/domains/cloudflare-cleanup" {
+    "src/lib/cloudflare-api" ++> "src/lib/domains/cloudflare-cleanup" {
         deleteEmailRoutingRule,
         listEmailRoutingRules,
     }
@@ -11417,9 +11394,7 @@ graph import {
     src.lib.cloudflare --> src.lib.drive.auth { getEnv }
     src.lib.api.auth --> src.lib.drive.auth { requireSessionUser }
     src.lib.auth.origin --> src.lib.drive.auth { hasValidSessionMutationOrigin }
-    "src/lib/http/content-type" --> src.lib.drive.content { getInlineContentType }
-    src.lib.drive.utils --> src.lib.drive.content { driveContentDisposition, driveObjectKey }
-    "src/lib/drive/types.d" --> src.lib.drive.content { DriveRow }
+    "src/lib/http/content-type" ++> src.lib.drive.content { getInlineContentType }
     src.db.index --> src.app.api.drive.attachments.route { getDb }
     src.db.schema.index --> src.app.api.drive.attachments.route { messageAttachments, messages }
     src.lib.drive.auth --> src.app.api.drive.attachments.route { authorizeDrive }
