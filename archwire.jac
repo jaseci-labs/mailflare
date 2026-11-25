@@ -7,6 +7,14 @@ graph spaces {
 }
 
 graph import {
+    src.lib.jac.host ++> "src/lib/promotions/classify-utils" { NULL, at }
+    src.lib.jac.host ++> src.lib.agent.pricing { NULL, entries }
+    src.lib.jac.host ++> src.lib.agent.schedule { NULL, rx }
+    src.lib.jac.host ++> src.lib.agent.time { record }
+    src.lib.jac.host ++> "src/lib/agent/rate-limit" { at, record }
+    src.lib.jac.host ++> "src/lib/agent/availability-client" { NULL }
+    src.lib.jac.host ++> src.lib.agent.errors { NULL, nil, rx, rx_sub }
+    src.lib.jac.host ++> "src/lib/notes/note-permissions" { NULL }
     src.lib.security.headers --> "next.config" { getSecurityHeaders }
     server.runtime.mailer --> "server/runtime/types.d" { Mailer }
     server.runtime.queue --> "server/runtime/types.d" { InProcessQueue }
@@ -1538,8 +1546,7 @@ graph import {
         toSenderAddress,
     }
     "src/lib/promotions/classify-utils" --> "src/lib/promotions/refile-utils" { toSenderAddress }
-    src.lib.email.address --> "src/lib/promotions/classify-utils" { normalizeEmailAddress }
-    "src/lib/email/bulk-mail" --> "src/lib/promotions/classify-utils" { BulkMailVerdict }
+    src.lib.email.address ++> "src/lib/promotions/classify-utils" { normalizeEmailAddress }
     src.db.index --> src.lib.promotions.backfill { getDb }
     src.db.schema.index --> src.lib.promotions.backfill {
         contacts,
@@ -2065,7 +2072,6 @@ graph import {
     "src/lib/agent/model-ids" --> src.lib.agent.provider { parseAgentModelIds }
     src.lib.agent.pricing --> src.lib.agent.provider { parseAgentModelRates }
     "src/lib/agent/provider-types.d" --> "src/lib/agent/provider-constants" { AgentProviderPreset }
-    "src/lib/agent/provider-types.d" --> src.lib.agent.pricing { AgentModelRates }
     src.db.index --> src.lib.ai.usage { getDb }
     src.db.schema.index --> src.lib.ai.usage { aiUsage }
     src.lib.ids --> src.lib.ai.usage { newId }
