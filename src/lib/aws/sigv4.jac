@@ -6,7 +6,10 @@ glob:priv ENC: any = new(globalThis.TextEncoder),
           SPACES: any = rx(r"\s+", "g"),
           RESERVED: any = rx(r"[!'()*]"),
           RESERVED_ALL: any = rx(r"[!'()*]", "g"),
-          HMAC_SHA256: any = record({"name": "HMAC", "hash": "SHA-256"});
+          HMAC_SHA256: any = record({"name": "HMAC", "hash": "SHA-256"}),
+          # Signing keys by secret, date, region and service: the derivation gives the same key every
+          # time, so a key is derived once a day per service, as AWS's SDKs do (at most 16 kept).
+          SIGNING_KEYS: dict[str, any] = {};
 
 # `value.method()` as JavaScript calls it, for a value that is not a string.
 def:priv js_call(o: any, name: str) -> any {
@@ -28,6 +31,10 @@ def:priv hex_of(buffer: any) -> str {
 async def sha256Hex(data: any) -> str {
     octets = globalThis.TextEncoder.prototype.encode.call(ENC, data) if isinstance(data, str) else data;
     return hex_of(await globalThis.crypto.subtle.digest("SHA-256", octets));
+}
+
+async def:priv hmac_key(key: any) -> any {
+    return await globalThis.crypto.subtle.importKey("raw", key, HMAC_SHA256, False, ["sign"]);
 }
 
 async def:priv hmac(key: any, data: str) -> any {
@@ -156,13 +163,26 @@ async def signAwsRequest(input: any) -> any {
     );
     canonical = await sha256Hex(request);
     secret = globalThis.String.prototype.concat.call("AWS4", globalThis.Reflect.get(cred, "secretAccessKey"));
-    key: any = globalThis.TextEncoder.prototype.encode.call(ENC, secret);
-    key = await hmac(key, stamp);
-    key = await hmac(key, region);
-    key = await hmac(key, service);
-    key = await hmac(key, "aws4_request");
+    cacheable = isinstance(region, str) and isinstance(service, str);
+    cache_key = globalThis.JSON.stringify([secret, stamp, region, service]) if cacheable else "";
+    signing = SIGNING_KEYS.get(cache_key) if cacheable else None;
+    if signing is None {
+        key: any = globalThis.TextEncoder.prototype.encode.call(ENC, secret);
+        key = await hmac(key, stamp);
+        key = await hmac(key, region);
+        key = await hmac(key, service);
+        key = await hmac(key, "aws4_request");
+        signing = await hmac_key(key);
+        if cacheable {
+            if len(SIGNING_KEYS) >= 16 {
+                SIGNING_KEYS.clear();
+            }
+            SIGNING_KEYS[cache_key] = signing;
+        }
+    }
     to_sign = "AWS4-HMAC-SHA256\n" + amz + "\n" + scope + "\n" + canonical;
-    signature = hex_of(await hmac(key, to_sign));
+    to_sign_octets = globalThis.TextEncoder.prototype.encode.call(ENC, to_sign);
+    signature = hex_of(await globalThis.crypto.subtle.sign("HMAC", signing, to_sign_octets));
     credential = globalThis.String.prototype.concat.call("", globalThis.Reflect.get(cred, "accessKeyId"), "/", scope);
     out = spread(headers);
     auth = "AWS4-HMAC-SHA256 Credential=" + credential + ", SignedHeaders=" + signed + ", Signature=" + signature;
