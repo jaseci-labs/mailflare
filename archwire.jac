@@ -7,6 +7,7 @@ graph spaces {
 }
 
 graph import {
+    src.lib.jac.host ++> src.lib.aws.ses { at, either, entries, nil }
     src.lib.jac.host ++> "src/lib/aws/ses-notification" { NULL, either, merged, nil }
     src.lib.jac.host ++> "src/lib/aws/sns-signature" { NULL, at, either, record, rx, rx_sub }
     src.lib.jac.host ++> src.lib.aws.client { NULL, at, either, entries, merged, nil, record, rx }
@@ -761,9 +762,9 @@ graph import {
     src.db.index --> src.lib.aws.config { getDb }
     src.db.schema.index --> src.lib.aws.config { appSettings }
     "src/lib/aws/aws-types.d" --> src.lib.aws.config { AwsConfig, AwsConfigStatus }
-    src.lib.aws.client --> src.lib.aws.ses { AwsError, awsJson, awsQuery }
-    src.lib.aws.xml --> src.lib.aws.ses { xmlBlocks, xmlTag, xmlTags }
-    "src/lib/aws/aws-types.d" --> src.lib.aws.ses { AwsConfig, SesIdentityStatus }
+    src.lib.aws.client ++> src.lib.aws.ses { AwsError, awsJson, awsQuery }
+    src.lib.aws.xml ++> src.lib.aws.ses { xmlBlocks, xmlTag }
+    include src.lib.aws.xml ++> src.lib.aws.ses { xmlTags }
     "src/lib/email/resend-api-types.d" --> "src/lib/email/resend-api" {
         ResendDomain,
         ResendReceivedEmail,
