@@ -21,6 +21,15 @@ graph import {
     src.lib.jac.host ++> src.lib.dav.body { NULL, either }
     src.lib.jac.host ++> "src/lib/dav/xml-writer" { rx, rx_sub }
     src.lib.jac.host ++> src.lib.calendar.recurrence { NULL, either }
+    src.lib.jac.host ++> "src/lib/email/intake-signature" { record }
+    src.lib.jac.host ++> "src/lib/email/attachment-limits" { NULL }
+    src.lib.jac.host ++> "src/lib/email/inbound-limits" { NULL, merged, record, rx, rx_sub }
+    src.lib.jac.host ++> src.lib.email.svix { NULL, at, record }
+    src.lib.jac.host ++> "src/lib/email/inbound-id" { either }
+    src.lib.jac.host ++> "src/lib/email/stale-objects" { at, record }
+    src.lib.jac.host ++> "src/lib/email/thread-lookup" { NULL, either, rx, rx_sub }
+    src.lib.jac.host ++> "src/lib/email/mail-type-rule" { nil }
+    src.lib.jac.host ++> src.lib.email.base64 { rx, rx_sub }
     src.lib.security.headers --> "next.config" { getSecurityHeaders }
     server.runtime.mailer --> "server/runtime/types.d" { Mailer }
     server.runtime.queue --> "server/runtime/types.d" { InProcessQueue }
@@ -146,7 +155,6 @@ graph import {
     }
     "src/lib/email/attachment-policy" --> src.lib.email.attachments { getOutboundAttachmentMaxMb }
     "src/lib/drive/shared-objects" --> src.lib.email.attachments { deleteUnreferencedObjects }
-    src.lib.email.parse --> "src/lib/email/inbound-limits" { ParsedEmail }
     src.db.index --> "src/lib/email/draft-access" { AppDatabase }
     src.db.schema.index --> "src/lib/email/draft-access" { jmapChanges, messages }
     src.db.index --> src.lib.mailboxes.access { AppDatabase }
@@ -161,9 +169,6 @@ graph import {
     src.db.index --> "src/lib/mailboxes/access-utils" { AppDatabase }
     src.db.schema.index --> "src/lib/mailboxes/access-utils" { licenseSettings }
     src.db.schema.index --> "src/lib/mailboxes/types.d" { mailboxes }
-    "src/lib/email/outbound-provider-types.d" --> "src/lib/email/attachment-limits" {
-        SendingProvider,
-    }
     "src/lib/aws/aws-types.d" --> "src/lib/email/outbound-provider-types.d" { AwsConfig }
     src.db.index --> "src/lib/email/attachment-policy" { getDb }
     src.db.schema.index --> "src/lib/email/attachment-policy" { appSettings }
