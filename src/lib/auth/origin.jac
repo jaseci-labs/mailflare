@@ -9,7 +9,8 @@ def:priv origin_of(url: any) -> any {
 """The origin browsers reach this app at: `request.url` on Workers; on Node (bind address) APP_URL,
 else the Host header, https only if a trusted proxy (TRUST_PROXY) says so, like realtime-origin."""
 def expectedRequestOrigin(request: any) -> any {
-    (env, url) = (getNodeEnv(), new(globalThis.URL, request.url));
+    env = getNodeEnv();
+    url = new(globalThis.URL, request.url);
     if nil(env) or at(env, "MAILFLARE_RUNTIME") != "node" {
         return url.origin;
     }
@@ -30,9 +31,16 @@ def expectedRequestOrigin(request: any) -> any {
 equal `Origin`. A missing Origin is not enough (sibling subdomains, old clients), nor `same-site`."""
 def isSameOriginRequest(request: any, expectedOrigin: any = None) -> bool {
     expected = expectedRequestOrigin(request) if expectedOrigin is None else expectedOrigin;
-    (site, origin) = (request.headers.get("Sec-Fetch-Site"), request.headers.get("Origin"));
-    decided = site in ["same-origin", "cross-site", "same-site"];
-    return site == "same-origin" if decided else (origin is not NULL and origin == expected);
+    h: any = request.headers;
+    site: any = h.get("Sec-Fetch-Site");
+    if site == "same-origin" {
+        return True;
+    }
+    if site == "cross-site" or site == "same-site" {
+        return False;
+    }
+    origin: any = h.get("Origin");
+    return origin is not NULL and origin is expected;
 }
 
 """Call only after session authentication. Bearer tokens are not sent automatically by browsers."""
