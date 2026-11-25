@@ -7,6 +7,17 @@ graph spaces {
 }
 
 graph import {
+    src.lib.jac.host ++> "src/lib/import/imap-utils" { NULL, either, rx, rx_sub }
+    src.lib.jac.host ++> "src/lib/import/message-hints-utils" { at, record, rx, rx_sub }
+    src.lib.jac.host ++> src.lib.import.destination { NULL }
+    src.lib.jac.host ++> src.lib.import.mbox { rx, rx_sub }
+    src.lib.jac.host ++> src.lib.import.staging { owns, record }
+    src.lib.jac.host ++> src.lib.jmap.constants { record }
+    src.lib.jac.host ++> src.lib.jmap.errors { either, merged, record }
+    src.lib.jac.host ++> "src/lib/jmap/request-utils" { NULL }
+    src.lib.jac.host ++> "src/lib/jmap/changes-utils" { NULL }
+    src.lib.jac.host ++> src.lib.jmap.ids { NULL }
+    src.lib.jac.host ++> "src/lib/jmap/email-import-utils" { NULL, entries }
     src.lib.security.headers --> "next.config" { getSecurityHeaders }
     server.runtime.mailer --> "server/runtime/types.d" { Mailer }
     server.runtime.queue --> "server/runtime/types.d" { InProcessQueue }
@@ -367,7 +378,6 @@ graph import {
     src.lib.jmap.session --> src.lib.jmap.handler { buildSession }
     src.lib.jmap.state --> src.lib.jmap.handler { getEmailState, getMailboxState }
     "src/lib/jmap/types.d" --> src.lib.jmap.handler { JmapContext }
-    "src/lib/jmap/types.d" --> src.lib.jmap.errors { JmapMethodError }
     "src/lib/api/key-auth-types.d" --> "src/lib/jmap/types.d" { ApiAuthResult }
     src.db.index --> "src/lib/jmap/types.d" { AppDatabase }
     src.lib.jmap.changes --> "src/lib/jmap/types.d" { ChangeScope }
@@ -433,7 +443,6 @@ graph import {
     src.lib.domains.utils --> "src/lib/cloudflare-api" { getZoneLookupCandidates }
     "src/lib/cloudflare-api.types.d" --> "src/lib/cloudflare-api-utils" { CfApiError, CfAuth }
     "src/lib/cloudflare-api.types.d" --> "src/lib/cloudflare-api-error" { CfApiError }
-    "src/lib/jmap/types.d" --> src.lib.jmap.ids { MailboxRef, SystemRole }
     src.db.schema.index --> src.lib.jmap.blobs { messageAttachments, messages }
     "src/lib/email/draft-access" --> src.lib.jmap.blobs { isOthersDraft }
     src.lib.ids --> src.lib.jmap.blobs { newId }
@@ -591,9 +600,8 @@ graph import {
     src.db.schema.index --> src.lib.promotions.settings { mailboxPromotionSettings, messages }
     src.db.sql --> src.lib.promotions.settings { matchNothing }
     "src/lib/database-errors" --> src.lib.promotions.settings { isMissingTableError }
-    src.lib.jmap.constants --> "src/lib/jmap/email-import-utils" { KEYWORD_FLAGGED, KEYWORD_SEEN }
-    src.lib.jmap.ids --> "src/lib/jmap/email-import-utils" { decodeMailboxRef }
-    "src/lib/jmap/types.d" --> "src/lib/jmap/email-import-utils" { JmapSetError }
+    src.lib.jmap.constants ++> "src/lib/jmap/email-import-utils" { KEYWORD_FLAGGED, KEYWORD_SEEN }
+    src.lib.jmap.ids ++> "src/lib/jmap/email-import-utils" { decodeMailboxRef }
     src.db.schema.index --> "src/lib/jmap/email-query" {
         mailboxPromotionSettings,
         messageAttachments,
@@ -857,13 +865,12 @@ graph import {
         normalizeEmailAddress,
         splitEmailAddressList,
     }
-    src.lib.jmap.constants --> src.lib.jmap.session {
+    src.lib.jmap.constants ++> src.lib.jmap.session {
         CAPABILITY_CORE,
         CAPABILITY_MAIL,
         CAPABILITY_SUBMISSION,
         LIMITS,
     }
-    "src/lib/jmap/types.d" --> src.lib.jmap.session { JmapContext }
     "src/lib/i18n/types.d" --> "src/app/types.d" { TranslationKey }
     src.components.icons --> "src/app/types.d" { LucideIcon }
     src.components.ui.button --> "src/app/types.d" { ButtonProps }
@@ -1175,12 +1182,9 @@ graph import {
         applyImportHints,
         getImportMessageHints,
     }
-    "src/lib/import/gmail-takeout-utils" --> "src/lib/import/message-hints-utils" {
+    "src/lib/import/gmail-takeout-utils" ++> "src/lib/import/message-hints-utils" {
         mapGmailLabels,
         parseGmailLabels,
-    }
-    "src/lib/import/destination-types.d" --> "src/lib/import/message-hints-utils" {
-        ImportDestination,
     }
     "tests/helpers/real-db" --> "tests/import-reauthorization.test" { loadApp, sharedMailboxSeed }
     "tests/helpers/real-db" --> "tests/jmap-folder-scope.test" { loadApp, sharedMailboxSeed }
@@ -2235,11 +2239,6 @@ graph import {
         ImportJobSummary,
     }
     "src/lib/import/types.d" --> src.lib.import.jobs { ImportMailboxResult, ImportMessageInput }
-    "src/lib/import/destination-types.d" --> src.lib.import.destination {
-        ImportDestination,
-        ImportMessagePlacement,
-        ImportSystemSection,
-    }
     "src/lib/import/types.d" --> src.lib.import.imap { ImportMessageInput }
     "src/lib/import/imap-types.d" --> src.lib.import.imap { ImapImportInput }
     "src/lib/import/imap-utils" --> src.lib.import.imap {
@@ -2254,7 +2253,6 @@ graph import {
         quoteImapString,
         selectImapUidBatch,
     }
-    "src/lib/import/types.d" --> src.lib.import.staging { ImportMessageInput }
     src.db.index --> src.lib.import.service { getDb }
     src.db.schema.index --> src.lib.import.service { messages }
     src.lib.email.attachments --> src.lib.import.service { storeMessageAttachments }
