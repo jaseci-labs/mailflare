@@ -7,6 +7,8 @@ graph spaces {
 }
 
 graph import {
+    src.lib.jac.host ++> "src/lib/aws/ses-notification" { NULL, either, merged, nil }
+    src.lib.jac.host ++> "src/lib/aws/sns-signature" { NULL, at, either, record, rx, rx_sub }
     src.lib.jac.host ++> src.lib.aws.client { NULL, at, either, entries, merged, nil, record, rx }
     src.lib.jac.host ++> src.lib.aws.sts { either }
     src.lib.jac.host ++> src.lib.aws.sns { either }
@@ -2467,8 +2469,6 @@ graph import {
     "src/lib/aws/sns-signature" --> "src/lib/email/raw-sweeper" { SNS_MAX_AGE_MS }
     src.lib.jmap.blobs --> "src/lib/email/raw-sweeper" { UPLOAD_PREFIX }
     "src/lib/email/stale-objects" --> "src/lib/email/raw-sweeper" { sweepStaleObjects }
-    "src/lib/aws/ses-notification" --> "src/lib/aws/sns-signature" { SnsEnvelope }
-    "src/lib/spam/types.d" --> "src/lib/aws/ses-notification" { ProviderVerdicts }
     src.db.index --> src.lib.messages.actions.claims { getDb }
     src.db.schema.index --> src.lib.messages.actions.claims { messageActionUndoClaims }
     "src/lib/database-errors" --> src.lib.messages.actions.claims { isUniqueConstraintError }
