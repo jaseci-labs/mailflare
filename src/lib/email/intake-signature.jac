@@ -1,49 +1,32 @@
 glob INBOUND_SIGNATURE_MAX_AGE_SECONDS: int = 300;
 
-"""Hex HMAC-SHA256 of `prefix` followed by the raw body."""
+# Hex HMAC-SHA256 of `prefix` followed by the raw body.
 async def:priv hmac_hex(secret: str, prefix: str, raw: any) -> str {
-    encoder = new(globalThis.TextEncoder);
-    subtle = globalThis.crypto.subtle;
-    key = await subtle.importKey(
-        "raw", encoder.encode(secret), record({"name": "HMAC", "hash": "SHA-256"}), False, ["sign"]
-    );
-    head = encoder.encode(prefix);
-    data = new(globalThis.Uint8Array, head.byteLength + raw.byteLength);
-    data.set(head, 0);
-    data.set(new(globalThis.Uint8Array, raw), head.byteLength);
-    return globalThis.Array.prototype.map.call(
-        new(globalThis.Uint8Array, await subtle.sign("HMAC", key, data)),
-        lambda (b: any) -> any { b.toString(16).padStart(2, "0") },
-    ).join("");
+    (enc, subtle) = (new(globalThis.TextEncoder), globalThis.crypto.subtle);
+    hmac = record({"name": "HMAC", "hash": "SHA-256"});
+    key = await subtle.importKey("raw", enc.encode(secret), hmac, False, ["sign"]);
+    data = await new(globalThis.Blob, [enc.encode(prefix), raw]).arrayBuffer();
+    signed = new(globalThis.Uint8Array, await subtle.sign("HMAC", key, data));
+    return "".join([globalThis.String(b.toString(16)).padStart(2, "0") for b in signed]);
 }
 
-"""Compares two strings without stopping at the first difference."""
+# Compares two strings without stopping at the first difference.
 def:priv same_text(a: any, b: any) -> bool {
-    if a.length != b.length {
-        return False;
-    }
-    diff = 0;
-    for i in range(a.length) {
-        diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
-    }
-    return diff == 0;
+    n = a.length;
+    return n == b.length and sum(a.charCodeAt(i) ^ b.charCodeAt(i) for i in range(n)) == 0;
 }
 
-"""HMAC-SHA256 over `from\nto\n` + raw body, hex encoded. Shared with the relay Worker."""
+# HMAC-SHA256 over `from\nto\n` + raw body, hex encoded. Shared with the relay Worker.
 async def signInbound(secret: str, raw: any, sender: str, to: str) -> str {
     return await hmac_hex(secret, f"{sender}\n{to}\n", raw);
 }
 
-async def verifyInboundSignature(
-    secret: str, signature: str, raw: any, sender: str, to: str
-) -> bool {
-    return same_text(await signInbound(secret, raw, sender, to), signature);
+async def verifyInboundSignature(secret: str, sig: str, raw: any, sender: str, to: str) -> bool {
+    return same_text(await signInbound(secret, raw, sender, to), sig);
 }
 
-"""Version 2 also covers the header map and a Unix timestamp (seconds).
-
-Neither can then be altered in transit, and a captured request stops verifying after a few minutes.
-"""
+# Version 2 also covers the header map and a Unix timestamp (seconds), so neither can be altered in
+# transit and a captured request stops verifying after a few minutes.
 async def signInboundV2(
     secret: str, raw: any, sender: str, to: str, headers: str, timestamp: str
 ) -> str {
@@ -51,23 +34,13 @@ async def signInboundV2(
 }
 
 async def verifyInboundSignatureV2(
-    secret: str,
-    signature: str,
-    raw: any,
-    sender: str,
-    to: str,
-    headers: str,
-    timestamp: str,
-    nowSeconds: any = None,
+    secret: str, sig: str, raw: any, sender: str, to: str, headers: str, stamp: str, now: any = None
 ) -> bool {
-    moment = globalThis.Math.floor(globalThis.Date.now() / 1000)
-        if nowSeconds is None
-        else nowSeconds;
-    sent_at = globalThis.Number(timestamp);
-    if not globalThis.Number.isFinite(sent_at)
-        or globalThis.Math.abs(moment - sent_at) > INBOUND_SIGNATURE_MAX_AGE_SECONDS
-    {
+    moment = globalThis.Math.floor(globalThis.Date.now() / 1000) if now is None else now;
+    sent_at = globalThis.Number(stamp);
+    late = globalThis.Math.abs(moment - sent_at) > INBOUND_SIGNATURE_MAX_AGE_SECONDS;
+    if not globalThis.Number.isFinite(sent_at) or late {
         return False;
     }
-    return same_text(await signInboundV2(secret, raw, sender, to, headers, timestamp), signature);
+    return same_text(await signInboundV2(secret, raw, sender, to, headers, stamp), sig);
 }
