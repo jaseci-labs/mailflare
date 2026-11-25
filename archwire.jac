@@ -7,6 +7,10 @@ graph spaces {
 }
 
 graph import {
+    include "src/lib/promotions/subscriptions-utils" ++> "src/lib/promotions/subscriptions-ui-utils" { SUBSCRIPTIONS_PAGE_SIZE }
+    src.lib.jac.host ++> "src/lib/promotions/move-utils" { at, record }
+    src.lib.jac.host ++> "src/lib/promotions/ui-utils" { NULL, at, entries, record }
+    src.lib.jac.host ++> "src/lib/promotions/subscriptions-ui-utils" { NULL, at, either, nil }
     include "src/lib/promotions/refile-utils" ++> "src/lib/promotions/subscriptions-utils" { chunk }
     src.lib.jac.host ++> "src/lib/promotions/refile-utils" { NULL }
     src.lib.jac.host ++> "src/lib/promotions/mode-utils" { NULL }
@@ -6024,7 +6028,6 @@ graph import {
         CopyDescriptor,
         MoveTarget,
     }
-    "src/lib/i18n/types.d" --> "src/lib/promotions/move-utils" { PluralKey, TranslationKey }
     src.components.icons --> "src/components/messages/message-source-dialog" {
         CheckCircle2,
         Copy,
@@ -7385,7 +7388,6 @@ graph import {
         fetchDueFollowUps,
         updateDueFollowUp,
     }
-    "src/lib/i18n/types.d" --> "src/lib/promotions/ui-utils" { TranslationKey }
     "src/components/language-provider" --> "src/app/(dashboard)/compose/page" { useLanguage }
     "src/components/compose/compose-form" --> "src/app/(dashboard)/compose/page" { ComposeForm }
     "src/components/contacts/contacts-page" --> "src/app/(dashboard)/contacts/page" { ContactsPage }
@@ -7867,22 +7869,9 @@ graph import {
         SubscriptionRowData,
         TrashPreview,
     }
-    "src/lib/promotions/move-utils" --> "src/lib/promotions/subscriptions-ui-utils" {
-        CopyDescriptor,
-        senderResultCopy,
-    }
-    "src/lib/promotions/ui-utils" --> "src/lib/promotions/subscriptions-ui-utils" {
+    "src/lib/promotions/move-utils" ++> "src/lib/promotions/subscriptions-ui-utils" { senderResultCopy }
+    "src/lib/promotions/ui-utils" ++> "src/lib/promotions/subscriptions-ui-utils" {
         canManagePromotions,
-    }
-    "src/lib/promotions/subscriptions-ui-types.d" --> "src/lib/promotions/subscriptions-ui-utils" {
-        SubscriptionCategory,
-        SubscriptionRowData,
-        SubscriptionRowView,
-        SubscriptionTrashAction,
-        TrashPreview,
-    }
-    "src/lib/promotions/subscriptions-utils" --> "src/lib/promotions/subscriptions-ui-utils" {
-        SUBSCRIPTIONS_PAGE_SIZE,
     }
     src.components.icons --> "src/components/subscriptions/subscription-parts" {
         Ban,
