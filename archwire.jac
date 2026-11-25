@@ -121,9 +121,8 @@ graph import {
     src.lib.jac.host ++> src.lib.aws.sts { either }
     src.lib.aws.client ++> src.lib.aws.sts { awsQuery }
     src.lib.aws.xml ++> src.lib.aws.sts { xmlTag }
-    src.lib.jac.host ++> src.lib.aws.xml { NULL, rx }
     src.lib.jac.host ++> "src/lib/booking/confirmation-utils" { NULL, at, either, is_object, merged, nil, owns, record, rx, sub }
-    src.lib.jac.host ++> src.lib.aws.xml { NULL, either, first, record, rx, rx_sub }
+    src.lib.jac.host ++> src.lib.aws.xml { NULL, rx }
     src.lib.jac.host ++> "src/lib/booking/confirmation-utils" { NULL, at, either, merged, nil, owns, record, rx }
     src.lib.calendar.utils ++> "src/lib/booking/confirmation-utils" { createCalendarInvitation }
     src.lib.jac.host ++> src.lib.booking.utils { NULL, either, first, is_object, merged, record, rx, sub, whole }
@@ -153,14 +152,14 @@ graph import {
     src.lib.jac.host ++> "src/lib/compose/compose-utils" { NULL }
     src.lib.jac.host ++> "src/lib/contacts/avatar-client" { record }
     src.lib.jac.host ++> "src/lib/contacts/details-utils" { NULL, at, either, entries, is_object, merged, nil, record, rx, sub }
-    src.lib.jac.host ++> "src/lib/contacts/google-csv" { NULL, either, merged, record, rx, sub }
+    src.lib.jac.host ++> "src/lib/contacts/google-csv" { NULL, either, record, rx }
     "src/lib/contacts/details-utils" ++> "src/lib/contacts/google-csv" { cleanLine, cleanText, normalizeContactDetails, withoutEmails }
     src.lib.jac.host ++> src.lib.contacts.gravatar { NULL, either, nil, record }
     src.lib.contacts.avatar ++> src.lib.contacts.gravatar { contactAvatarKeyFor }
     "src/lib/avatar-images" ++> src.lib.contacts.gravatar { avatarPreviewKeyFor }
     src.lib.jac.host ++> "src/lib/database-errors" { is_object, rx }
     src.lib.jac.host ++> src.lib.dav.body { NULL, either }
-    src.lib.jac.host ++> "src/lib/dav/xml-writer" { rx, rx_sub }
+    src.lib.jac.host ++> "src/lib/dav/xml-writer" { either, record, rx }
     src.lib.jac.host ++> "src/lib/deliverability/daily-utils" { NULL, at, first, js_sort, merged, nil, owns }
     src.lib.jac.host ++> "src/lib/deliverability/dmarc-record" { either, first, rx, rx_sub }
     src.lib.jac.host ++> src.lib.deliverability.dsn { NULL, nil, either, rx, rx_sub, sub }
@@ -225,7 +224,7 @@ graph import {
     src.lib.jac.host ++> "src/lib/promotions/mode-utils" { NULL, is_object }
     src.lib.jac.host ++> "src/lib/promotions/move-utils" { at, record }
     src.lib.jac.host ++> "src/lib/promotions/ui-utils" { NULL, at, entries, record }
-    src.lib.jac.host ++> "src/lib/search/query-utils" { NULL, at, either, rx, rx_sub }
+    src.lib.jac.host ++> "src/lib/search/query-utils" { NULL, either, rx }
     src.lib.time.utils ++> "src/lib/search/query-utils" { dateFromZonedFields, normalizeTimeZone }
     src.lib.jac.host ++> "src/lib/security/server-secret" { at }
     src.lib.jac.host ++> src.lib.spam.analyzers.authentication { NULL, rx }
