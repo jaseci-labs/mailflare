@@ -2,14 +2,11 @@
 obj ClientRequestError(globalThis.Error) {
     def init(message: any, code: any = None) {
         super.init(message);
-        self.code = code;
-        self.name = "ClientRequestError";
+        (self.code, self.name) = (code, "ClientRequestError");
     }
 }
 
 def requestError(data: any, fallback: str) -> ClientRequestError {
-    (error, code) = (data["error"], data["code"]);
-    return ClientRequestError(
-        error if isinstance(error, str) else fallback, code if isinstance(code, str) else None
-    );
+    code = data["code"] if isinstance(data["code"], str) else None;
+    return ClientRequestError(data["error"] if isinstance(data["error"], str) else fallback, code);
 }

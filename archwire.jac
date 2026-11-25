@@ -47,6 +47,15 @@ graph import {
     src.lib.jac.host ++> "src/components/settings/takeout-drive-card-utils" { NULL, dig, either, first, js_sort }
     src.lib.jac.host ++> "src/components/settings/settings-nav-utils" { record }
     src.lib.jac.host ++> "src/components/theme-utils" { at, record }
+    src.lib.jac.host ++> "src/lib/storage/b2-config" { NULL, at, first, nil, rx, rx_sub, sub }
+    src.lib.jac.host ++> "src/lib/remote-images/rate-limit" { record }
+    src.lib.jac.host ++> "src/lib/dns-status" { either, record }
+    src.lib.jac.host ++> "src/lib/domains/dns-audit" { at, either, first, rx }
+    src.lib.jac.host ++> "src/lib/cloudflare-api-utils" { at, either, rx }
+    src.lib.jac.host ++> "src/lib/http/content-type" { NULL, nil, rx }
+    src.lib.jac.host ++> "src/lib/domains/manual-dns" { at, dig }
+    src.lib.jac.host ++> "src/lib/domains/sending-status" { NULL, either, first }
+    src.lib.jac.host ++> src.lib.http.response { NULL, is_object }
     src.lib.jac.host ++> "src/lib/accounts/deletion-utils" { at }
     src.lib.jac.host ++> "src/lib/agent/availability-client" { NULL, at, nil }
     src.lib.jac.host ++> src.lib.agent.errors { NULL, nil, rx, sub, dig, first, either, is_object }
@@ -63,27 +72,30 @@ graph import {
     "src/lib/auth/client-ip" ++> "src/lib/auth/rate-limit" { getClientIp }
     src.lib.jac.host ++> "src/lib/auth/setup-utils" { rx, is_object }
     src.lib.jac.host ++> "src/lib/avatar-images" { NULL, at, record }
+    src.lib.jac.host ++> "src/lib/auth/setup-utils" { rx }
+    src.lib.jac.host ++> "src/lib/avatar-images" { NULL, dig, record }
     src.lib.jac.host ++> src.lib.aws.client { NULL, at, either, entries, merged, nil, record, rx }
     src.lib.aws.sigv4 ++> src.lib.aws.client { signAwsRequest }
     src.lib.aws.xml ++> src.lib.aws.client { xmlTag }
-    src.lib.jac.host ++> src.lib.aws.s3 { either, merged }
-    src.lib.aws.client ++> src.lib.aws.s3 { AwsError, awsRequest }
+    src.lib.aws.client ++> src.lib.aws.s3 { awsRequest, awsSpare }
     src.lib.aws.sigv4 ++> src.lib.aws.s3 { sha256Hex }
-    src.lib.jac.host ++> src.lib.aws.ses { at, either, entries, nil }
-    src.lib.aws.client ++> src.lib.aws.ses { AwsError, awsJson, awsQuery }
+    src.lib.jac.host ++> src.lib.aws.ses { at, dig, entries }
+    src.lib.aws.client ++> src.lib.aws.ses { awsJson, awsQuery, awsSpare }
     src.lib.aws.xml ++> src.lib.aws.ses { xmlBlocks, xmlTag }
     include src.lib.aws.xml ++> src.lib.aws.ses { xmlTags }
     src.lib.jac.host ++> "src/lib/aws/ses-notification" { NULL, either, merged, nil }
-    src.lib.jac.host ++> src.lib.aws.sigv4 { at, either, entries, merged, rx, rx_sub }
+    src.lib.jac.host ++> src.lib.aws.sigv4 { at, either, entries, js_sort, merged, rx, rx_sub }
     src.lib.jac.host ++> src.lib.aws.sns { either }
     src.lib.aws.client ++> src.lib.aws.sns { awsQuery }
     src.lib.aws.xml ++> src.lib.aws.sns { xmlBlocks, xmlTag }
-    src.lib.jac.host ++> "src/lib/aws/sns-signature" { NULL, at, either, record, rx, rx_sub }
+    src.lib.jac.host ++> "src/lib/aws/sns-signature" { NULL, at, either, promise, record, rx, rx_sub }
     src.lib.jac.host ++> src.lib.aws.sts { either }
     src.lib.aws.client ++> src.lib.aws.sts { awsQuery }
     src.lib.aws.xml ++> src.lib.aws.sts { xmlTag }
     src.lib.jac.host ++> src.lib.aws.xml { NULL, rx }
     src.lib.jac.host ++> "src/lib/booking/confirmation-utils" { NULL, at, either, is_object, merged, nil, owns, record, rx, sub }
+    src.lib.jac.host ++> src.lib.aws.xml { NULL, either, first, record, rx, rx_sub }
+    src.lib.jac.host ++> "src/lib/booking/confirmation-utils" { NULL, at, either, merged, nil, owns, record, rx, rx_sub }
     src.lib.calendar.utils ++> "src/lib/booking/confirmation-utils" { createCalendarInvitation }
     src.lib.jac.host ++> src.lib.booking.utils { NULL, either, first, is_object, js_sort, merged, record, rx, sub, whole }
     src.lib.time.utils ++> src.lib.booking.utils { dateFromZonedFields, isValidTimeZone, zonedDateFields }
@@ -117,13 +129,13 @@ graph import {
     src.lib.jac.host ++> src.lib.contacts.gravatar { NULL, either, nil, record }
     src.lib.contacts.avatar ++> src.lib.contacts.gravatar { contactAvatarKeyFor }
     "src/lib/avatar-images" ++> src.lib.contacts.gravatar { avatarPreviewKeyFor }
-    src.lib.jac.host ++> "src/lib/database-errors" { rx }
+    src.lib.jac.host ++> "src/lib/database-errors" { is_object, rx }
     src.lib.jac.host ++> src.lib.dav.body { NULL, either }
     src.lib.jac.host ++> "src/lib/dav/xml-writer" { rx, rx_sub }
-    src.lib.jac.host ++> "src/lib/deliverability/daily-utils" { NULL, nil, owns, record, merged }
-    src.lib.jac.host ++> "src/lib/deliverability/dmarc-record" { either, rx, rx_sub }
-    src.lib.jac.host ++> src.lib.deliverability.dsn { NULL, nil, either, rx, rx_sub }
-    src.lib.jac.host ++> "src/lib/deliverability/mta-sts" { NULL, record, merged, rx, rx_sub }
+    src.lib.jac.host ++> "src/lib/deliverability/daily-utils" { NULL, at, first, js_sort, merged, nil, owns }
+    src.lib.jac.host ++> "src/lib/deliverability/dmarc-record" { either, first, rx, rx_sub }
+    src.lib.jac.host ++> src.lib.deliverability.dsn { NULL, nil, either, rx, rx_sub, sub }
+    src.lib.jac.host ++> "src/lib/deliverability/mta-sts" { NULL, record, rx, rx_sub, whole }
     src.lib.jac.host ++> "src/lib/dns-query" { NULL, at, record, rx }
     src.lib.jac.host ++> "src/lib/email/attachment-limits" { NULL }
     src.lib.jac.host ++> "src/lib/email/attachment-risk" { NULL, at, nil, record, rx, rx_sub }
@@ -144,7 +156,7 @@ graph import {
     src.lib.jac.host ++> "src/lib/folders/color-keys" { record }
     src.lib.jac.host ++> src.lib.folders.colors { record }
     src.lib.jac.host ++> "src/lib/follow-ups/follow-up-utils" { NULL }
-    src.lib.jac.host ++> src.lib.http.request { NULL, at, either, record }
+    src.lib.jac.host ++> src.lib.http.request { NULL, at, either, is_object, record }
     src.lib.http.errors ++> src.lib.http.request { RequestBodyTooLargeError }
     src.lib.jac.host ++> src.lib.import.destination { NULL }
     src.lib.jac.host ++> src.lib.import.mbox { rx, rx_sub }
@@ -190,8 +202,8 @@ graph import {
     src.lib.jac.host ++> src.lib.spam.analyzers.authentication { at, rx }
     src.lib.spam.weights ++> src.lib.spam.analyzers.authentication { SPAM_WEIGHTS }
     src.lib.spam.analyzers.utils ++> src.lib.spam.analyzers.authentication { findHeader }
-    src.lib.jac.host ++> src.lib.spam.analyzers.utils { either, entries }
-    src.lib.jac.host ++> "src/lib/spam/domain-utils" { NULL, rx, rx_sub }
+    src.lib.jac.host ++> src.lib.spam.analyzers.utils { either, entries, first }
+    src.lib.jac.host ++> "src/lib/spam/domain-utils" { NULL, rx, rx_sub, whole }
     src.lib.spam.analyzers.utils ++> "src/lib/spam/domain-utils" { findHeader }
     src.lib.jac.host ++> "src/lib/spam/lookup-cache" { record }
     src.lib.jac.host ++> src.lib.spam.weights { record }
@@ -460,7 +472,6 @@ graph import {
     src.db.external --> "src/db/with-database" { ExternalDatabase, openExternalDatabase }
     "src/lib/storage/b2-config" --> src.lib.storage.index { getObjectStorageConfig }
     "src/lib/storage/b2-bucket" --> src.lib.storage.index { openB2Bucket }
-    "src/lib/storage/b2-types.d" --> "src/lib/storage/b2-config" { B2Config, StorageStatus }
     src.lib.aws.client --> "src/lib/storage/b2-bucket" { AwsError, awsRequest }
     src.lib.aws.xml --> "src/lib/storage/b2-bucket" { xmlBlocks, xmlTag }
     "src/lib/aws/aws-types.d" --> "src/lib/storage/b2-bucket" { AwsConfig }
@@ -606,7 +617,6 @@ graph import {
     }
     "src/lib/cloudflare-api-error" --> "src/lib/cloudflare-api" { CloudflareApiError }
     src.lib.domains.utils --> "src/lib/cloudflare-api" { getZoneLookupCandidates }
-    "src/lib/cloudflare-api.types.d" --> "src/lib/cloudflare-api-utils" { CfApiError, CfAuth }
     src.db.schema.index --> src.lib.jmap.blobs { messageAttachments, messages }
     "src/lib/email/draft-access" --> src.lib.jmap.blobs { isOthersDraft }
     src.lib.ids --> src.lib.jmap.blobs { newId }
@@ -10345,8 +10355,6 @@ graph import {
     src.lib.domains.provision --> "src/lib/domains/receiving-dns" { isManualZone }
     "src/lib/cloudflare-api.types.d" --> "src/lib/domains/receiving-dns" { CfDnsRecord }
     "src/lib/domains/types.d" --> "src/lib/domains/receiving-dns" { DomainRow }
-    "src/lib/cloudflare-api.types.d" --> "src/lib/domains/sending-status" { CfSendingSubdomain }
-    src.lib.domains.service --> "src/lib/domains/manual-dns" { DomainDnsView }
     src.lib.domains.utils --> src.lib.domains.preflight { normalizeHostname }
     "src/lib/cloudflare-api" --> src.lib.domains.preflight { findZoneByHostname }
     src.lib.domains.provision --> src.lib.domains.preflight { MANUAL_ZONE_ID }
@@ -10978,14 +10986,7 @@ graph import {
     "src/lib/domains/dns-audit" --> "src/lib/domains/dns-view" { DomainDnsAudit, auditDomainDns }
     src.lib.domains.service --> "src/lib/domains/dns-view" { DomainDnsView, getDomainDns }
     "src/lib/domains/types.d" --> "src/lib/domains/dns-view" { DomainRow }
-    "src/lib/cloudflare-api" --> "src/lib/dns-status" { CfDnsRecord }
-    "src/lib/domains/dns-audit" --> "src/lib/dns-status" {
-        DnsAuthRecord,
-        DnsAuthStatus,
-        DomainDnsAudit,
-    }
-    "src/lib/cloudflare-api.types.d" --> "src/lib/domains/dns-audit" { CfDnsRecord }
-    "src/lib/dns-query" --> "src/lib/domains/dns-audit" { DnsQueryType, queryDns }
+    "src/lib/dns-query" ++> "src/lib/domains/dns-audit" { queryDns }
     src.lib.cloudflare --> "src/app/api/domains/[id]/dns/setup/route" { getEnv }
     src.db.index --> "src/app/api/domains/[id]/dns/setup/route" { getDb }
     src.db.schema.index --> "src/app/api/domains/[id]/dns/setup/route" { domains }

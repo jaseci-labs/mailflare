@@ -1,125 +1,63 @@
-glob:priv ENCODER: any = new(globalThis.TextEncoder),
-          RESERVED: any = rx(r"[!'()*]", "g"),
-          DATE_PUNCTUATION: any = rx(r"[:-]|\.\d{3}", "g"),
-          SPACES: any = rx(r"\s+", "g");
+glob:priv ENC: any = new(globalThis.TextEncoder);
 
 def:priv hex_of(buffer: any) -> str {
-    return "".join([
-        byte.toString(16).padStart(2, "0")
-        for byte in new(globalThis.Uint8Array, buffer)
-    ]);
+    return "".join([b.toString(16).padStart(2, "0") for b in new(globalThis.Uint8Array, buffer)]);
 }
 
 async def sha256Hex(data: any) -> str {
-    octets = ENCODER.encode(data) if isinstance(data, str) else data;
+    octets = ENC.encode(data) if isinstance(data, str) else data;
     return hex_of(await globalThis.crypto.subtle.digest("SHA-256", octets));
 }
 
 async def:priv hmac(key: any, data: str) -> any {
-    imported = await globalThis.crypto.subtle.importKey(
-        "raw", key, {"name": "HMAC", "hash": "SHA-256"}, False, ["sign"]
-    );
-    return await globalThis.crypto.subtle.sign("HMAC", imported, ENCODER.encode(data));
+    subtle = globalThis.crypto.subtle;
+    k = await subtle.importKey("raw", key, {"name": "HMAC", "hash": "SHA-256"}, False, ["sign"]);
+    return await subtle.sign("HMAC", k, ENC.encode(data));
 }
 
-def:priv rfc3986(value: str) -> str {
-    return rx_sub(
-        globalThis.encodeURIComponent(value),
-        RESERVED,
-        lambda (char: any) -> any { "%" + char.charCodeAt(0).toString(16).toUpperCase() },
-    );
+def:priv rfc3986(v: str) -> str {
+    hexed = lambda (c: any) -> any { "%" + c.charCodeAt(0).toString(16).toUpperCase() };
+    return rx_sub(globalThis.encodeURIComponent(v), rx(r"[!'()*]", "g"), hexed);
 }
 
-"""JavaScript's `<` on strings: UTF-16 code units. Jac's `<` orders by code point, which signs differently."""
-def:priv code_unit_order(a: any, b: any) -> int {
-    for i in range(globalThis.Math.min(a.length, b.length)) {
-        gap = a.charCodeAt(i) - b.charCodeAt(i);
-        if gap {
-            return gap;
-        }
-    }
-    return a.length - b.length;
+"""JavaScript's `<` on strings (UTF-16 code units, as AWS signs); Jac's `<` orders by code point."""
+def:priv cmp(a: any, b: any) -> int {
+    return 0 if a == b else -1 if js_sort([a, b])[0] == a else 1;
 }
 
-def:priv by_name_then_value(a: any, b: any) -> int {
-    return code_unit_order(a[0], b[0]) or code_unit_order(a[1], b[1]);
-}
-
-"""
-AWS Signature Version 4. Returns the headers to send, including Authorization.
-Web Crypto only, so it runs on Workers and in the Node build alike.
-"""
+"""AWS Signature Version 4 over Web Crypto: the headers to send, Authorization included."""
 async def signAwsRequest(input: any) -> any {
-    (method, url, region, service, credentials) = (
-        input["method"],
-        input["url"],
-        input["region"],
-        input["service"],
-        input["credentials"],
-    );
-    amz_date: str = rx_sub(
-        either(at(input, "now"), new(globalThis.Date)).toISOString(), DATE_PUNCTUATION, ""
-    );
-    date_stamp = amz_date[:8];
-    payload_hash = await sha256Hex(input["body"]);
-
-    headers = merged(at(input, "headers", {}), {"host": url.host, "x-amz-date": amz_date});
+    (url, region, service) = (input["url"], input["region"], input["service"]);
+    (cred, now) = (input["credentials"], either(at(input, "now"), new(globalThis.Date)));
+    amz: str = rx_sub(now.toISOString(), rx(r"[:-]|\.\d{3}", "g"), "");
+    payload = await sha256Hex(input["body"]);
+    headers = merged(at(input, "headers", {}), {"host": url.host, "x-amz-date": amz});
     if service == "s3" {
-        headers["x-amz-content-sha256"] = payload_hash;
+        headers["x-amz-content-sha256"] = payload;
     }
-    if at(credentials, "sessionToken") {
-        headers["x-amz-security-token"] = credentials["sessionToken"];
+    if at(cred, "sessionToken") {
+        headers["x-amz-security-token"] = cred["sessionToken"];
     }
-
-    # Header names are unique once merged; equal lower-cased names keep their order (the sort is stable).
-    normalized: any = [
-        [name.toLowerCase(), rx_sub(value.trim(), SPACES, " ")]
-        for (name, value) in entries(headers)
-    ];
-    normalized = globalThis.Array.prototype.sort.call(
-        normalized, lambda (a: any, b: any) -> any { code_unit_order(a[0], b[0]) }
-    );
-    signed_headers = ";".join([name for (name, _) in normalized]);
-    canonical_headers = "".join([f"{name}:{value}\n" for (name, value) in normalized]);
-
+    ws = rx(r"\s+", "g");
+    norm: any = [[k.toLowerCase(), rx_sub(v.trim(), ws, " ")] for (k, v) in entries(headers)];
+    norm = js_sort(norm, lambda (a: any, b: any) -> int { cmp(a[0], b[0]) });
+    signed = ";".join([k for (k, _) in norm]);
     # S3 signs the path as sent; every other service signs it percent-encoded twice.
     path: str = url.pathname or "/";
-    canonical_path = path
-        if service == "s3"
-        else "/".join([
-            rfc3986(globalThis.decodeURIComponent(segment))
-            for segment in path.split("/")
-        ]);
-    query: any = [[rfc3986(name), rfc3986(value)] for (name, value) in url.searchParams.entries()];
-    query = globalThis.Array.prototype.sort.call(query, by_name_then_value);
-    canonical_query = "&".join([f"{name}={value}" for (name, value) in query]);
-
-    canonical_request = "\n".join([
-        method,
-        canonical_path,
-        canonical_query,
-        canonical_headers,
-        signed_headers,
-        payload_hash,
-    ]);
-    scope = f"{date_stamp}/{region}/{service}/aws4_request";
-    string_to_sign = "\n".join([
-        "AWS4-HMAC-SHA256",
-        amz_date,
-        scope,
-        await sha256Hex(canonical_request),
-    ]);
-
-    key: any = ENCODER.encode(f"AWS4{credentials['secretAccessKey']}");
-    for part in [date_stamp, region, service, "aws4_request"] {
+    if service != "s3" {
+        path = "/".join([rfc3986(globalThis.decodeURIComponent(s)) for s in path.split("/")]);
+    }
+    query: any = [[rfc3986(k), rfc3986(v)] for (k, v) in url.searchParams.entries()];
+    query = js_sort(query, lambda (a: any, b: any) -> int { cmp(a[0], b[0]) or cmp(a[1], b[1]) });
+    hs = "".join([f"{k}:{v}\n" for (k, v) in norm]);
+    q = "&".join([f"{k}={v}" for (k, v) in query]);
+    scope = f"{amz[:8]}/{region}/{service}/aws4_request";
+    canonical = await sha256Hex("\n".join([input["method"], path, q, hs, signed, payload]));
+    key: any = ENC.encode(f"AWS4{cred['secretAccessKey']}");
+    for part in [amz[:8], region, service, "aws4_request"] {
         key = await hmac(key, part);
     }
-    signature = hex_of(await hmac(key, string_to_sign));
-
-    return merged(
-        headers,
-        {
-            "Authorization": f"AWS4-HMAC-SHA256 Credential={credentials['accessKeyId']}/{scope}, SignedHeaders={signed_headers}, Signature={signature}",
-        },
-    );
+    signature = hex_of(await hmac(key, "\n".join(["AWS4-HMAC-SHA256", amz, scope, canonical])));
+    auth = f"{cred['accessKeyId']}/{scope}, SignedHeaders={signed}, Signature={signature}";
+    return merged(headers, {"Authorization": f"AWS4-HMAC-SHA256 Credential={auth}"});
 }

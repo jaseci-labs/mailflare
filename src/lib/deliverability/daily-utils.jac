@@ -1,99 +1,65 @@
-"""
-Pure alert rules for the daily deliverability job. Spoofing and regression are evaluated on the aggregates of ONE
-verified reporter at a time (see `mergeReporterAlerts`), so a reporter can only influence its own numbers.
-`no_reports` is domain-wide: any verified reporter's report resets it. That is a known, accepted limitation
-(docs/dmarc-reports.md): an attacker with their own DMARC-passing domain can keep it from firing.
-"""
+# Alert rules for the daily job. Spoofing and regression read ONE verified reporter's aggregates
+# at a time (`mergeReporterAlerts`), so a reporter only moves its own numbers. `no_reports` is
+# domain-wide: any verified report resets it, so an attacker with a DMARC-passing domain can keep
+# it from firing (a known, accepted limitation: docs/dmarc-reports.md).
+glob ALERT_RULES: any = globalThis.Object.freeze(globalThis.JSON.parse("""{"spoofingMinFailed": 10,
+    "spoofTopSources": 5, "regressionMinHistory": 50, "regressionMinPass": 0.9,
+    "regressionMaxPass": 0.5, "regressionMinToday": 10, "noReportsEnabledDays": 3,
+    "noReportsSilentDays": 7, "noReportsRepeatDays": 7}"""));
 
-glob ALERT_RULES: any = globalThis.Object.freeze(
-    record({
-        "spoofingMinFailed": 10,
-        "spoofTopSources": 5,
-        "regressionMinHistory": 50,
-        "regressionMinPass": 0.9,
-        "regressionMaxPass": 0.5,
-        "regressionMinToday": 10,
-        "noReportsEnabledDays": 3,
-        "noReportsSilentDays": 7,
-        "noReportsRepeatDays": 7,
-    }),
-);
+type SourceTotals = any;
 
-# Types the TypeScript callers name.
-type SourceTotals = dict[str, any];
 type AlertKind = str;
-type AlertSource = dict[str, any];
-type AlertDetail = dict[str, any];
-type EvaluatedAlert = dict[str, any];
 
-glob:priv DAY = 86400000;
+type EvaluatedAlert = any;
+
+glob:priv R: any = ALERT_RULES,
+          DAY: int = 86400000;
 
 """The busiest offenders: most failures first, then by address."""
-def:priv top(sources: list[any]) -> list[any] {
-    ordered = globalThis.Array.prototype.sort.call(
-        sources,
-        lambda (a: any, b: any) -> any {
-            (b["failed"] - a["failed"]) or a["sourceIp"].localeCompare(b["sourceIp"])
-        },
-    );
-    return ordered[:ALERT_RULES.spoofTopSources];
+def:priv top(xs: any) -> any {
+    order = lambda (a: any, b: any) -> any {
+        (b["failed"] - a["failed"]) or a["sourceIp"].localeCompare(b["sourceIp"])
+    };
+    return js_sort(xs, order).slice(0, R.spoofTopSources);
 }
 
-def:priv offender(row: any) -> dict[str, any] {
-    return {
-        "sourceIp": row["sourceIp"],
-        "messages": row["messages"],
-        "failed": row["messages"] - row["passMessages"],
-    };
+def:priv offender(r: any) -> any {
+    (ip, n) = (r["sourceIp"], r["messages"]);
+    return {"sourceIp": ip, "messages": n, "failed": n - r["passMessages"]};
 }
 
 """Spoofing and regression from one reporter's totals."""
 def evaluateSourceAlerts(input: any) -> list[any] {
-    prior = {row["sourceIp"]: row for row in input["prior30"]};
-    spoofing = [
-        offender(row)
-        for row in input["yesterday"]
-        if row["messages"] - row["passMessages"] >= ALERT_RULES.spoofingMinFailed
-            and (prior[row["sourceIp"]]["passMessages"] if row["sourceIp"] in prior else 0) == 0
-    ];
-    spoofed = [row["sourceIp"] for row in spoofing];
+    (rows, prior) = (input["yesterday"], {row["sourceIp"]: row for row in input["prior30"]});
+    ok = lambda (r: any) -> bool { at(prior.get(r["sourceIp"]), "passMessages", 0) == 0 };
+    bad = [r for r in rows if r["messages"] - r["passMessages"] >= R.spoofingMinFailed and ok(r)];
+    (spoofing, spoofed) = ([offender(r) for r in bad], [r["sourceIp"] for r in bad]);
 
-    def regressed_from(row: any) -> bool {
-        before = prior.get(row["sourceIp"]);
-        return row["sourceIp"] not in spoofed
-            and bool(before)
-            and before["messages"] >= ALERT_RULES.regressionMinHistory
-            and before["passMessages"] / before["messages"] >= ALERT_RULES.regressionMinPass
-            and row["messages"] >= ALERT_RULES.regressionMinToday
-            and row["passMessages"] / row["messages"] < ALERT_RULES.regressionMaxPass;
+    def regressed(r: any) -> bool {
+        b = prior.get(r["sourceIp"]);
+        was = bool(b) and b["messages"] >= R.regressionMinHistory;
+        was = was and b["passMessages"] / b["messages"] >= R.regressionMinPass;
+        now = r["messages"] >= R.regressionMinToday;
+        now = now and r["passMessages"] / r["messages"] < R.regressionMaxPass;
+        return r["sourceIp"] not in spoofed and was and now;
     }
-    regressed = [offender(row) for row in input["yesterday"] if regressed_from(row)];
-    return [
-        {"kind": kind, "detail": {"sources": top(list(found)), "total": len(found)}}
-        for (kind, found) in [("spoofing", spoofing), ("auth_regression", regressed)]
-        if found
-    ];
+    regs = [offender(r) for r in rows if regressed(r)];
+    found = [("spoofing", spoofing), ("auth_regression", regs)];
+    return [{"kind": k, "detail": {"sources": top(x), "total": len(x)}} for (k, x) in found if x];
 }
 
 def evaluateNoReports(input: any) -> any {
-    now = input["now"].getTime();
-    (enabled, last, alerted) = (
-        input["reportsEnabledAt"],
-        input["lastReportAt"],
-        input["lastNoReportsAlertAt"],
-    );
-    enabled_long_enough = enabled is not NULL
-        and now - enabled.getTime() >= ALERT_RULES.noReportsEnabledDays * DAY;
-    silent = last is NULL or now - last.getTime() >= ALERT_RULES.noReportsSilentDays * DAY;
-    throttled = alerted is not NULL
-        and now - alerted.getTime() < ALERT_RULES.noReportsRepeatDays * DAY;
-    if not enabled_long_enough or not silent or throttled {
+    (now, last) = (input["now"].getTime(), input["lastReportAt"]);
+    (enabled, alerted) = (input["reportsEnabledAt"], input["lastNoReportsAlertAt"]);
+    old = enabled is not NULL and now - enabled.getTime() >= R.noReportsEnabledDays * DAY;
+    silent = last is NULL or now - last.getTime() >= R.noReportsSilentDays * DAY;
+    throttled = alerted is not NULL and now - alerted.getTime() < R.noReportsRepeatDays * DAY;
+    if not old or not silent or throttled {
         return NULL;
     }
-    return {
-        "kind": "no_reports",
-        "detail": {"lastReportAt": NULL if nil(last) else last.toISOString()},
-    };
+    detail = {"lastReportAt": NULL if nil(last) else last.toISOString()};
+    return {"kind": "no_reports", "detail": detail};
 }
 
 """All three rules on one set of totals (one reporter's, or the whole domain's in tests)."""
@@ -102,28 +68,16 @@ def evaluateAlerts(input: any) -> list[any] {
     return evaluateSourceAlerts(input) + ([no_reports] if no_reports else []);
 }
 
-"""One alert per kind for the domain: each reporter's offenders, tagged with the reporter, the busiest five listed."""
+"""One alert per kind for the domain: each reporter's offenders, tagged, the busiest five listed."""
 def mergeReporterAlerts(parts: any) -> list[any] {
     result: list[any] = [];
-    for kind in ["spoofing", "auth_regression"] {
-        sources: list[any] = [];
-        total = 0;
-        for part in parts {
-            for alert in part["alerts"] {
-                if alert["kind"] == kind {
-                    if owns(alert["detail"], "sources") {
-                        total += alert["detail"]["total"];
-                        sources += [
-                            merged(source, {"reporter": part["reporter"]})
-                            for source in alert["detail"]["sources"]
-                        ];
-                    }
-                    break;
-                }
-            }
-        }
+    for k in ["spoofing", "auth_regression"] {
+        found = [(p["reporter"], first([a for a in p["alerts"] if a["kind"] == k])) for p in parts];
+        found = [(r, a["detail"]) for (r, a) in found if a and owns(a["detail"], "sources")];
+        total = sum([d["total"] for (_, d) in found]);
+        sources = [merged(s, {"reporter": r}) for (r, d) in found for s in d["sources"]];
         if total > 0 {
-            result.append({"kind": kind, "detail": {"sources": top(sources), "total": total}});
+            result.append({"kind": k, "detail": {"sources": top(sources), "total": total}});
         }
     }
     return result;

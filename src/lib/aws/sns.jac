@@ -1,14 +1,12 @@
-async def:priv query(config: any, action: str, params: any = None) -> str {
-    return await awsQuery(config, "sns", "2010-03-31", action, either(params, {}));
-}
+glob:priv API: str = "2010-03-31";
 
 async def listTopics(config: any) {
-    await query(config, "ListTopics");
+    await awsQuery(config, "sns", API, "ListTopics");
 }
 
 """Idempotent: creating a topic that exists returns the same ARN."""
 async def createTopic(config: any, name: str) -> str {
-    arn = xmlTag(await query(config, "CreateTopic", {"Name": name}), "TopicArn");
+    arn = xmlTag(await awsQuery(config, "sns", API, "CreateTopic", {"Name": name}), "TopicArn");
     if not arn {
         raise new(globalThis.Error, "SNS did not return a topic ARN");
     }
@@ -16,39 +14,19 @@ async def createTopic(config: any, name: str) -> str {
 }
 
 async def setTopicPolicy(config: any, topicArn: str, policy: any) {
-    await query(
-        config,
-        "SetTopicAttributes",
-        {
-            "TopicArn": topicArn,
-            "AttributeName": "Policy",
-            "AttributeValue": globalThis.JSON.stringify(policy),
-        },
-    );
+    params = {"TopicArn": topicArn, "AttributeName": "Policy"};
+    value = globalThis.JSON.stringify(policy);
+    await awsQuery(config, "sns", API, "SetTopicAttributes", {**params, "AttributeValue": value});
 }
 
 async def subscribeHttps(config: any, topicArn: str, endpoint: str) {
-    await query(
-        config,
-        "Subscribe",
-        {
-            "TopicArn": topicArn,
-            "Protocol": "https",
-            "Endpoint": endpoint,
-            "ReturnSubscriptionArn": "true",
-        },
-    );
-}
-
-def:priv subscription(member: str) -> dict[str, any] {
-    arn = xmlTag(member, "SubscriptionArn");
-    return {
-        "endpoint": either(xmlTag(member, "Endpoint"), ""),
-        "confirmed": bool(arn) and arn != "PendingConfirmation",
-    };
+    params = {"TopicArn": topicArn, "Protocol": "https", "Endpoint": endpoint};
+    await awsQuery(config, "sns", API, "Subscribe", {**params, "ReturnSubscriptionArn": "true"});
 }
 
 async def listSubscriptions(config: any, topicArn: str) -> list[any] {
-    xml = await query(config, "ListSubscriptionsByTopic", {"TopicArn": topicArn});
-    return [subscription(member) for member in xmlBlocks(xml, "member")];
+    xml = await awsQuery(config, "sns", API, "ListSubscriptionsByTopic", {"TopicArn": topicArn});
+    fs = [(xmlTag(m, "Endpoint"), xmlTag(m, "SubscriptionArn")) for m in xmlBlocks(xml, "member")];
+    fs = [(either(e, ""), bool(a) and a != "PendingConfirmation") for (e, a) in fs];
+    return [{"endpoint": e, "confirmed": ok} for (e, ok) in fs];
 }

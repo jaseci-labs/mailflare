@@ -1,312 +1,134 @@
-"""The AwsError a failed call threw, else None. Jac hands `except` a wrapper of a JavaScript error, the original in `js`."""
-def:priv aws_error(caught: any) -> any {
-    error = thrown(caught);
-    return error if isinstance(error, AwsError) else None;
+def:priv v2(config: any, path: str, m: any = None, j: any = None) -> any {
+    h = f"email.{config['region']}.amazonaws.com";
+    return {"config": config, "service": "ses", "host": h, "path": path, "method": m, "json": j};
 }
 
-def:priv thrown(caught: any) -> any {
-    return getattr(caught, "js", caught);
+def:priv identity_path(host: str) -> str {
+    return "/v2/email/identities/" + globalThis.encodeURIComponent(host);
 }
 
-"""`o?.a?.b`: undefined once a link is missing."""
-def:priv dig(o: any, *path: str) -> any {
-    for key in path {
-        if nil(o) {
-            return None;
-        }
-        o = getattr(o, key, None);
-    }
-    return o;
+async def getSesAccount(config: any) -> any {
+    got = await awsJson(v2(config, "/v2/email/account"));
+    ok = at(got, "SendingEnabled") is not False;
+    return {"productionAccess": bool(at(got, "ProductionAccessEnabled")), "sendingEnabled": ok};
 }
 
-# --- SES v2 (sending, identities) -------------------------------------------------
-
-def:priv ses_v2(config: any, path: str, **more: any) -> dict[str, any] {
-    return {
-        "config": config,
-        "service": "ses",
-        "host": f"email.{config['region']}.amazonaws.com",
-        "path": path,
-        **more,
-    };
+def:priv identity_status(host: str, it: any) -> any {
+    dkim = at(it, "DkimAttributes") if it else None;
+    status = dig(dkim, ["Status"], "NOT_STARTED") if it else "NOT_REGISTERED";
+    records = [
+        {"type": "CNAME", "name": f"{t}._domainkey.{host}", "value": f"{t}.dkim.amazonses.com"}
+        for t in dig(dkim, ["Tokens"], [])
+    ];
+    verified = bool(it) and bool(at(it, "VerifiedForSendingStatus"));
+    return {"registered": bool(it), "verified": verified, "dkimStatus": status, "records": records};
 }
 
-def:priv identity_path(hostname: str) -> str {
-    return f"/v2/email/identities/{globalThis.encodeURIComponent(hostname)}";
+async def getSesIdentity(config: any, host: str) -> any {
+    found = awsJson(v2(config, identity_path(host)));
+    return identity_status(host, await awsSpare(found, "NotFoundException", 404));
 }
 
-async def getSesAccount(config: any) -> dict[str, bool] {
-    account = await awsJson(ses_v2(config, "/v2/email/account"));
-    return {
-        "productionAccess": bool(dig(account, "ProductionAccessEnabled")),
-        "sendingEnabled": dig(account, "SendingEnabled") is not False,
-    };
+async def createSesIdentity(config: any, host: str) -> any {
+    key = {"NextSigningKeyLength": "RSA_2048_BIT"};
+    body = {"EmailIdentity": host, "DkimSigningAttributes": key};
+    call = awsJson(v2(config, "/v2/email/identities", "POST", body));
+    made = await awsSpare(call, "AlreadyExistsException");
+    return identity_status(host, made) if made is not None else await getSesIdentity(config, host);
 }
 
-def:priv identity_status(hostname: str, identity: any) -> dict[str, any] {
-    if not identity {
-        return {
-            "registered": False,
-            "verified": False,
-            "dkimStatus": "NOT_REGISTERED",
-            "records": [],
-        };
-    }
-    return {
-        "registered": True,
-        "verified": bool(dig(identity, "VerifiedForSendingStatus")),
-        "dkimStatus": either(dig(identity, "DkimAttributes", "Status"), "NOT_STARTED"),
-        "records": [
-            {
-                "type": "CNAME",
-                "name": f"{token}._domainkey.{hostname}",
-                "value": f"{token}.dkim.amazonses.com",
-            }
-            for token in either(dig(identity, "DkimAttributes", "Tokens"), [])
-        ],
-    };
+async def deleteSesIdentity(config: any, host: str) {
+    await awsSpare(awsJson(v2(config, identity_path(host), "DELETE")), status=404);
 }
 
-async def getSesIdentity(config: any, hostname: str) -> dict[str, any] {
-    try {
-        return identity_status(hostname, await awsJson(ses_v2(config, identity_path(hostname))));
-    } except Exception as caught {
-        failure = aws_error(caught);
-        if failure and (failure.code == "NotFoundException" or failure.status == 404) {
-            return identity_status(hostname, None);
-        }
-        raise thrown(caught);
-    }
+def:priv base64(buffer: any) -> str {
+    b = new(globalThis.Uint8Array, buffer);
+    # In slices: one call with every byte as an argument overflows the stack.
+    f = globalThis.String.fromCharCode;
+    parts = [f.apply(None, b.subarray(i, i + 0x8000)) for i in range(0, b.length, 0x8000)];
+    return globalThis.btoa("".join(parts));
 }
 
-async def createSesIdentity(config: any, hostname: str) -> dict[str, any] {
-    try {
-        return identity_status(
-            hostname,
-            await awsJson(
-                ses_v2(
-                    config,
-                    "/v2/email/identities",
-                    method="POST",
-                    json={
-                        "EmailIdentity": hostname,
-                        "DkimSigningAttributes": {"NextSigningKeyLength": "RSA_2048_BIT"},
-                    },
-                ),
-            ),
-        );
-    } except Exception as caught {
-        failure = aws_error(caught);
-        if failure and failure.code == "AlreadyExistsException" {
-            return await getSesIdentity(config, hostname);
-        }
-        raise thrown(caught);
-    }
-}
-
-async def deleteSesIdentity(config: any, hostname: str) {
-    try {
-        await awsJson(ses_v2(config, identity_path(hostname), method="DELETE"));
-    } except Exception as caught {
-        failure = aws_error(caught);
-        if not (failure and failure.status == 404) {
-            raise thrown(caught);
-        }
-    }
-}
-
-def:priv to_base64(buffer: any) -> str {
-    octets = new(globalThis.Uint8Array, buffer);
-    # In slices: one call with every byte as an argument overflows the stack on a large attachment.
-    return globalThis.btoa(
-        "".join([
-            globalThis.String.fromCharCode.apply(None, octets.subarray(offset, offset + 0x8000))
-            for offset in range(0, octets.length, 0x8000)
-        ]),
-    );
-}
-
-def:priv utf8(data: any) -> dict[str, any] {
+def:priv utf8(data: any) -> any {
     return {"Data": data, "Charset": "UTF-8"};
 }
 
-def:priv ses_attachment(attachment: any) -> dict[str, any] {
-    inline = attachment["disposition"] == "inline";
-    content_id = at(attachment, "contentId");
-    return {
-        "RawContent": to_base64(attachment["content"]),
-        "FileName": attachment["filename"],
-        "ContentType": attachment["type"],
-        "ContentDisposition": "INLINE" if inline else "ATTACHMENT",
-        **({"ContentId": content_id} if inline and content_id else {}),
-        "ContentTransferEncoding": "BASE64",
-    };
+def:priv attachment(a: any) -> any {
+    inline = a["disposition"] == "inline";
+    cid = at(a, "contentId") if inline and at(a, "contentId") else None;
+    (kind, encoded) = ("INLINE" if inline else "ATTACHMENT", base64(a["content"]));
+    o = {"RawContent": encoded, "FileName": a["filename"], "ContentType": a["type"]};
+    return {**o, "ContentDisposition": kind, "ContentId": cid, "ContentTransferEncoding": "BASE64"};
 }
 
-"""
-`input` is { from, to, cc?, bcc?, subject, html?, text?, headers?, attachments? }; an attachment is
-{ filename, type, content (ArrayBuffer), disposition ("attachment" or "inline"), contentId? }.
-"""
-async def sendSesEmail(config: any, input: any) -> dict[str, str] {
-    headers = [
-        {"Name": name, "Value": value}
-        for (name, value) in entries(at(input, "headers", {}))
-        if name.toLowerCase() != "message-id"
-    ];
-    (cc, bcc, text, html, attachments) = (
-        at(input, "cc"),
-        at(input, "bcc"),
-        at(input, "text"),
-        at(input, "html"),
-        at(input, "attachments"),
-    );
-    result = await awsJson(
-        ses_v2(
-            config,
-            "/v2/email/outbound-emails",
-            method="POST",
-            json={
-                "FromEmailAddress": input["from"],
-                "Destination": {
-                    "ToAddresses": input["to"],
-                    **({"CcAddresses": cc} if cc else {}),
-                    **({"BccAddresses": bcc} if bcc else {}),
-                },
-                "Content": {
-                    "Simple": {
-                        "Subject": utf8(input["subject"]),
-                        "Body": {
-                            **({"Text": utf8(text)} if text else {}),
-                            **({"Html": utf8(html)} if html else {}),
-                        },
-                        **({"Headers": headers} if headers else {}),
-                        **(
-                            {
-                                "Attachments": [
-                                    ses_attachment(attachment)
-                                    for attachment in attachments
-                                ],
-                            }
-                                if attachments
-                                else {}
-                        ),
-                    },
-                },
-            },
-        ),
-    );
+"""`input` is { from, to, cc?, bcc?, subject, html?, text?, headers?, attachments? }."""
+async def sendSesEmail(config: any, input: any) -> any {
+    (cc, bcc, files) = (at(input, "cc"), at(input, "bcc"), at(input, "attachments"));
+    (text, html, hs) = (at(input, "text"), at(input, "html"), entries(at(input, "headers", {})));
+    headers = [{"Name": k, "Value": v} for (k, v) in hs if k.lower() != "message-id"];
+    to = {"ToAddresses": input["to"], "CcAddresses": cc or None, "BccAddresses": bcc or None};
+    body = {"Text": utf8(text) if text else None, "Html": utf8(html) if html else None};
+    simple = {"Subject": utf8(input["subject"]), "Body": body, "Headers": headers or None};
+    simple["Attachments"] = [attachment(a) for a in files] if files else None;
+    mail = {"FromEmailAddress": input["from"], "Destination": to, "Content": {"Simple": simple}};
+    result = await awsJson(v2(config, "/v2/email/outbound-emails", "POST", mail));
     # SES rewrites Message-ID to <id@email.amazonses.com> (us-east-1) or <id@region.amazonses.com>.
     region = config["region"];
     domain = "email.amazonses.com" if region == "us-east-1" else f"{region}.amazonses.com";
     return {"messageId": "<" + globalThis.String(result["MessageId"]) + f"@{domain}>"};
 }
 
-# --- SES v1 (receipt rules; not available in v2) ---------------------------------
-
 async def:priv query(config: any, action: str, params: any = None) -> str {
-    return await awsQuery(
-        config,
-        "email",
-        "2010-12-01",
-        action,
-        either(params, {}),
-        {"host": f"email.{config['region']}.amazonaws.com", "signingService": "ses"},
-    );
+    opts = {"host": f"email.{config['region']}.amazonaws.com", "signingService": "ses"};
+    return await awsQuery(config, "email", "2010-12-01", action, params, opts);
 }
 
-"""SES v1: routes Bounce or Complaint notifications of an identity to an SNS topic; a null topic detaches it."""
-async def setIdentityNotificationTopic(
-    config: any, identity: str, kind: str, topicArn: any = None
-) {
-    await query(
-        config,
-        "SetIdentityNotificationTopic",
-        {
-            "Identity": identity,
-            "NotificationType": kind,
-            **({"SnsTopic": topicArn} if topicArn else {}),
-        },
-    );
+"""SES v1: sends an identity's Bounce or Complaint notifications to an SNS topic; null detaches."""
+async def setIdentityNotificationTopic(config: any, identity: str, kind: str, arn: any = None) {
+    sns = {"SnsTopic": arn} if arn else {};
+    params = {"Identity": identity, "NotificationType": kind, **sns};
+    await query(config, "SetIdentityNotificationTopic", params);
 }
 
-async def describeActiveRuleSet(config: any) -> dict[str, any] {
+async def describeActiveRuleSet(config: any) -> any {
     xml = await query(config, "DescribeActiveReceiptRuleSet");
-    first = lambda (blocks: list[str]) -> str { blocks[0] if blocks else "" };
-    names = [
-        xmlTag(member, "Name")
-        for member in xmlBlocks(first(xmlBlocks(xml, "Rules")), "member")
-    ];
-    return {
-        "name": xmlTag(first(xmlBlocks(xml, "Metadata")), "Name"),
-        "rules": [name for name in names if name],
-    };
+    rules = [xmlTag(m, "Name") for m in xmlBlocks("".join(xmlBlocks(xml, "Rules")[:1]), "member")];
+    name = xmlTag("".join(xmlBlocks(xml, "Metadata")[:1]), "Name");
+    return {"name": name, "rules": [r for r in rules if r]};
 }
 
 async def createRuleSet(config: any, name: str) {
-    try {
-        await query(config, "CreateReceiptRuleSet", {"RuleSetName": name});
-    } except Exception as caught {
-        failure = aws_error(caught);
-        if not (failure and failure.code == "AlreadyExists") {
-            raise thrown(caught);
-        }
-    }
+    await awsSpare(query(config, "CreateReceiptRuleSet", {"RuleSetName": name}), "AlreadyExists");
 }
 
 async def activateRuleSet(config: any, name: str) {
     await query(config, "SetActiveReceiptRuleSet", {"RuleSetName": name});
 }
 
+# `A.` is the rule's S3 action; a value `:k` is the input's `k`.
+glob:priv RULE: str = """RuleSetName=:ruleSet Rule.Name=:name Rule.Enabled=true
+    Rule.ScanEnabled=true Rule.TlsPolicy=Optional Rule.Recipients.member.1=:recipient
+    A.BucketName=:bucket A.ObjectKeyPrefix=:prefix A.TopicArn=:topicArn""";
+
 """`input` is { ruleSet, name, recipient, bucket, prefix, topicArn }."""
-def:priv rule_params(input: any) -> dict[str, any] {
-    return {
-        "RuleSetName": input["ruleSet"],
-        "Rule.Name": input["name"],
-        "Rule.Enabled": "true",
-        "Rule.ScanEnabled": "true",
-        "Rule.TlsPolicy": "Optional",
-        "Rule.Recipients.member.1": input["recipient"],
-        "Rule.Actions.member.1.S3Action.BucketName": input["bucket"],
-        "Rule.Actions.member.1.S3Action.ObjectKeyPrefix": input["prefix"],
-        "Rule.Actions.member.1.S3Action.TopicArn": input["topicArn"],
-    };
+def:priv rule(input: any) -> any {
+    s3 = "Rule.Actions.member.1.S3Action.";
+    pairs: any = [p.split("=") for p in RULE.split()];
+    return {k.replace("A.", s3): input[v[1:]] if v.startswith(":") else v for (k, v) in pairs};
 }
 
 async def upsertReceiptRule(config: any, input: any) {
-    try {
-        await query(config, "CreateReceiptRule", rule_params(input));
-    } except Exception as caught {
-        failure = aws_error(caught);
-        if not (failure and failure.code == "AlreadyExists") {
-            raise thrown(caught);
-        }
-        await query(config, "UpdateReceiptRule", rule_params(input));
+    if await awsSpare(query(config, "CreateReceiptRule", rule(input)), "AlreadyExists") is None {
+        await query(config, "UpdateReceiptRule", rule(input));
     }
-}
-
-def:priv is_missing_rule(caught: any) -> bool {
-    failure = aws_error(caught);
-    return bool(failure) and globalThis.String(failure.code).includes("DoesNotExist");
 }
 
 async def describeReceiptRule(config: any, ruleSet: str, name: str) -> bool {
-    try {
-        await query(config, "DescribeReceiptRule", {"RuleSetName": ruleSet, "RuleName": name});
-        return True;
-    } except Exception as caught {
-        if is_missing_rule(caught) {
-            return False;
-        }
-        raise thrown(caught);
-    }
+    found = query(config, "DescribeReceiptRule", {"RuleSetName": ruleSet, "RuleName": name});
+    return await awsSpare(found, ".*DoesNotExist.*") is not None;
 }
 
 async def deleteReceiptRule(config: any, ruleSet: str, name: str) {
-    try {
-        await query(config, "DeleteReceiptRule", {"RuleSetName": ruleSet, "RuleName": name});
-    } except Exception as caught {
-        if not is_missing_rule(caught) {
-            raise thrown(caught);
-        }
-    }
+    gone = query(config, "DeleteReceiptRule", {"RuleSetName": ruleSet, "RuleName": name});
+    await awsSpare(gone, ".*DoesNotExist.*");
 }

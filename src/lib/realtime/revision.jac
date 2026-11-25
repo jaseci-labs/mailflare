@@ -1,4 +1,6 @@
-glob:priv REVISIONS_SQL: str = """
+"""Covers every mailbox visible to a user, including shared mailboxes."""
+async def getUserMailRevision(env: any, userId: any) -> str {
+    result = await env.DB.prepare("""
 		SELECT m.id AS mailbox_id, COALESCE(r.revision, 0) AS revision, 'owner' AS permission
 		FROM mailboxes m
 		LEFT JOIN jmap_mailbox_revisions r ON r.mailbox_id = m.id
@@ -10,13 +12,7 @@ glob:priv REVISIONS_SQL: str = """
 		LEFT JOIN jmap_mailbox_revisions r ON r.mailbox_id = m.id
 		WHERE a.user_id = ? AND m.type = 'shared' AND NOT m.disabled
 		ORDER BY mailbox_id, permission
-	""";
-
-"""Covers every mailbox visible to a user, including shared mailboxes."""
-async def getUserMailRevision(env: any, userId: any) -> str {
-    result = await env.DB.prepare(REVISIONS_SQL).bind(userId, userId).all();
-    return globalThis.JSON.stringify([
-        [row["mailbox_id"], row["revision"], row["permission"]]
-        for row in result.results
-    ]);
+	""").bind(userId, userId).all();
+    rows = [[r["mailbox_id"], r["revision"], r["permission"]] for r in result.results];
+    return globalThis.JSON.stringify(rows);
 }

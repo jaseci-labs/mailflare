@@ -1,60 +1,35 @@
-"""
-Whether any error in the chain matches: a driver error code (`code`/`errno`, as pg and mysql2 set
-them, so wording and locale do not matter) or, failing that, a message matching `pattern`. Drizzle
-wraps driver errors as "Failed query: ..." and keeps the driver error on `cause`, so checking only
-the outer error misses it. The patterns cover SQLite/D1, PostgreSQL and MySQL wording.
-"""
-def:priv chain_matches(error: any, pattern: any, codes: list[any] = []) -> bool {
-    current = error;
-    visited: any = new(globalThis.Set);
-    while current and not visited.has(current) {
-        visited.add(current);
-        # `Object(x) is x` is JavaScript's `typeof x === "object"` (or a function)
-        structured = globalThis.Object(current) is current;
-        if structured and [c for c in codes if c is current["code"] or c is current["errno"]] {
+# Whether an error in the chain has a driver code (`code`/`errno` from pg and mysql2: no wording or
+# locale) or a message matching `pattern`; Drizzle wraps driver errors, keeping them on `cause`.
+def:priv chain_matches(error: any, pattern: str, codes: list[any] = []) -> bool {
+    (current, seen, regex) = (error, new(globalThis.Set), rx(pattern, "i"));
+    while current and not seen.has(current) {
+        seen.add(current);
+        o = is_object(current);
+        coded = o and any([c is current["code"] or c is current["errno"] for c in codes]);
+        is_err = isinstance(current, globalThis.Error);
+        if coded or regex.test(current.message if is_err else globalThis.String(current)) {
             return True;
         }
-        text = current.message
-            if isinstance(current, globalThis.Error)
-            else globalThis.String(current);
-        if pattern.test(text) {
-            return True;
-        }
-        if not structured or not globalThis.Reflect.has(current, "cause") {
-            break;
-        }
-        current = current["cause"];
+        current = current["cause"] if o and globalThis.Reflect.has(current, "cause") else None;
     }
     return False;
 }
 
 """The table does not exist yet, for features whose migration may not be applied."""
 def isMissingTableError(error: any = None) -> bool {
-    return chain_matches(
-        error,
-        rx(r"""no such table|relation "[^"]+" does not exist|table '[^']+' doesn't exist""", "i"),
-        ["42P01", 1146, "ER_NO_SUCH_TABLE"],
-    );
+    missing = r"""no such table|relation "[^"]+" does not exist|table '[^']+' doesn't exist""";
+    return chain_matches(error, missing, ["42P01", 1146, "ER_NO_SUCH_TABLE"]);
 }
 
 """A column added by a migration that may not be applied yet."""
 def isMissingColumnError(error: any = None) -> bool {
-    return chain_matches(
-        error,
-        rx(
-            r"""no such column|has no column named|column ("[^"]+"|[\w.]+) (of relation "[^"]+" )?does not exist|unknown column""",
-            "i",
-        ),
-        ["42703", 1054, "ER_BAD_FIELD_ERROR"],
-    );
+    named = r"""column ("[^"]+"|[\w.]+) (of relation "[^"]+" )?does not exist""";
+    missing = f"no such column|has no column named|{named}|unknown column";
+    return chain_matches(error, missing, ["42703", 1054, "ER_BAD_FIELD_ERROR"]);
 }
 
 def isUniqueConstraintError(error: any = None) -> bool {
-    return chain_matches(
-        error,
-        rx(
-            r"UNIQUE constraint failed|duplicate key value violates unique constraint|duplicate entry",
-            "i",
-        ),
-    );
+    unique = "duplicate key value violates unique constraint|duplicate entry";
+    unique = f"UNIQUE constraint failed|{unique}";
+    return chain_matches(error, unique);
 }

@@ -1,33 +1,18 @@
-"""AWS Query and S3 responses are small flat XML documents; these helpers read them without a parser."""
+"""Small flat AWS XML read without a parser; `xmlBlocks` keeps inner XML raw (still escaped)."""
+glob:priv C: any = record({"&lt;": "<", "&gt;": ">", "&quot;": '"', "&apos;": "'", "&amp;": "&"});
 
-def:priv element(name: str, flags: str = "") -> any {
-    return rx("<" + name + r"(?:\s[^>]*)?>([\s\S]*?)</" + name + ">", flags);
-}
-
-def:priv unescape_xml(value: any) -> str {
-    text: str = value.trim();
-    for (entity, char) in [
-        ("&lt;", "<"),
-        ("&gt;", ">"),
-        ("&quot;", '"'),
-        ("&apos;", "'"),
-        ("&amp;", "&"),
-    ] {
-        text = text.replace(entity, char);
-    }
-    return text;
+def:priv unescape(v: any) -> str {
+    return rx_sub(v.trim(), rx("&(lt|gt|quot|apos|amp);", "g"), lambda (e: any) -> any { C[e] });
 }
 
 def xmlTag(xml: any, name: str) -> any {
-    found = element(name).exec(xml);
-    return unescape_xml(found[1]) if found else NULL;
+    return either(first(xmlTags(globalThis.String(xml), name)), NULL);
 }
 
 def xmlTags(xml: any, name: str) -> list[str] {
-    return [unescape_xml(found[1]) for found in xml.matchAll(element(name, "g"))];
+    return [unescape(b) for b in xmlBlocks(xml, name)];
 }
 
-"""Raw (still escaped) inner XML of each repeated element, for reading nested fields."""
 def xmlBlocks(xml: any, name: str) -> list[str] {
-    return [found[1] for found in xml.matchAll(element(name, "g"))];
+    return [m[1] for m in xml.matchAll(rx(f"<{name}(?:\\s[^>]*)?>([\\s\\S]*?)</{name}>", "g"))];
 }
