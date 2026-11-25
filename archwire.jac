@@ -60,6 +60,11 @@ graph import {
     src.lib.jac.host ++> src.lib.dav.body { NULL, either }
     src.lib.jac.host ++> "src/lib/dav/xml-writer" { rx, rx_sub }
     src.lib.jac.host ++> src.lib.calendar.recurrence { NULL, either }
+    "src/lib/email/unsubscribe-types.d" --> src.lib.email.unsubscribe { UnsubscribeUrl }
+    src.lib.jac.host ++> "src/lib/email/resend-api" { NULL, at, either, merged, nil, rx, rx_sub }
+    src.lib.jac.host ++> "src/lib/email/attachment-risk" { NULL, at, nil, rx, rx_sub }
+    src.lib.jac.host ++> "src/lib/email/bulk-mail" { NULL, entries }
+    src.lib.jac.host ++> "src/lib/email/mime-preflight" { NULL, record }
     src.lib.jac.host ++> "src/lib/email/intake-signature" { record }
     src.lib.jac.host ++> "src/lib/email/attachment-limits" { NULL }
     src.lib.jac.host ++> "src/lib/email/inbound-limits" { NULL, merged, record, rx, rx_sub }
@@ -850,11 +855,6 @@ graph import {
     src.lib.aws.client --> src.lib.aws.ses { AwsError, awsJson, awsQuery }
     src.lib.aws.xml --> src.lib.aws.ses { xmlBlocks, xmlTag, xmlTags }
     "src/lib/aws/aws-types.d" --> src.lib.aws.ses { AwsConfig, SesIdentityStatus }
-    "src/lib/email/resend-api-types.d" --> "src/lib/email/resend-api" {
-        ResendDomain,
-        ResendReceivedEmail,
-        ResendWebhook,
-    }
     "src/lib/email/attachment-types.d" --> "src/lib/email/cloud-attachment-utils" {
         AttachmentContent,
     }
@@ -1235,6 +1235,8 @@ graph import {
     src.lib.email.unsubscribe --> "tests/html-scan-bounds.test" { extractUnsubscribeLinkFromBody }
     src.lib.spam.analyzers.urls --> "tests/html-scan-bounds.test" { analyzeUrls }
     "src/lib/email/unsubscribe-types.d" --> src.lib.email.unsubscribe { UnsubscribeUrl }
+    src.lib.email.parse --> src.lib.spam.analyzers.urls { ParsedEmail }
+    "src/lib/spam/types.d" --> src.lib.spam.analyzers.urls { PreparedSpamContent, SpamSignal }
     "src/lib/import/imap-utils" --> "tests/imap-chunk-size.test" {
         getImapChunkSize,
         growImapChunkSize,
