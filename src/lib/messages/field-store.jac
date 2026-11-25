@@ -199,6 +199,21 @@ def:priv visible_read(id: any) -> any {
     return read;
 }
 
+# Whether any active operation names this row: a row none names comes back as itself.
+def:priv pending_for(id: any) -> bool {
+    for messages in layer_messages.values() {
+        if id in messages {
+            return True;
+        }
+    }
+    for threads in layer_threads.values() {
+        if id in threads {
+            return True;
+        }
+    }
+    return False;
+}
+
 def:priv pending_thread_unread(rowId: any) -> any {
     unread: any = None;
     for threads in layer_threads.values() {
@@ -303,6 +318,9 @@ def:priv apply_pending(message: any) -> any {
         return message;
     }
     id = get(message, "id");
+    if not pending_for(id) {
+        return message;
+    }
     read0 = get(message, "read");
     starred0 = get(message, "starred");
     unread0 = get(message, "threadUnread");

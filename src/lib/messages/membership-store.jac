@@ -241,6 +241,21 @@ def getVisibleMembership(id: any) -> dict[str, any] {
     return patch;
 }
 
+# getVisibleMembership for the list path: None where no operation patches the id.
+def:priv visible_patch(id: any) -> dict[str, any] | None {
+    patch: dict[str, any] | None = None;
+    for layer in pending_layers.values() {
+        item = layer.get(id);
+        if item is not None {
+            if patch is None {
+                patch = {};
+            }
+            patch.update(item);
+        }
+    }
+    return patch;
+}
+
 def:priv visible_membership_pairs(ids: any) -> list[any] {
     pairs: list[any] = [];
     for id in unique(ids) {
@@ -417,7 +432,7 @@ def getRestoredRowsForList(key: any, now: any = None, offset: any = None) -> lis
         if t["key"] is not key or (offset is not None and t["offset"] is not offset) {
             continue;
         }
-        removed: list[any] = t["removedIds"];
+        removed = t["removedIds"];
         eligible: list[any] = [];
         for id in removed {
             if id in restored_ids {
@@ -482,16 +497,16 @@ def:priv matches(row: any, patch: dict[str, any], context: any, now: any) -> boo
 def:priv filter_pending_row(row: any, context: any, now: any) -> any {
     members = get(row, "threadMessageIds");
     if size(members) == 0 {
-        patch = getVisibleMembership(get(row, "id"));
-        if len(patch) == 0 {
+        patch = visible_patch(get(row, "id"));
+        if patch is None {
             return row;
         }
         return row if matches(row, patch, context, now) else NULL;
     }
     remaining: list[any] = [];
     for id in members {
-        patch = getVisibleMembership(id);
-        if len(patch) == 0 or matches(row, patch, context, now) {
+        patch = visible_patch(id);
+        if patch is None or matches(row, patch, context, now) {
             remaining.append(id);
         }
     }
@@ -514,7 +529,8 @@ def:priv apply_membership(response: any, key: any, now: any = None) -> any {
     }
     time = globalThis.Date.now() if now is None else now;
     context = getListMembershipContext(key);
-    filtering = not falsy(context);
+    # (Rows are filtered only by a pending patch: with none, every row stays.)
+    filtering = not falsy(context) and len(pending_layers) > 0;
     messages: list[any] = [];
     hidden = 0;
     changed = False;
