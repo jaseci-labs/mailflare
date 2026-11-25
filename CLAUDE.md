@@ -24,7 +24,15 @@ npm run preview                # build and preview the vinext Worker locally
 npm run cf-typegen             # regenerate cloudflare-env.d.ts from wrangler.jsonc
 ```
 
-There is no test script in `package.json`; the checks under `tests/` are `node:test` files run with `node --test tests/*.test.mjs` (pass the glob — on Node 24 a bare `tests/` is read as a module path). They must not need Workers bindings, so anything that reaches D1 or R2 belongs in a script under `scripts/` run against `npm run dev` instead.
+The checks under `tests/` are `node:test` files: `neojac test` runs them all (the `test` script, `node --test tests/*.test.mjs`), and `neojac npm run t -- tests/<file>.test.mjs` runs a few. They must not need Workers bindings, so anything that reaches D1 or R2 belongs in a script under `scripts/` run against `npm run dev` instead.
+
+### neojac
+
+This repository is a neojac project, and part of `src/` and `server/` is Jac. `jac.toml` and `jac.lock` hold the npm manifest and lock: `package.json` and `package-lock.json` are written from them and not tracked (the originals are in `replaced-by-neojac/`). `archwire.jac` declares every import between project files as a wire. A Jac module `foo.jac` replaces `foo.ts`, whose original is kept at `replaced-by-neojac/<path>.ts`.
+
+- Run everything through neojac: `neojac install`, `neojac check` (Jac types and every wire), `neojac test`, `neojac npm run <script>` for the scripts above (`dev`, `build`, `deploy`, ...). These run in the laid tree `.jac/test/spaces/mailflare/`, where each Jac module is compiled and a forwarder stands at its TypeScript path, so TypeScript and tests import it unchanged; build output lands in that tree's `dist/`. Plain `npm run` in the repository does not see the Jac modules.
+- Loading any Jac module loads all of them, with whatever TypeScript they wire in. So a module may be Jac only if every project module it imports is Jac (shared helpers for JavaScript's null, objects and regular expressions are in `src/lib/jac/host.jac`), it imports no package or `node:` module, and no test reads its source or imports it under plain Node. A Jac module that wired database or framework code would pull it into tests that bundle single files with narrow mocks.
+- Jac raises where JavaScript coerces (`<`, `-`, `/`, `%` on undefined, null or strings; an index past the end), and `None` is `undefined`, not `null` (`NULL` in `host.jac`). Code that reads outside input coerces as JavaScript would.
 
 `next.config.ts` sets `typescript.ignoreBuildErrors: true` and `tsconfig.json` sets `noImplicitAny: false`, so the build will not catch type errors. Run `npx tsc --noEmit` if you want real type checking.
 
