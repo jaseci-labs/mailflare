@@ -31,7 +31,7 @@ graph import {
     src.lib.jac.host ++> "src/lib/remote-images/fetch" { NULL, at, either, nil, record, rx }
     src.lib.jac.host ++> server.runtime.realtime { NULL, either, nil, promise, record }
     src.lib.jac.host ++> server.runtime.queue { NULL, dig, promise, record }
-    src.lib.jac.host ++> src.db.drivers.types { NULL, either, promise, record }
+    src.lib.jac.host ++> src.db.drivers.types { NULL, promise, record, rx }
     src.lib.jac.host ++> "src/db/d1-compat" { NULL, at, either, promise, record }
     src.db.drivers.types ++> "src/db/d1-compat" { normalizeParam, numberPlaceholders }
     src.lib.jac.host ++> "src/hooks/counts-delta-utils" { merged, num_or }

@@ -6,28 +6,24 @@ type QueryResult = any;
 type SqlExecutor = any;
 type OpenOptions = any;
 
-# `?` to `$1, $2, ...` outside string literals, quoted identifiers and comments.
+# Splits SQL around each string literal (doubled quotes are escapes inside it; an unclosed one runs
+# to the end), `--` comment (to the newline) and `?`, keeping them as pieces of their own.
+glob:priv PLACEHOLDER_SPLIT: any = rx("('(?:[^']|'')*'?|\"(?:[^\"]|\"\")*\"?|--[^\\n]*|\\?)");
+
+# `?` to `$1, $2, ...` outside string literals, quoted identifiers and comments. One regex split and
+# a loop over its pieces: a character loop pays the runtime's checks on every character.
 def numberPlaceholders(sql: any) -> str {
-    (out, index, i) = ("", 0, 0);
-    while i < sql.length {
-        (ch, stop, piece) = (sql.charAt(i), i + 1, None);
-        if ch in ["'", "\""] {
-            close = sql.indexOf(ch, i + 1);
-            # Doubled quotes are escapes inside the literal.
-            while close != -1 and sql.charAt(close + 1) == ch {
-                close = sql.indexOf(ch, close + 2);
-            }
-            stop = sql.length if close == -1 else close + 1;
-        } elif ch == "-" and sql.charAt(i + 1) == "-" {
-            end = sql.indexOf("\n", i);
-            stop = sql.length if end == -1 else end;
-        } elif ch == "?" {
+    out: list[str] = [];
+    index = 0;
+    for piece in globalThis.String.prototype.split.call(sql, PLACEHOLDER_SPLIT) {
+        if piece == "?" {
             index += 1;
-            piece = f"${index}";
+            out.append(f"${index}");
+        } else {
+            out.append(piece);
         }
-        (out, i) = (out + either(piece, sql.slice(i, stop)), stop);
     }
-    return out;
+    return "".join(out);
 }
 
 # Convert values the drivers do not all accept the same way.
