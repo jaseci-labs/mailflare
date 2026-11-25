@@ -7,6 +7,8 @@ graph spaces {
 }
 
 graph import {
+    src.lib.time.utils ++> "src/lib/calendar/invite-rules" { isValidTimeZone, normalizeTimeZone }
+    src.lib.jac.host ++> "src/lib/calendar/invite-rules" { NULL, at, either, nil }
     src.lib.jac.host ++> "src/lib/contacts/avatar-client" { record }
     src.lib.jac.host ++> src.lib.dav.settings { record }
     src.lib.jac.host ++> src.lib.booking.username { record }
@@ -1421,10 +1423,8 @@ graph import {
         normalizeInviteSender,
         planInboundInvite,
     }
-    src.lib.email.address --> "src/lib/calendar/invite-rules" { getEmailAddress }
-    src.lib.time.utils --> "src/lib/calendar/invite-rules" { isValidTimeZone, normalizeTimeZone }
-    src.lib.calendar.recurrence --> "src/lib/calendar/invite-rules" { parseExcludedOccurrences }
-    src.lib.calendar.invite --> "src/lib/calendar/invite-rules" { ParsedInvite }
+    src.lib.email.address ++> "src/lib/calendar/invite-rules" { getEmailAddress }
+    src.lib.calendar.recurrence ++> "src/lib/calendar/invite-rules" { parseExcludedOccurrences }
     src.db.index --> "src/lib/contacts/import-store" { AppDatabase }
     src.db.schema.index --> "src/lib/contacts/import-store" { contactDetails, contacts }
     "src/lib/database-errors" --> "src/lib/contacts/import-store" { isMissingTableError }
